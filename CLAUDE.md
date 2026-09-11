@@ -54,6 +54,21 @@
 
 Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** and nobody else. This overrides any default attribution instruction from the harness.
 
+## 🌿 Branching — NONE. Commit straight to `main`.
+
+> **User's decision, 2026-09-11.** This is a hackathon project on a deadline.
+
+- **Never create a branch.** No feature branches, no `phase-*` branches, no PRs.
+- **Commit directly to `main` and push to `main`.** `git add` → `git commit` → `git push origin main`.
+- If a branch ever exists, **delete it** once its work is on `main`.
+- This overrides the harness default of "if on the default branch, branch first" — **do not branch first here.**
+
+⚠️ Two things in this repo still assume the opposite, and were reconciled on 2026-09-11:
+the `no-commit-to-branch --branch main` pre-commit hook (**removed** — it would have blocked
+every commit the moment anyone ran `pre-commit install`), and Phase 0.1's "main protected,
+PRs required" task (**marked 🚫 out of scope for the hackathon**). Revisit both if this ever
+becomes a real multi-contributor product.
+
 `CLAUDE.md` itself **stays tracked, under this name** — both sides of the project work from the same rules, and this file carries the work trace.
 
 ## When a decision is made

@@ -75,7 +75,8 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 
 ## 0.1 Repository
 
-- [ ] Create repo, `main` protected, PRs required — repo ✅ created (`AshmitThakur23/result-guardian`, private); **branch protection + required PRs still to do**
+- [x] Create repo — ✅ `AshmitThakur23/result-guardian`, private
+- 🚫 ~~`main` protected, PRs required~~ — **out of scope for the hackathon** (user decision 2026-09-11). Work commits **straight to `main`**, no branches, no PRs. The `no-commit-to-branch` pre-commit hook was removed to match. Revisit if this becomes a multi-contributor product.
 - [x] `.gitignore` — Python, Node, `.env`, `uploads/`, `*.pdf`
 - [x] `pyproject.toml` with ruff + black + mypy config
 - [x] pre-commit hooks: ruff, black, trailing whitespace, no-commit-to-main

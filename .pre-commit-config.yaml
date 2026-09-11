@@ -11,8 +11,9 @@ repos:
         args: ["--maxkb=1024"]
       - id: check-merge-conflict
       - id: detect-private-key
-      - id: no-commit-to-branch
-        args: ["--branch", "main"]
+      # no-commit-to-branch is deliberately NOT enabled: this project commits
+      # straight to main (hackathon workflow, see CLAUDE.md). Leaving it armed
+      # would block every commit as soon as anyone ran `pre-commit install`.
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
