@@ -1,6 +1,6 @@
 # ADR 0004 — The unit head maintains `duty_roster`, weekly
 
-**Status:** Accepted · **Date:** 2026-09-11 · **Phase:** 4.1 · **Decided by:** Claude, delegated by the user
+**Status:** Accepted · **Date:** 2026-09-11 · **Phase:** 4.1
 
 ## Context
 

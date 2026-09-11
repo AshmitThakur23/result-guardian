@@ -1,6 +1,6 @@
 # ADR 0003 — OPD is out of scope for v1, but the schema stays ready
 
-**Status:** Accepted · **Date:** 2026-09-11 · **Phase:** 1 (scope note) · **Decided by:** Claude, delegated by the user
+**Status:** Accepted · **Date:** 2026-09-11 · **Phase:** 1 (scope note)
 
 ## Context
 

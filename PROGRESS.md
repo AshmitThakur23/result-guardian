@@ -112,7 +112,7 @@ Newest first. One line per completed unit of work.
 - Created `docs/README.md` index with reading order and cross-refs.
 - Created `CLAUDE.md` — governing rules, mandatory work-logging protocol, locked decisions, doc map.
 - Created `PROGRESS.md` (this file) — phase table, long-lead items, open decisions, session log.
-- Wrote memory base at `~/.claude/projects/d--result-guardian/memory/` (5 memories + index).
+- Wrote the local (untracked) memory base — 5 notes + index.
 - Ran the pre-install scan (see table above). **Nothing installed** — everything needed was already present.
 - Decided the two forced decisions (OPD scope, roster owner) → ADRs 0003, 0004. Recorded node roles + model → ADR 0005.
 - `git init` + initial commit; created **private** repo `AshmitThakur23/result-guardian` and pushed. Switched the active `gh` account first — `abhinendra9792` was the default and would have received the repo.

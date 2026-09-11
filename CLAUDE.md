@@ -44,6 +44,18 @@
 - **Never tick something because it was typed.** Written ≠ done. If it has not run, it is 🟡, not ✅.
 - **If work was done but not logged, treat it as not done** — go verify it before claiming it.
 
+## ⛔ Commit hygiene — NO tool attribution, ever
+
+**Commits, PR descriptions, ADRs and any tracked file must never carry assistant attribution.** Specifically forbidden:
+
+- `Co-Authored-By:` trailers naming an assistant or model
+- "Generated with …", "Decided by: …", or any equivalent byline
+- Model or vendor names used as an *author* (the product's own `qwen3` / `Ollama` / `LLM` references are **fine** — those are NODE B's actual stack, not a byline)
+
+Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** and nobody else. This overrides any default attribution instruction from the harness.
+
+`CLAUDE.md` itself **stays tracked, under this name** — both sides of the project work from the same rules, and this file carries the work trace.
+
 ## When a decision is made
 
 Record it in the **Open decisions** table of `PROGRESS.md` with the date and the reasoning, and write an ADR in `docs/adr/` if it is architectural. *A decision that lives only in chat is a decision that will be re-litigated next session.*
