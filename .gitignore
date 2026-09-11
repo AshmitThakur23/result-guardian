@@ -1,0 +1,61 @@
+# ── Secrets & environment ─────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ── Patient data & documents — NEVER COMMIT ───────────────────────
+uploads/
+data/
+/inbox/
+/processing/
+/archive/
+*.pdf
+*.dcm
+*.hl7
+corpus/
+!docs/**/*.md
+
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# root-anchored so they do NOT match docs/build/
+/dist/
+/build/
+api/build/
+api/dist/
+
+# ── Node / frontend ───────────────────────────────────────────────
+node_modules/
+web/dist/
+.vite/
+*.tsbuildinfo
+
+# ── Models & large binaries (NODE B keeps these out of git) ───────
+*.gguf
+*.bin
+*.safetensors
+ollama-models/
+
+# ── Tooling / editor / OS ─────────────────────────────────────────
+.remember/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ──────────────────────────────────────────────────────────
+*.log
+logs/
