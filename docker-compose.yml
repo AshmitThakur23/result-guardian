@@ -13,6 +13,21 @@ services:
     build:
       context: ./infra/postgres
     image: result-guardian/postgres:16
+    # pg_cron must be preloaded at server start and can only be created in the
+    # ONE database named by cron.database_name. Baking that name into the image
+    # while POSTGRES_DB stays configurable means a renamed database silently
+    # boots without pg_cron -- and pg_cron is the entire basis of Phase 2's
+    # "NODE A reboots, no timer is lost" guarantee.
+    #
+    # Compose interpolates ${...} here at parse time, which an exec-form CMD
+    # cannot do, so one variable now drives both. $1 is still `postgres`, so
+    # the official entrypoint's first-run init still happens.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_cron
+      - -c
+      - cron.database_name=${POSTGRES_DB:-result_guardian}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-result_guardian}
       POSTGRES_USER: ${POSTGRES_USER:-rg_app}
@@ -38,6 +53,11 @@ services:
   api:
     build:
       context: ./api
+      # Explicit, because `dev` is the LAST stage in api/Dockerfile and would
+      # otherwise be what a no-target build produces -- shipping pytest, ruff
+      # and mypy to a hospital server. docker-compose.override.yml overrides
+      # this back to `dev` for local work. Phase 10.1.
+      target: runtime
     image: result-guardian/api:dev
     env_file: [.env]
     environment:
@@ -62,6 +82,7 @@ services:
   worker:
     build:
       context: ./api
+      target: runtime   # same image as api, different entrypoint. See above.
     image: result-guardian/api:dev
     command: ["python", "-m", "worker.main"]
     env_file: [.env]

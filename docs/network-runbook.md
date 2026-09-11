@@ -7,10 +7,16 @@
 
 | Role | Machine | IP | Status |
 |---|---|---|---|
-| **NODE B** — inference | RTX 3050 laptop (Windows 11) | _to be recorded_ | Ollama installed |
-| **NODE A** — core | The other machine | _to be recorded_ | not yet provisioned |
+| **NODE A** — core | Abhinendra's laptop (Windows 11), the development machine | _to be recorded_ | Docker present; stack never run |
+| **NODE B** — inference | Ashmit's machine | _to be recorded_ | **not yet provisioned.** GPU/VRAM unknown |
 
 Record the real IPs here once both are on the same network.
+
+> ⚠️ An earlier version of this table had the two roles **backwards**. NODE A is
+> the development laptop. See [ADR 0006](adr/0006-node-roles-corrected.md).
+> Ollama being installed on NODE A is incidental and is **not** NODE B
+> provisioning — `infra/nodeb/setup-windows.ps1` still has to run on NODE B,
+> and its firewall rule must allow TCP 11434 from **NODE A's** IP.
 
 ---
 

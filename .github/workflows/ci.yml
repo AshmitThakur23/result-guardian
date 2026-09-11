@@ -38,21 +38,8 @@ jobs:
     defaults:
       run:
         working-directory: api
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: result_guardian_test
-          POSTGRES_USER: rg_app
-          POSTGRES_PASSWORD: test-only
-        options: >-
-          --health-cmd "pg_isready -U rg_app"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-        ports:
-          - 5432:5432
     env:
+      POSTGRES_DB: result_guardian_test
       RG_DATABASE_URL: postgresql+asyncpg://rg_app:test-only@localhost:5432/result_guardian_test
       # Points at nothing. The suite must be green with NODE B unreachable.
       RG_LLM_BASE_URL: http://127.0.0.1:59999
@@ -63,11 +50,68 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
+
+      # A `services:` block cannot build an image, and the stock
+      # pgvector/pgvector:pg16 has no pgmq, no pg_cron and none of our init
+      # scripts. Testing against it means Phase 1.8's integration tests break
+      # the first time they touch a queue. Run the real NODE A image instead.
+      - name: Build the NODE A database image
+        run: docker build -t result-guardian/postgres:16 ./infra/postgres
+        working-directory: .
+
+      - name: Start Postgres with the real init scripts
+        working-directory: .
+        run: |
+          docker run -d --name rg-postgres \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            -e POSTGRES_USER=rg_app \
+            -e POSTGRES_PASSWORD=test-only \
+            -v "${{ github.workspace }}/infra/postgres/init:/docker-entrypoint-initdb.d:ro" \
+            -p 5432:5432 \
+            result-guardian/postgres:16 \
+            postgres -c shared_preload_libraries=pg_cron \
+                     -c cron.database_name=$POSTGRES_DB
+
+      - name: Wait for Postgres
+        working-directory: .
+        run: |
+          for _ in $(seq 1 45); do
+            if docker exec rg-postgres pg_isready -U rg_app -d "$POSTGRES_DB"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Postgres did not become ready"
+          docker logs rg-postgres
+          exit 1
+
+      # Proves the init scripts ran and the cron.database_name guard passed.
+      # If pg_cron is missing here, Phase 2's reboot-recovery guarantee does
+      # not exist, and that must fail the build rather than pass quietly.
+      - name: Verify extensions
+        working-directory: .
+        run: |
+          docker exec rg-postgres psql -U rg_app -d "$POSTGRES_DB" -tAc \
+            "SELECT extname FROM pg_extension ORDER BY extname" | tee /tmp/ext.txt
+          for ext in vector pgmq pg_cron pg_trgm unaccent pgcrypto; do
+            grep -qx "$ext" /tmp/ext.txt || { echo "::error::missing extension $ext"; exit 1; }
+          done
+
       - run: pip install -e ".[dev]"
+
+      - name: Migrations apply to an empty database
+        run: alembic upgrade head
+
       - name: pytest
         run: pytest --cov=app --cov=worker --cov-report=term-missing
+
       - name: coverage gate
         run: coverage report --fail-under=70
+
+      - name: Postgres logs on failure
+        if: failure()
+        working-directory: .
+        run: docker logs rg-postgres
 
   build:
     runs-on: ubuntu-latest
@@ -78,7 +122,20 @@ jobs:
         with:
           context: ./api
           push: false
+          load: true
           target: runtime
+          tags: result-guardian/api:ci
+      # `dev` is the last stage in api/Dockerfile, so a build that forgets
+      # --target silently ships test tooling to a hospital server. Prove the
+      # runtime image is clean rather than trusting the compose file.
+      - name: Runtime image carries no dev tooling
+        run: |
+          for pkg in pytest ruff mypy; do
+            if docker run --rm result-guardian/api:ci pip show "$pkg" >/dev/null 2>&1; then
+              echo "::error::$pkg present in the runtime image"
+              exit 1
+            fi
+          done
       - name: Build NODE A database image
         uses: docker/build-push-action@v6
         with:

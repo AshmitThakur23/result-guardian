@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "result-guardian-api"
 version = "0.1.0"
@@ -27,16 +31,32 @@ dev = [
     "mypy>=1.10",
 ]
 
+# api/ is a flat layout holding app/, worker/, tests/ and alembic/. Without an
+# explicit list, package discovery either guesses or refuses outright, and
+# `pip install -e ".[dev]"` fails before a single check runs. tests/ and
+# alembic/ are deliberately absent: they are run from the source tree, never
+# installed.
+[tool.hatch.build.targets.wheel]
+packages = ["app", "worker"]
+
 [tool.ruff]
-line-length = 100
+# 88, black's default, because that is what the code is actually written to.
+# At 100 black reformats working files on sight and CI goes red on style.
+line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "SIM", "RUF"]
 ignore = ["B008"]  # FastAPI Depends() in defaults is the documented idiom
 
+[tool.ruff.lint.isort]
+# `api/alembic/` is the migrations directory, not a package, so ruff otherwise
+# infers the `alembic` library itself as first-party and demands it be sorted
+# alongside `app`. It is third-party; say so.
+known-third-party = ["alembic"]
+
 [tool.black]
-line-length = 100
+line-length = 88
 target-version = ["py311"]
 
 [tool.mypy]

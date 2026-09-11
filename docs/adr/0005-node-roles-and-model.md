@@ -1,6 +1,17 @@
 # ADR 0005 — Node role assignment and model choice for the current hardware
 
-**Status:** Accepted · **Date:** 2026-09-11 · **Phase:** 0.3 / 0.4
+**Status:** ⛔ **SUPERSEDED by [ADR 0006](0006-node-roles-corrected.md)** · **Date:** 2026-09-11 · **Phase:** 0.3 / 0.4
+
+> **The role assignment below is WRONG and is kept only as a record that the
+> error happened.** This ADR assigns NODE B to "this laptop" (the RTX 3050
+> machine). The user corrected it the same day: **that machine is NODE A**,
+> and **NODE B is Ashmit's machine**.
+>
+> Everything downstream of the role assignment is therefore also wrong —
+> including the `qwen3:4b` choice, which was derived from *this* machine's
+> 4 GB VRAM and so describes NODE A's hardware, not NODE B's. Read
+> [ADR 0006](0006-node-roles-corrected.md) instead. Nothing below should be
+> cited as current.
 
 ## Context
 

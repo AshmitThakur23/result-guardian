@@ -8,14 +8,29 @@
 > ## ▶ RESUME HERE
 >
 > **Repo:** https://github.com/AshmitThakur23/result-guardian (private, `main`)
-> **NODE B** = the RTX 3050 laptop. **NODE A** = the other machine — **not yet provisioned**.
 >
-> **Next step, agreed with the user:** stand up **NODE A on the other machine first**
-> (`git clone` → `cp .env.example .env` → `docker compose up -d --build` → `curl localhost/api/health`),
-> *then* coordinate the two machines. **Do not run further Phase 0 tasks on NODE B until NODE A is up.**
+> **🔄 ROLES CORRECTED 2026-09-11 — they were recorded backwards.**
+> **NODE A = the development laptop (Abhinendra's), the machine in hand.**
+> **NODE B = Ashmit's machine** — not provisioned, **GPU unknown**.
+> See [ADR 0006](docs/adr/0006-node-roles-corrected.md), which supersedes ADR 0005.
+>
+> **⚠️ This moves the critical path.** The old plan — *"stand up NODE A on the other
+> machine first, run nothing until then"* — was written believing NODE A was elsewhere.
+> **NODE A is this machine, and Docker is already on it.** Phase 0 execution
+> (`cp .env.example .env` → `docker compose up -d --build` → `alembic upgrade head` →
+> `curl localhost/api/health`) is **runnable here, now**, and closes 6 of the 8 items on
+> the first-boot checklist below. Only the two cross-node clauses need Ashmit's machine.
+>
+> **Next step: decide whether to execute Phase 0 on this machine.** Nothing structural
+> blocks it any more.
 >
 > Phase 0 code is **written and pushed but has never been executed**. See the status table
 > in [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md).
+>
+> **2026-09-11 — 8 defects found by inspection and fixed, all still unrun.** Two were
+> load-bearing (`/api/health` 503'd on a missing table; pg_cron vanished silently if the
+> database was renamed), and **CI could not have passed at all**. Work the
+> **✅ First-boot checklist for NODE A** below — it is what turns 🟡 into ✅.
 
 ---
 
@@ -77,8 +92,8 @@ Record the decision, the date, and the reasoning. A decision that lives only in 
 |---|---|---|---|
 | 1 | **OPD scope** → **OUT for v1, schema stays ready.** `encounters.type` keeps `opd` so no migration is needed later; the gate binds to `ipd\|emergency\|daycare`. No reliable visit-closure trigger exists, and OPD volume would blow the 15% alert-fatigue ceiling before thresholds are tuned. Safe because Phase 7.5 routes caseless results to an orphan queue. | Phase 1 scope note | ✅ **decided 2026-09-11** → [ADR 0003](docs/adr/0003-opd-out-of-scope-v1.md) |
 | 2 | **`duty_roster` owner** → **the unit head, weekly.** HR sync is Phase 9.4 (after MVP) so it cannot be the v1 answer. The unit head is rung 2 of the ladder, so a stale roster escalates to the person maintaining it. Ships with a weekly reminder, a stale badge, and fallthrough to unit head. | Phase 4.1 | ✅ **decided 2026-09-11** → [ADR 0004](docs/adr/0004-duty-roster-ownership.md) |
-| 3 | **Node roles** → this RTX 3050 laptop is **NODE B**; the other machine is **NODE A**. | Phase 0.4 | ✅ **decided 2026-09-11** → [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
-| 4 | **Model** → **`qwen3:4b`**, not 8b. 4 GB VRAM cannot hold 8B q4 (~5–6 GB); it would spill to CPU and trip the 30 s timeout. `RG_LLM_MODEL` is an env var — re-benchmark on the hospital GPU box at Phase 8. | Phase 8.4 | ✅ **decided 2026-09-11** → [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
+| 3 | **Node roles** → ~~this laptop is NODE B~~ **CORRECTED: this development laptop is NODE A; Ashmit's machine is NODE B.** The original entry was backwards. | Phase 0.4 | ✅ **re-decided 2026-09-11** → [ADR 0006](docs/adr/0006-node-roles-corrected.md), superseding [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
+| 4 | **Model** → `qwen3:4b` is now a **PLACEHOLDER, not a decision.** It was derived from the RTX 3050's 4 GB VRAM — hardware that belongs to **NODE A**, where inference never runs. **NODE B's GPU is unknown.** Re-derive from Ashmit's machine before Phase 8. Costs nothing now: `RG_LLM_MODEL` is an env var and nothing touches NODE B until Phase 8. | Phase 8.4 | 🔴 **REOPENED 2026-09-11** — needs NODE B's specs → [ADR 0006](docs/adr/0006-node-roles-corrected.md) |
 | 5 | Real LAN IPs for NODE A / NODE B, and which network method (router vs hotspot vs direct ethernet) | Phase 0.4 | ⬜ **undecided** — fill into [`docs/network-runbook.md`](docs/network-runbook.md) once both machines are on one network |
 
 ---
@@ -86,6 +101,11 @@ Record the decision, the date, and the reasoning. A decision that lives only in 
 ## 🔍 Pre-install scan — 2026-09-11
 
 Per the standing rule in `CLAUDE.md`: check both drives before installing anything. **Nothing needed installing.**
+
+> **Rule updated 2026-09-11 (user):** the scan stays mandatory, the permission prompt does not.
+> **Check first — if it is already there, use it; if it is missing, install it without asking.**
+> Report either way and log it here. Large things still go to `D:` (`C:` is ~93% full), and
+> anything over ~5 GB gets a heads-up before it lands.
 
 | Tool | Found | Note |
 |---|---|---|
@@ -95,8 +115,18 @@ Per the standing rule in `CLAUDE.md`: check both drives before installing anythi
 | Python / Node | ✅ `3.13.7` / `v22.18.0` | API runs 3.11 **in the container** |
 | PostgreSQL | ⚠️ native install present | dev compose uses host port **5433** to avoid the clash |
 | `make` | ❌ absent | `tasks.ps1` mirrors the `Makefile` |
-| GPU | RTX 3050, **4 GB VRAM** | drives decision #4 |
-| Disk | ⚠️ **C: 93% full (17 GB)**, D: 178 GB | Ollama models → `D:\ollama-models`; move Docker disk image to D: too |
+| GPU | RTX 3050, **4 GB VRAM** | ⚠️ This is **NODE A's** GPU, and NODE A never runs inference. It must **not** drive decision #4 — that needs **NODE B's** specs, which are unknown |
+| Disk | ~~C: 93% full (17 GB)~~ → **C: 85% used, 43 GB free**; D: 178 GB | Re-measured 2026-09-11. Still send Ollama models and the Docker disk image to `D:` |
+
+### Second scan — 2026-09-11, lint/test toolchain
+
+Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:`, well under the 5 GB heads-up threshold.
+
+| Tool | Before | After |
+|---|---|---|
+| ruff / black / mypy | ❌ all absent | ✅ `0.16.7` / `26.5.1` / `2.3.1` |
+| Project + dev extras | ❌ not installed | ✅ `pip install -e ".[dev]"` — **which is itself the proof that defect D1 is fixed** |
+| Python | — | `3.11.9`, matching the project pin |
 
 ---
 
@@ -122,4 +152,37 @@ Newest first. One line per completed unit of work.
 - **Phase-wise tracking protocol installed** (user request): moved it to the **top** of `CLAUDE.md` as the first thing read every session. Added a 📍 **STATUS SUMMARY** table to **all 11 phase docs** with a shared marker legend (✅ / 🟡 / 🔵 / ⬜ / 🔴 / 🚫), linked every phase row here to its own doc, and wrote in the two honesty rules: *written ≠ done*, and *unlogged work counts as not done*.
 - **Removed all assistant attribution from the repo and its history** (user request). Stripped the `Co-Authored-By` trailers from all 5 commits via `filter-branch`, purged the backup refs, force-pushed. Dropped the "Decided by" byline from ADR 0003/0004 and the machine-local path from this log. Verified against the GitHub API, not just locally: **0 commits carry attribution**, sole contributor is `AshmitThakur23`. `CLAUDE.md` stays tracked under its own name — both sides work from the same rules — and now carries a **commit-hygiene rule** forbidding attribution bylines. The product's own `qwen3`/`Ollama`/`LLM` references were deliberately left alone: that is NODE B's actual stack, not a byline.
   ⚠️ **History was rewritten — every commit hash changed.** Anyone who already cloned must delete their copy and re-clone; `git pull` will conflict.
-- **Next:** stand up **NODE A on the other machine**, then verify across both. Per the user: no further Phase 0 execution on NODE B until then.
+- **Read the entire knowledge base and the whole Phase 0 scaffold**, then audited the code that had never been executed. **Found 8 defects** — see the table in [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md). Two were load-bearing: `/api/health` returned **503** whenever `worker_health` was missing (both queries shared one `try`), which fails Exit Gate 0 and the RULE 2 assertion over a table unrelated to database reachability; and `cron.database_name` was baked into the image while `POSTGRES_DB` stayed configurable, so a renamed database would boot **silently without pg_cron** — deleting Phase 2's "NODE A reboots, no timer is lost" guarantee. Also: **no CI job could have gone green at all** (no `[build-system]` in `api/pyproject.toml`), and a production `docker compose build` shipped pytest/ruff/mypy because `dev` is the last stage in `api/Dockerfile`.
+- **Fixed all 8.** Added a regression test for the health-probe split. Moved `worker_health` into the Alembic baseline, so `alembic upgrade head` is now part of documented first boot. CI now builds and runs the real NODE A database image, asserts all six extensions are present, and applies migrations before pytest.
+- ⚠️ **Nothing was executed.** Per the user's instruction, no local run: the "no Phase 0 execution on NODE B until NODE A is up" agreement stands. ruff, black and mypy are **not installed** on this laptop and were **not installed** to check — so `black --check` and `mypy --strict` outcomes are predictions, not results. What *was* verified locally is only what needs no install: every Python file parses (`ast.parse`), all four YAML files parse, and no line exceeds 88 characters. **All eight fixes are 🟡, not ✅.**
+- **🔄 NODE ROLES CORRECTED BY THE USER — they were recorded backwards.** **This development laptop is NODE A** (core: Postgres, API, worker, dashboard, all patient data). **NODE B is Ashmit's machine** (Ollama, GPU, stateless). Written into `CLAUDE.md` as the authoritative table, and swept through `PROGRESS.md`, `README.md`, `docs/network-runbook.md`, `docs/build/phase-00-foundation.md` and `docs/adr/0002`. **ADR 0005 is marked SUPERSEDED and deliberately left in place** — its wrong assignment is kept as the record that the error happened, not edited away. [ADR 0006](docs/adr/0006-node-roles-corrected.md) carries the correction.
+  - ⚠️ **Decision #4 (`qwen3:4b`) is reopened.** It was derived from this machine's 4 GB VRAM — NODE A's hardware, where inference never runs. NODE B's GPU is unknown. Placeholder until re-derived; costs nothing before Phase 8.
+  - ⚠️ **The critical path moved.** "Wait for NODE A" assumed NODE A was the *other* machine. It is this one, and Docker is on it. **Phase 0 is executable here now.**
+- **Install rule relaxed by the user:** scan both drives first; if absent, install without asking. Recorded in `CLAUDE.md`.
+- **Installed the lint/test toolchain and actually ran it** (new install rule — scanned first, all absent, installed without asking). `ruff 0.16.7`, `black 26.5.1`, `mypy 2.3.1`, plus `pip install -e ".[dev]"`. Python here is **3.11.9**, matching the project pin. **`C:` now has 43 GB free, not the 17 GB in the old scan** — that figure was stale.
+- **Running it found 5 more defects that reading had missed** — the clearest possible evidence for *written ≠ done*. Notably `alembic/env.py` had **pre-existing unsorted imports**, so `ruff check .` would have failed CI even after the D8 fix. Also 2 × `RUF100` unused pragmas, 2 × `SIM105`, and 2 mypy-strict errors (`2 ** n` types as `Any`; an unused `type: ignore`). All fixed.
+- **✅ All five CI gates now pass on this machine:** `ruff` clean · `black --check` 27 files unchanged · `mypy --strict` clean across 23 files · **25 tests pass** · coverage **79.17%**.
+- **The coverage gate did trip, at 50.78%** — exactly the risk flagged. Closed it **with tests, not by lowering the number**, per the standing rule. Added 19 tests: `worker/consumer.py` was at **0%** despite holding the pgmq retry/backoff/DLQ logic that Phase 2's durability rests on; the heartbeat and its failure path were untested; the Phase 0.6 conventions were unasserted. Now 79%.
+- **Three of the eight defects are now genuinely ✅** (D1 packaging, D4 health-probe split at unit level, D8 lint). **Five stay 🟡** — D2, D3, D5, D6, D7 all need Docker.
+- **Next:** run Phase 0 on this machine (NODE A) — `docker compose up -d --build` → `alembic upgrade head` → `curl localhost/api/health`. That closes 6 of the 8 first-boot checks and the remaining five defects. Only the two cross-node clauses need Ashmit's machine.
+
+---
+
+## ✅ First-boot checklist for NODE A — this is what turns 🟡 into ✅
+
+Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work this list on NODE A's first boot and tick the phase doc only from results.
+
+| # | Step | Proves |
+|---|---|---|
+| 1 | `cp .env.example .env`, set `POSTGRES_PASSWORD` / `RG_JWT_SECRET` / `RG_LLM_BASE_URL`, `docker compose up -d --build` | 0.2 |
+| 2 | `docker compose exec postgres psql -U rg_app -d result_guardian -c '\dx'` → `vector`, `pgmq`, **`pg_cron`**, `pg_trgm`, `unaccent`, `pgcrypto` | D3 — pg_cron present means Phase 2 recovery is real |
+| 3 | **Before migrating:** `curl localhost/api/health` → **200**, `db: "ok"`, `degraded_features` contains `worker` | **D4 — this returned 503 before** |
+| 4 | `docker compose exec api alembic upgrade head`, re-curl → `worker_heartbeat_age_s` is a small number | D5 + 0.7 heartbeat |
+| 5 | `llm.reachable: false`, `status: "ok"`, no error, NODE B untouched | **RULE 2 at the HTTP boundary** |
+| 6 | `docker compose -f docker-compose.yml build api` then `docker run --rm result-guardian/api:dev pip show pytest` → **not found** | D2 |
+| 7 | On a *fresh volume*, set `POSTGRES_DB=rg_test` → boot **fails loudly** with the guard message | D3 guard |
+| 8 | Open a PR → all three CI jobs green | D6, D7 (D1 and D8 already ✅ locally) |
+
+✅ **Coverage resolved.** The gate tripped at 50.78% and was closed **with tests** — 19 added, now **79.17%**, 25 passing. The number was not lowered.
+
+**Still cannot close Exit Gate 0** after all of the above: its "fresh machine" clause and the NODE A → NODE B `curl http://<NODE_B_IP>:11434/api/tags` check both need the second machine on one LAN, and open decision #5 below is still undecided.

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 try:  # pragma: no cover - import shim
     from uuid_extensions import uuid7 as _uuid7
 except ImportError:  # pragma: no cover
-    _uuid7 = None  # type: ignore[assignment]
+    _uuid7 = None
 
 
 def uuid7() -> uuid.UUID:

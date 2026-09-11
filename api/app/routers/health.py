@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -18,9 +19,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings, get_settings
 from app.db.session import get_session
 
+log = structlog.get_logger(__name__)
+
 router = APIRouter(tags=["health"])
 
-# Phase 10.4 alerts when the worker has been silent longer than this.
+# Phase 0.7: "alert if stale > 2 min". A worker that dies quietly is how
+# timers stop firing, so this is deliberately tighter than a comfortable
+# threshold.
 WORKER_STALE_AFTER_S = 120
 
 
@@ -33,20 +38,35 @@ async def health(
     degraded: list[str] = []
 
     # ── database ──────────────────────────────────────────────────
+    # Only this decides db_ok and therefore the HTTP status.
     db_ok = True
-    worker_age: int | None = None
     try:
         await session.execute(text("SELECT 1"))
-        result = await session.execute(
-            text(
-                "SELECT EXTRACT(EPOCH FROM (now() - MAX(last_beat_at)))::int "
-                "FROM worker_health"
-            )
-        )
-        worker_age = result.scalar()
     except Exception:
         db_ok = False
         degraded.append("database")
+
+    # ── worker liveness ───────────────────────────────────────────
+    # Probed separately, and on purpose. Sharing a try block with the check
+    # above means a missing or unreadable worker_health table reports the
+    # *database* as down and returns 503 -- which fails Exit Gate 0 and the
+    # RULE 2 assertion, on a table that has nothing to do with either.
+    # An unknown worker degrades to "worker", never to "database".
+    worker_age: int | None = None
+    if db_ok:
+        try:
+            result = await session.execute(
+                text(
+                    "SELECT EXTRACT(EPOCH FROM (now() - MAX(last_beat_at)))::int "
+                    "FROM worker_health"
+                )
+            )
+            worker_age = result.scalar()
+        except Exception:
+            # Expected between `compose up` and `alembic upgrade head`: the
+            # table is created by the baseline migration, not by the image.
+            await session.rollback()
+            log.info("worker_health_unavailable")
 
     if worker_age is None or worker_age > WORKER_STALE_AFTER_S:
         degraded.append("worker")
@@ -73,4 +93,8 @@ async def health(
 
 @router.get("/version")
 async def version(settings: Settings = Depends(get_settings)) -> dict[str, str]:
-    return {"version": settings.version, "git_sha": settings.git_sha, "env": settings.env}
+    return {
+        "version": settings.version,
+        "git_sha": settings.git_sha,
+        "env": settings.env,
+    }

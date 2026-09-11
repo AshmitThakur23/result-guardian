@@ -32,12 +32,17 @@ What never crosses: patient name, MRN, phone, address, encounter rows, original 
 - NODE B needs **no backup** — it holds nothing. Back up the provisioning script instead.
 - NODE B's firewall accepts 11434 from NODE A's IP only, and NODE B is included in the egress rules that prove the on-prem claim. Verified with firewall rules, not by promise.
 
-## Current deployment (2026-09-11)
+## Current deployment (2026-09-11, corrected)
 
 | Role | Machine | Notes |
 |---|---|---|
-| NODE B | This laptop — RTX 3050, **4 GB VRAM** | Ollama already installed. Model is `qwen3:4b` (8B does not fit in 4 GB) |
-| NODE A | Other machine | Not yet provisioned |
+| **NODE A** | **Abhinendra's laptop** — the development machine | Docker present. Holds the database and every safety guarantee. Its RTX 3050 is irrelevant to the design: NODE A never runs inference. |
+| **NODE B** | **Ashmit's machine** | Not yet provisioned. **GPU and VRAM unknown** — the model must be re-derived from it before Phase 8. |
+
+> ⚠️ An earlier version of this table had these two **backwards**. See
+> [ADR 0006](0006-node-roles-corrected.md), which supersedes
+> [ADR 0005](0005-node-roles-and-model.md). `qwen3:4b` was chosen from NODE A's
+> VRAM by mistake and is a **placeholder, not a decision**.
 
 The model is an env var (`LLM_MODEL`), so a larger model on a real GPU box is a one-line change. See [0005](0005-node-roles-and-model.md).
 

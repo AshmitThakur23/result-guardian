@@ -17,7 +17,7 @@ Runs entirely on-premise, on two machines, on a private LAN, with **no internet 
 
 > **Turn NODE B off and the patient is still tracked, still flagged, still escalated.** That is the design, not a fallback. Only the "Explain" button degrades — and it degrades to showing retrieved guideline text, not to silence.
 
-**Current deployment:** the RTX 3050 laptop is **NODE B**. The other machine is **NODE A**. See [`docs/adr/0005-node-roles-and-model.md`](docs/adr/0005-node-roles-and-model.md).
+**Current deployment:** the development laptop is **NODE A**. **NODE B** is the repo owner's machine and is not yet provisioned. See [`docs/adr/0006-node-roles-corrected.md`](docs/adr/0006-node-roles-corrected.md) — an earlier ADR had these backwards.
 
 ---
 
@@ -31,10 +31,16 @@ cd result-guardian
 cp .env.example .env
 #  edit .env: set POSTGRES_PASSWORD, RG_JWT_SECRET, and RG_LLM_BASE_URL
 docker compose up -d --build
+docker compose exec api alembic upgrade head
 curl http://localhost/api/health
 ```
 
-That is the whole setup. Expected response:
+That is the whole setup. The migrate step is not optional — the schema,
+including the worker's heartbeat table, is owned by Alembic. Between `up` and
+`upgrade head` the API is already serving and returns 200 with
+`degraded_features: ["worker"]`, which is correct rather than broken.
+
+Expected response:
 
 ```json
 {
@@ -53,9 +59,14 @@ Useful commands:
 ```bash
 docker compose logs -f api worker
 docker compose exec postgres psql -U rg_app -d result_guardian -c '\dx'
-docker compose exec api alembic upgrade head
 docker compose down            # keeps data;  add -v to wipe it
 ```
+
+> ⚠️ If you change `POSTGRES_DB`, the database must be recreated from an empty
+> volume — `pg_cron` can only be created in the one database it is pinned to,
+> and it is pinned from `POSTGRES_DB`. A mismatch fails the boot loudly on
+> purpose: without `pg_cron` there is no sweep to re-fire overdue timers after
+> a restart, which is the guarantee Phase 2 rests on.
 
 `make` is not installed on the Windows dev box, so `tasks.ps1` mirrors the `Makefile`: `./tasks.ps1 up`, `./tasks.ps1 test`, `./tasks.ps1 lint`.
 

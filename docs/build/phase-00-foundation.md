@@ -7,23 +7,59 @@
 
 ## 📍 STATUS SUMMARY — updated 2026-09-11
 
-**Machines:** NODE B = the RTX 3050 laptop (this one). NODE A = the other machine, **not yet provisioned**. See [`../adr/0005-node-roles-and-model.md`](../adr/0005-node-roles-and-model.md).
+**Machines:** **NODE A = the development laptop (this one)** — Docker present, stack never run. **NODE B = Ashmit's machine**, **not yet provisioned**, GPU unknown. See [`../adr/0006-node-roles-corrected.md`](../adr/0006-node-roles-corrected.md) — [ADR 0005](../adr/0005-node-roles-and-model.md) had these backwards and is superseded.
 
 | § | Runs on | State | Note |
 |---|---|---|---|
 | 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
-| 0.2 Containers — NODE A | A | 🟡 **written, never run** | Needs NODE A + Docker daemon |
-| 0.3 NODE B provisioning | **B** | 🟡 **script written, not yet run** | Can be done on this laptop any time |
+| 0.2 Containers — NODE A | A | 🟡 **written, never run** | **NODE A is this machine and Docker is present** — this is runnable now. Defects D2/D3/D7 repaired 2026-09-11, still unrun |
+| 0.3 NODE B provisioning | **B** | 🔴 **blocked** | Must run on **Ashmit's machine**, which is not in hand. Ollama on this laptop is NODE A's and does not count |
 | 0.4 Network runbook | — | ✅ **done** | Real IPs still to be filled in |
-| 0.5 App skeleton | A | 🟡 **written, never run** | |
+| 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
-| 0.7 Worker skeleton | A | 🟡 **written, never run** | Handlers are stubs until Phase 2 |
-| 0.8 CI | — | 🟡 **written, never run** | Runs on first PR |
+| 0.7 Worker skeleton | A | 🟡 **partly verified** | Retry/backoff/DLQ and heartbeat now covered by tests (were **0%**). Handlers stay stubs until Phase 2. Never run against real pgmq |
+| 0.8 CI | — | 🟡 **gates pass locally, workflow never run** | **All five gates verified on this machine:** ruff ✅ black ✅ mypy ✅ pytest ✅ coverage 79% ✅. **Could not pass at all before D1.** The Actions workflow itself is still unrun |
 | **Exit Gate 0** | A + B | 🔴 **OPEN** | Cannot close until NODE A exists |
 
 **🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**
 
 **Next step (agreed with the user):** set up **NODE A on the other machine first**, then verify across both. No further Phase 0 execution until then.
+
+### 🐞 Defects found by inspection on 2026-09-11 — fixed, all still unrun
+
+A full read of the scaffold before NODE A pulls it. All eight were in code that had never executed, which is why they survived.
+
+**Since the roles were corrected, this machine is NODE A — so three of the eight are now genuinely verified, by running them.** The rest need Docker and stay 🟡. The ✅/🟡 in the last column is the honest split.
+
+| # | Where | Defect | Fix | Verified? |
+|---|---|---|---|---|
+| D1 | `api/pyproject.toml` | No `[build-system]`; `api/` is a flat layout with 3 top-level packages → `pip install -e ".[dev]"` fails on discovery. **No CI job could go green.** | hatchling backend + explicit `packages = ["app", "worker"]` | ✅ **ran** — `pip install -e ".[dev]"` succeeds; `import app, worker` OK |
+| D2 | `docker-compose.yml` | No `build.target`, and `dev` is the last stage in `api/Dockerfile` → a production build ships pytest/ruff/mypy to a hospital server | `target: runtime` on `api` and `worker`; CI asserts the runtime image is clean | 🟡 needs Docker |
+| D3 | `infra/postgres/Dockerfile` | `cron.database_name` hardcoded while `POSTGRES_DB` is configurable → renaming the DB silently boots **without pg_cron**, removing Phase 2's reboot-recovery guarantee | Driven from `POSTGRES_DB` via compose `command:`; boot-time guard in `init/01-extensions.sql` raises on mismatch | 🟡 needs Docker |
+| D4 | `api/app/routers/health.py` | `SELECT 1` and the `worker_health` lookup shared one `try` → a missing table reported **`db: error` and 503**, failing Exit Gate 0 and the RULE 2 assertion | Probes split; an unknown worker degrades to `worker`, never to `database`. Regression test added | ✅ **ran** at unit level — `test_missing_worker_health_does_not_report_the_database_as_down` passes. Still unproven against a real Postgres |
+| D5 | `infra/postgres/init/02-queues.sql` | `worker_health` created by an init script, which only runs on an empty data dir → absent in CI, testcontainers, restored volumes | Moved into the Alembic baseline revision | 🟡 needs Docker — migration never applied |
+| D6 | `api/Dockerfile` | Builder `pip wheel`s a hand-copied duplicate of the `pyproject.toml` dependency list → drifts silently | Installs from `pyproject.toml` | 🟡 needs Docker |
+| D7 | `.github/workflows/ci.yml` | Test job used stock `pgvector/pgvector:pg16` — no pgmq, no pg_cron, no init scripts. Phase 1.8's integration tests break on contact | Builds and runs the real NODE A image, asserts all six extensions, applies migrations | 🟡 needs Actions |
+| D8 | `api/pyproject.toml` + 7 files | `line-length = 100` but code written at 88 → `black --check` reformats on sight; `E501` at `app/db/session.py:7` | Set 88 (black's default, matching the code); 7 long lines wrapped | ✅ **ran** — ruff, black and mypy `--strict` all clean |
+
+### Five more defects, found only by running the linters
+
+Reading the code did not surface these; **running it did.** Recorded because it is the clearest evidence in this repo that *written ≠ done*:
+
+| Where | Defect | Fix |
+|---|---|---|
+| `alembic/env.py` | `I001` unsorted imports — **pre-existing**, so `ruff check .` would have failed CI even after D8 | `known-third-party = ["alembic"]`: `api/alembic/` is a directory, not the library |
+| `app/db/base.py` | `RUF100` unused `noqa` inside a comment | Reworded the example |
+| `app/services/llm_probe.py` | `RUF100` — `# noqa: BLE001` for a rule not in `select` | Removed the pragma, kept the reasoning as prose |
+| `worker/consumer.py`, `worker/main.py` | `SIM105` try/except/pass ×2 | `contextlib.suppress(TimeoutError)` |
+| `worker/consumer.py:40` | mypy strict: `2 ** n` is typed `Any`, so `backoff_seconds` returned `Any` from an `int` function | Bit-shift, which is typed `int` |
+| `app/db/types.py:20` | mypy strict: unused `type: ignore` | Removed |
+
+### Test coverage: 51% → 79%
+
+The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was closed with tests, not by lowering the number. Added 19 tests across `tests/test_worker_consumer.py`, `tests/test_worker_heartbeat.py` and `tests/test_db_conventions.py`, covering the pgmq retry/DLQ branches (`worker/consumer.py` was at **0%** — the logic Phase 2's durability rests on), the heartbeat upsert and its failure path, and the Phase 0.6 conventions. **25 tests pass; coverage 79.17%.**
+
+**Deviation logged:** `api` and `worker` still share the image tag `result-guardian/api:dev` while now building different targets in dev vs prod. Pre-existing; a prod build and a dev build overwrite each other under one tag. Not fixed here — it needs its own decision about tagging. **Do not treat `:dev` as proof of stage.**
 
 ### Deviations from the build plan, and why
 
@@ -32,6 +68,8 @@
 3. **`qwen3:4b`, not `8b`.** 4 GB VRAM. `LLM_MODEL` is an env var.
 4. **Worker lives at `api/worker/`,** not root `worker/`. The plan says "same image, different entrypoint", which requires it inside the API build context.
 5. **Dev Postgres on host port 5433.** A native PostgreSQL install already holds 5432 on this machine.
+6. **`cron.database_name` set from compose, not baked into the image** (defect D3). An exec-form `CMD` cannot expand a variable, so the image default and `POSTGRES_DB` could diverge silently. `docker-compose.yml` now passes it via `command:`, and `init/01-extensions.sql` refuses to boot on a mismatch.
+7. **`worker_health` lives in the Alembic baseline, not in `init/02-queues.sql`** (defect D5). The plan puts queue creation in an init script; that is right for queues, wrong for an application table, because init scripts only run against an empty data directory. Extensions and pgmq queues stay in init — they must exist before Alembic connects.
 
 ---
 

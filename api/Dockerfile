@@ -8,19 +8,18 @@ ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /build
+
+# Dependencies come from pyproject.toml and nowhere else. A hand-maintained
+# second copy of the list here drifts the moment someone adds a dependency,
+# and the image silently ships without it.
+#
+# Only the files the build backend needs are copied, so editing application
+# code does not invalidate the dependency layer.
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir build hatchling \
-    && pip wheel --no-cache-dir --wheel-dir /wheels \
-        "fastapi>=0.115" \
-        "uvicorn[standard]>=0.30" \
-        "pydantic>=2.7" \
-        "pydantic-settings>=2.3" \
-        "sqlalchemy[asyncio]>=2.0" \
-        "asyncpg>=0.29" \
-        "alembic>=1.13" \
-        "httpx>=0.27" \
-        "structlog>=24.1" \
-        "uuid7>=0.1"
+COPY app ./app
+COPY worker ./worker
+RUN pip install --no-cache-dir hatchling \
+    && pip wheel --no-cache-dir --wheel-dir /wheels .
 
 # ── runtime base ──────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
@@ -44,6 +43,12 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # ── dev ───────────────────────────────────────────────────────────
 # Adds test/lint tooling. docker-compose.override.yml targets this stage.
+#
+# ⚠️ This is the LAST stage, so `docker build` with no --target builds THIS
+# one, not `runtime`. docker-compose.yml therefore pins `target: runtime`
+# explicitly -- without it, production ships pytest, ruff and mypy onto a
+# hospital server. Phase 10.1 least-privilege. Do not append a stage below
+# this one without re-checking every build that omits --target.
 FROM runtime AS dev
 
 USER root

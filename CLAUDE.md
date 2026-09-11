@@ -64,23 +64,39 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 
 ## 🖥 Machine roles — DO NOT GET THESE BACKWARDS
 
-| Role | Machine | What runs there |
-|---|---|---|
-| **NODE B — inference** | **This laptop** (NVIDIA RTX 3050, 4 GB VRAM) | **Ollama only.** `qwen3:4b`. Stateless. Never holds patient data. |
-| **NODE A — core** | **The other laptop** | Postgres, FastAPI, worker, Caddy, React dashboard. All patient data, all safety logic. |
+> **Corrected by the user on 2026-09-11. This supersedes the earlier assignment
+> and every doc that still contradicts it.** The roles were recorded backwards.
+> If any file in this repo says "this laptop is NODE B", that file is stale —
+> this table wins.
 
-- This laptop is **NODE B**. Ollama already installed (`v0.15.2`, `%LOCALAPPDATA%\Programs\Ollama`).
-- 4 GB VRAM → model is **`qwen3:4b`**, not the 8B in the build plan. `RG_LLM_MODEL` is an env var.
-- NODE A code is authored here and pushed; the other laptop pulls and runs it.
-- Repo: **`AshmitThakur23/result-guardian`** (private). `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
+| Role | Whose machine | What runs there |
+|---|---|---|
+| **NODE A — core** | **Abhinendra's laptop — THIS machine, where the work happens** | Postgres, FastAPI, worker, Caddy, React dashboard. **All patient data, all safety logic.** |
+| **NODE B — inference** | **Ashmit's machine** — the repo owner's | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
+
+- **This machine is NODE A.** It is Abhinendra's, it is where I am working, and it is the one that holds the database and every safety guarantee.
+- **NODE B is Ashmit's machine** and does the GPU/inference work. It is a stateless accelerator — unplug it and the system loses a convenience, never a guarantee (RULE 2).
+- Repo: **`AshmitThakur23/result-guardian`** (private) — Ashmit is the repo owner. `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
+- Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** regardless of which machine they are made on. See the commit-hygiene rule above.
+
+⚠️ **Two open consequences of the correction — do not assume either is settled:**
+
+1. **`qwen3:4b` was chosen from the wrong machine's hardware.** ADR 0005 derived it from the RTX 3050 / 4 GB VRAM in *this* laptop — which is now NODE A, where the GPU is irrelevant. **NODE B's actual GPU and VRAM are unknown.** Re-derive the model from Ashmit's hardware before Phase 8. `RG_LLM_MODEL` is an env var, so nothing structural depends on it, and nothing at all depends on it until Phase 8.
+2. **Ollama is installed on this machine (NODE A), where it is not needed.** Harmless, but it is not provisioning — NODE B still needs `infra/nodeb/setup-windows.ps1` (or `setup.sh`) run on **Ashmit's** machine.
 
 ## 🔍 Before installing anything — MANDATORY
 
-1. **Check whether it already exists first** — on both `C:` and `D:`.
-2. **Report what was found, then ask once** before installing, downloading or pulling. The user may verify manually and confirm.
-3. **Record the scan in `PROGRESS.md`** so the next session does not repeat it.
+> **Updated by the user on 2026-09-11.** The scan is still mandatory; the
+> permission prompt is not. **Check first — if it is missing, install it.**
 
-`C:` is ~93% full (17 GB free); `D:` has 178 GB. Docker images and Ollama models go on `D:`.
+1. **Check whether it already exists first** — on both `C:` and `D:`. Never install over something already present.
+2. **Found it? Use it.** Report the version and path, and move on. Do not reinstall, do not "upgrade to be safe".
+3. **Not found? Install it — no need to ask.** Then say what was installed and where.
+4. **Record the scan in `PROGRESS.md`** so the next session does not repeat it.
+
+`C:` is ~93% full (17 GB free); `D:` has 178 GB. **Docker images, Ollama models and anything else large go on `D:`.**
+
+⚠️ Two things still get a heads-up before they happen, because the disk cannot absorb a mistake: anything **over ~5 GB**, and anything that would write to `C:` when it could write to `D:`. Say what it is and where it is going, then proceed.
 
 ---
 
@@ -120,7 +136,8 @@ Full stack in [`docs/build/01-tech-stack-and-repo-layout.md`](docs/build/01-tech
 | [0002](docs/adr/0002-two-node-split.md) | Two nodes; embeddings stay on NODE A |
 | [0003](docs/adr/0003-opd-out-of-scope-v1.md) | **OPD out of scope for v1**, schema stays ready |
 | [0004](docs/adr/0004-duty-roster-ownership.md) | **Unit head maintains `duty_roster`**, weekly |
-| [0005](docs/adr/0005-node-roles-and-model.md) | Node roles + `qwen3:4b` |
+| ~~[0005](docs/adr/0005-node-roles-and-model.md)~~ | ⛔ **SUPERSEDED by 0006** — had the node roles backwards |
+| [0006](docs/adr/0006-node-roles-corrected.md) | **Node roles corrected: this machine is NODE A.** `qwen3:4b` is now only a placeholder — it was derived from NODE A's VRAM |
 
 **Base conventions — costly to change later, honour them in every migration:**
 
@@ -155,9 +172,11 @@ The two root PDFs are **archive**. Everything in them is in `docs/`. Don't re-ex
 
 ## 📌 Current state
 
-**Phase 0 — 🔵 in progress.** Scaffold written and pushed; **never executed**. Exit Gate 0 is 🔴 **OPEN** — it cannot close until NODE A exists.
+**Phase 0 — 🔵 in progress.** Exit Gate 0 is 🔴 **OPEN**.
 
-**Next:** stand up NODE A on the other laptop, then Phase 1.
+**2026-09-11 — 13 defects found in the scaffold and fixed.** Eight by reading, **five more only by running the linters** — including pre-existing unsorted imports in `alembic/env.py` that would have failed CI regardless. **All five CI gates now pass locally** (ruff · black · mypy strict · 25 tests · coverage 79%, raised from 51% **with tests, not by lowering the gate**). Three defects are ✅ verified; five stay 🟡 pending Docker.
+
+**Next: run Phase 0 here.** NODE A is *this* machine and Docker is installed, so `docker compose up -d --build` → `alembic upgrade head` → `curl localhost/api/health` is runnable now. The old "wait for NODE A to exist" blocker was an artefact of the backwards role assignment. Only Exit Gate 0's two cross-node clauses still need Ashmit's machine.
 
 ⚠️ If Phase 1 work starts before Exit Gate 0 closes, say so plainly and record it in `PROGRESS.md` — writing Phase 1 schema on an unverified foundation is a knowing exception to the build plan's own ordering rule, not an oversight.
 

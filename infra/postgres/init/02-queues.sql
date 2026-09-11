@@ -7,11 +7,10 @@ SELECT pgmq.create('ingest');          -- Phase 6: document intake -> text + spa
 SELECT pgmq.create('extract');         -- Phase 7: text -> structured JSON -> matching
 SELECT pgmq.create('dlq');             -- terminal failures after max attempts
 
--- Worker liveness. /api/health reports worker_heartbeat_age_s from this table,
--- and Phase 10.4 alerts when the worker is down more than 5 minutes.
-CREATE TABLE IF NOT EXISTS worker_health (
-    worker_name   TEXT PRIMARY KEY,
-    last_beat_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    pid           INTEGER,
-    version       TEXT
-);
+-- worker_health is NOT here. It is an application table, so it belongs to
+-- Alembic (revision 0001_baseline), not to an init script that only ever runs
+-- against an empty data directory. Keeping it here would mean CI, test
+-- containers and any restored volume silently lack it.
+--
+-- Queues and extensions stay in this directory because they must exist before
+-- Alembic first connects.

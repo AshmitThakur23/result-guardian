@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 
 import httpx
-import pytest
 
 from app.config import Settings
 from app.services.llm_probe import LlmProbe
@@ -39,7 +38,9 @@ async def test_probe_reports_unreachable_without_raising() -> None:
 
 
 async def test_probe_honours_kill_switch_without_network_call() -> None:
-    probe = LlmProbe(_settings(llm_enabled=False, llm_base_url="http://10.255.255.1:11434"))
+    probe = LlmProbe(
+        _settings(llm_enabled=False, llm_base_url="http://10.255.255.1:11434")
+    )
     status = await probe.status()
     assert status.reachable is False
     assert status.error == "disabled_by_kill_switch"
@@ -61,7 +62,9 @@ async def test_probe_never_blocks_longer_than_its_own_timeout() -> None:
     assert elapsed < 5.0
 
 
-@pytest.mark.anyio
+# No @pytest.mark.anyio: asyncio_mode="auto" already runs every async test in
+# this file, and the marker would hand this one test to a second async plugin
+# under --strict-markers. The other tests here have never carried it.
 async def test_health_ok_when_nodeb_unreachable() -> None:
     """RULE 2 at the HTTP boundary: NODE B down must not fail /api/health."""
     from app.main import create_app
@@ -98,3 +101,53 @@ async def test_health_ok_when_nodeb_unreachable() -> None:
     assert body["db"] == "ok"
     assert body["llm"]["reachable"] is False
     assert "llm_generation" in body["degraded_features"]
+
+
+async def test_missing_worker_health_does_not_report_the_database_as_down() -> None:
+    """An absent worker_health table must degrade to "worker", not "database".
+
+    Regression. Both queries once shared one try block, so a missing
+    worker_health set db_ok False and returned 503 -- failing Exit Gate 0 and
+    the RULE 2 assertion above, over a table that says nothing about whether
+    Postgres is reachable. It is also the real state of the system between
+    `docker compose up` and `alembic upgrade head`.
+    """
+    from app.db.session import get_session
+    from app.main import create_app
+
+    app = create_app()
+    app.state.llm_probe = LlmProbe(_settings())
+
+    async def _fake_session():  # type: ignore[no-untyped-def]
+        calls = 0
+
+        class _Ok:
+            def scalar(self) -> int:
+                return 3
+
+        class _Session:
+            async def execute(self, *_: object, **__: object) -> _Ok:
+                nonlocal calls
+                calls += 1
+                if calls == 1:  # SELECT 1 -- Postgres is fine
+                    return _Ok()
+                raise RuntimeError('relation "worker_health" does not exist')
+
+            async def rollback(self) -> None:
+                return None
+
+        yield _Session()
+
+    app.dependency_overrides[get_session] = _fake_session
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://x") as client:
+        response = await client.get("/api/health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["db"] == "ok"
+    assert body["status"] == "ok"
+    assert body["worker_heartbeat_age_s"] is None
+    assert "worker" in body["degraded_features"]
+    assert "database" not in body["degraded_features"]

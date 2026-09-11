@@ -54,4 +54,8 @@ def register_exception_handlers(app: FastAPI) -> None:
         log.exception("unhandled_exception", path=request.url.path)
         if get_settings().is_prod:
             return _problem(500, title="Internal server error")
-        return _problem(500, title="Internal server error", detail=f"{type(exc).__name__}: {exc}")
+        return _problem(
+            500,
+            title="Internal server error",
+            detail=f"{type(exc).__name__}: {exc}",
+        )

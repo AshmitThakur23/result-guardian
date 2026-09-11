@@ -16,6 +16,7 @@ enforces this with ``SELECT ... FOR UPDATE`` on the timer row.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -36,7 +37,9 @@ EMPTY_QUEUE_SLEEP_S = 2.0
 
 def backoff_seconds(attempt: int) -> int:
     """1, 2, 4, 8, 16 ... capped. Attempt is 1-based."""
-    return min(2 ** max(attempt - 1, 0), 300)
+    # Shift rather than ``2 **``: int.__pow__ is typed as returning Any
+    # (it can yield a float for negative exponents), which defeats strict mode.
+    return min(1 << max(attempt - 1, 0), 300)
 
 
 class QueueConsumer:
@@ -63,10 +66,9 @@ class QueueConsumer:
         self.log.info("consumer_stopped")
 
     async def _sleep_or_stop(self, seconds: float) -> None:
-        try:
+        # Timing out just means "nobody asked us to stop" -- the normal case.
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(self.shutdown.wait(), timeout=seconds)
-        except TimeoutError:
-            pass
 
     async def _read_once(self, session: AsyncSession) -> bool:
         row = (

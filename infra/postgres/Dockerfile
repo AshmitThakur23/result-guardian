@@ -32,8 +32,14 @@ RUN curl -fsSL "https://github.com/pgmq/pgmq/archive/refs/tags/v${PGMQ_VERSION}.
 RUN apt-get purge -y --auto-remove build-essential postgresql-server-dev-16 curl \
     && rm -rf /var/lib/apt/lists/*
 
-# pg_cron must be preloaded at server start; it cannot be enabled per-session.
-# cron.database_name pins the scheduler to our database.
+# pg_cron must be preloaded at server start; it cannot be enabled per-session,
+# and it can only be created in the ONE database named by cron.database_name.
+#
+# This CMD is only the default for running the image bare. docker-compose.yml
+# overrides it with `command:` so that cron.database_name is interpolated from
+# POSTGRES_DB -- an exec-form CMD cannot expand a variable, and a hardcoded
+# name here silently diverges the moment POSTGRES_DB is changed. The guard in
+# init/01-extensions.sql catches any divergence at boot.
 CMD ["postgres", \
      "-c", "shared_preload_libraries=pg_cron", \
      "-c", "cron.database_name=result_guardian"]

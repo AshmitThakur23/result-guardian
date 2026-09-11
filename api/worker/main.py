@@ -10,6 +10,7 @@ and the shutdown path can be proven at Exit Gate 0.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import signal
 from typing import Any
@@ -42,7 +43,8 @@ async def heartbeat(shutdown: asyncio.Event) -> None:
             async with sessionmaker() as session:
                 await session.execute(
                     text(
-                        "INSERT INTO worker_health (worker_name, last_beat_at, pid, version) "
+                        "INSERT INTO worker_health "
+                        "(worker_name, last_beat_at, pid, version) "
                         "VALUES (:n, now(), :p, :v) "
                         "ON CONFLICT (worker_name) DO UPDATE "
                         "SET last_beat_at = now(), pid = :p, version = :v"
@@ -52,10 +54,9 @@ async def heartbeat(shutdown: asyncio.Event) -> None:
                 await session.commit()
         except Exception:
             log.exception("heartbeat_failed")
-        try:
+        # Timing out just means "nobody asked us to stop" -- beat again.
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(shutdown.wait(), timeout=HEARTBEAT_INTERVAL_S)
-        except TimeoutError:
-            pass
 
 
 async def _todo_handler(session: AsyncSession, message: dict[str, Any]) -> None:

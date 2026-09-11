@@ -63,7 +63,8 @@ class LlmProbe:
 
     @property
     def _host(self) -> str:
-        return self._settings.llm_base_url.removeprefix("http://").removeprefix("https://")
+        url = self._settings.llm_base_url
+        return url.removeprefix("http://").removeprefix("https://")
 
     def _disabled_status(self) -> LlmStatus:
         return LlmStatus(
@@ -110,7 +111,8 @@ class LlmProbe:
         url = f"{self._settings.llm_base_url.rstrip('/')}/api/tags"
         started = time.perf_counter()
         try:
-            async with httpx.AsyncClient(timeout=self._settings.llm_probe_timeout_s) as client:
+            timeout = self._settings.llm_probe_timeout_s
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.get(url)
                 response.raise_for_status()
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
@@ -120,7 +122,11 @@ class LlmProbe:
                     model=self._settings.llm_model,
                     latency_ms=elapsed_ms,
                 )
-        except Exception as exc:  # noqa: BLE001 — unreachable is a state, not a failure
+        # Catching broadly is the point: an unreachable NODE B is a state to
+        # report, not a failure to raise. Narrowing this would let some
+        # unforeseen httpx error escape and take /api/health down with it,
+        # which is precisely the RULE 2 violation this module exists to stop.
+        except Exception as exc:
             # Logged as info, not error: NODE B being off is an expected,
             # designed-for condition. Phase 10.4 treats it as a low-priority
             # alert because it is not an outage.
