@@ -1,7 +1,39 @@
 # ADR 0006 — Node roles, corrected: the development machine is NODE A
 
-**Status:** Accepted · **Date:** 2026-09-11 · **Phase:** 0.3 / 0.4
+**Status:** Accepted, with one factual correction below · **Date:** 2026-09-11 · **Phase:** 0.3 / 0.4
 **Supersedes:** [ADR 0005](0005-node-roles-and-model.md)
+
+> ### 🛠 Correction — 2026-09-11, verified on NODE B
+>
+> **The role assignment in this ADR is correct and stands.** One supporting fact is not.
+>
+> This ADR assumes the RTX 3050 sits in NODE A ("That GPU is in **NODE A**, where
+> inference never runs"). It does not. Verified directly with `nvidia-smi` on
+> `LAPTOP-5JCGN9SJ` (user `asus`) — **Ashmit's machine, which this ADR itself
+> assigns to NODE B**:
+>
+> ```
+> NVIDIA GeForce RTX 3050 Laptop GPU, 4096 MiB
+> ```
+>
+> **The 4 GB GPU is on NODE B.** Therefore:
+>
+> - **Consequence 1 below is withdrawn.** `qwen3:4b` was derived from 4 GB of
+>   VRAM belonging to the machine that actually runs inference. It is a
+>   **sound decision, not a placeholder**. 8B q4 (~5–6 GB) genuinely does not
+>   fit. Re-benchmark before Phase 8 as the build plan says — but the
+>   reasoning was never unfounded.
+> - **Consequence 2 below is withdrawn.** Ollama `v0.15.2` is installed on
+>   Ashmit's machine = NODE B, which is exactly where it belongs. It is not
+>   "installed on the wrong node". Provisioning still has to *run* there.
+> - NODE A's GPU remains unknown, and stays irrelevant — NODE A never runs
+>   inference (RULE 2).
+>
+> **Root cause, worth keeping:** this ADR and `CLAUDE.md` both said *"this
+> machine"*. Those files are read on **two** machines, so the phrase resolves
+> to opposite hardware depending on who is reading. That is what produced both
+> the original backwards assignment and this follow-on error. `CLAUDE.md` now
+> forbids the phrase and requires machine facts to be labelled by owner.
 
 ## Context
 
