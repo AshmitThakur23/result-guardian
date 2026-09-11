@@ -115,18 +115,48 @@ Per the standing rule in `CLAUDE.md`: check both drives before installing anythi
 | Python / Node | ✅ `3.13.7` / `v22.18.0` | API runs 3.11 **in the container** |
 | PostgreSQL | ⚠️ native install present | dev compose uses host port **5433** to avoid the clash |
 | `make` | ❌ absent | `tasks.ps1` mirrors the `Makefile` |
-| GPU | RTX 3050, **4 GB VRAM** | ⚠️ This is **NODE A's** GPU, and NODE A never runs inference. It must **not** drive decision #4 — that needs **NODE B's** specs, which are unknown |
-| Disk | ~~C: 93% full (17 GB)~~ → **C: 85% used, 43 GB free**; D: 178 GB | Re-measured 2026-09-11. Still send Ollama models and the Docker disk image to `D:` |
+| GPU | see per-machine notes below | figures below are **per machine** - do not read one machine's number as the other's |
 
-### Second scan — 2026-09-11, lint/test toolchain
+> **The scan table above mixed both machines' figures on 2026-09-11 and had to be split.**
+> Disk and GPU are machine-specific. **Always label which machine a number came from.**
+
+### NODE B - Ashmit's machine (`LAPTOP-5JCGN9SJ`, user `asus`)
+
+| Item | Value | Note |
+|---|---|---|
+| GPU | **RTX 3050 Laptop, 4 GB VRAM** | Verified with `nvidia-smi`. **This is NODE B's GPU** - so `qwen3:4b` in decision #4 *is* correctly derived. See the hardware correction in `CLAUDE.md` |
+| Disk | **C: 37.7 GB free (83%)**, D: 177 GB | was 19 GB / 93% - see cleanup below |
+| Ollama | `v0.15.2` installed | `OLLAMA_MODELS=D:\Nexus AI\.ollama\models`, holds `mistral:7b` 4.07 GB. **Do not repoint it** - `D:\Nexus AI` depends on that model. Let `qwen3:4b` land beside it |
+
+#### C: cleanup - 2026-09-11, +18.3 GB freed
+
+Docker needs headroom and `C:` was at 93%. Cleared only regenerable caches; **nothing on `D:` touched, `mistral:7b` intact, 10 recent VS Code workspaces kept.**
+
+| Item | Freed |
+|---|---|
+| WinSxS - `DISM /StartComponentCleanup` (**no** `/ResetBase`) | **+15.4 GB** - component store 26.58 -> 11.19 GB |
+| VS Code `workspaceStorage`, folders 90+ days old (48 of 58) | +4.33 GB |
+| npm cache | +1.53 GB |
+| Temp files | +0.76 GB |
+
+**Deliberately NOT touched:** `Windows\Installer` (21.7 GB - breaks app repair), hibernation (laptop loses Fast Startup), Playwright (used by two other projects), Python packages, Chrome's Gemini Nano model (re-downloads immediately), and `/ResetBase` (can break updates on Win11 25H2).
+
+### NODE A - Abhinendra's machine
+
+| Item | Value | Note |
+|---|---|---|
+| Disk | **C: 43 GB free (85% used)** | Re-measured 2026-09-11 from the NODE A session |
+| GPU | unknown / irrelevant | NODE A never runs inference (RULE 2) |
+
+#### Second scan - 2026-09-11, lint/test toolchain
 
 Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:`, well under the 5 GB heads-up threshold.
 
 | Tool | Before | After |
 |---|---|---|
-| ruff / black / mypy | ❌ all absent | ✅ `0.16.7` / `26.5.1` / `2.3.1` |
-| Project + dev extras | ❌ not installed | ✅ `pip install -e ".[dev]"` — **which is itself the proof that defect D1 is fixed** |
-| Python | — | `3.11.9`, matching the project pin |
+| ruff / black / mypy | absent | `0.16.7` / `26.5.1` / `2.3.1` |
+| Project + dev extras | not installed | `pip install -e ".[dev]"` - **which is itself the proof that defect D1 is fixed** |
+| Python | - | `3.11.9`, matching the project pin |
 
 ---
 

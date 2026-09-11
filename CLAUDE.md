@@ -79,25 +79,31 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 
 ## 🖥 Machine roles — DO NOT GET THESE BACKWARDS
 
-> **Corrected by the user on 2026-09-11. This supersedes the earlier assignment
-> and every doc that still contradicts it.** The roles were recorded backwards.
-> If any file in this repo says "this laptop is NODE B", that file is stale —
-> this table wins.
+> ⛔ **Never write "this machine" or "this laptop" in this file.** It is read on
+> **both** machines, so those words mean the opposite thing to each reader — that
+> ambiguity is what caused the roles to be recorded backwards on 2026-09-11.
+> **Always name the owner.** Identify which machine you are on by hostname/user
+> before relying on anything machine-specific.
 
-| Role | Whose machine | What runs there |
-|---|---|---|
-| **NODE A — core** | **Abhinendra's laptop — THIS machine, where the work happens** | Postgres, FastAPI, worker, Caddy, React dashboard. **All patient data, all safety logic.** |
-| **NODE B — inference** | **Ashmit's machine** — the repo owner's | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
+| Role | Whose machine | Identify it by | What runs there |
+|---|---|---|---|
+| **NODE A — core** | **Abhinendra's laptop** | (record hostname when next on it) | Postgres, FastAPI, worker, Caddy, React dashboard. **All patient data, all safety logic.** |
+| **NODE B — inference** | **Ashmit's machine** — the repo owner's | `LAPTOP-5JCGN9SJ`, user `asus` | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
 
-- **This machine is NODE A.** It is Abhinendra's, it is where I am working, and it is the one that holds the database and every safety guarantee.
-- **NODE B is Ashmit's machine** and does the GPU/inference work. It is a stateless accelerator — unplug it and the system loses a convenience, never a guarantee (RULE 2).
 - Repo: **`AshmitThakur23/result-guardian`** (private) — Ashmit is the repo owner. `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
 - Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** regardless of which machine they are made on. See the commit-hygiene rule above.
 
-⚠️ **Two open consequences of the correction — do not assume either is settled:**
+### 🛠 Hardware correction — 2026-09-11, verified on NODE B
 
-1. **`qwen3:4b` was chosen from the wrong machine's hardware.** ADR 0005 derived it from the RTX 3050 / 4 GB VRAM in *this* laptop — which is now NODE A, where the GPU is irrelevant. **NODE B's actual GPU and VRAM are unknown.** Re-derive the model from Ashmit's hardware before Phase 8. `RG_LLM_MODEL` is an env var, so nothing structural depends on it, and nothing at all depends on it until Phase 8.
-2. **Ollama is installed on this machine (NODE A), where it is not needed.** Harmless, but it is not provisioning — NODE B still needs `infra/nodeb/setup-windows.ps1` (or `setup.sh`) run on **Ashmit's** machine.
+[ADR 0006](docs/adr/0006-node-roles-corrected.md) fixed the role assignment (correct, and it stands) but attached the GPU to the wrong machine. Verified directly with `nvidia-smi` on `LAPTOP-5JCGN9SJ`:
+
+> **The RTX 3050 Laptop / 4 GB VRAM is on Ashmit's machine — which is NODE B.**
+
+Consequences:
+
+1. **`qwen3:4b` is correctly derived, not a placeholder.** It was chosen from 4 GB of VRAM, and that 4 GB belongs to **NODE B**, the node that actually runs inference. ADR 0006 §Consequences 1 says otherwise; it is mistaken on this point. Still worth re-benchmarking before Phase 8 — but the reasoning was sound, and 8B genuinely does not fit in 4 GB.
+2. **Ollama is installed on the right machine.** It is on Ashmit's machine = NODE B. Not a misplacement. NODE B provisioning still has to *run* (`infra/nodeb/setup-windows.ps1`), it just does not need installing first.
+3. **NODE A's GPU is unknown and irrelevant** — NODE A never runs inference (RULE 2).
 
 ## 🔍 Before installing anything — MANDATORY
 
@@ -109,9 +115,21 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 3. **Not found? Install it — no need to ask.** Then say what was installed and where.
 4. **Record the scan in `PROGRESS.md`** so the next session does not repeat it.
 
-`C:` is ~93% full (17 GB free); `D:` has 178 GB. **Docker images, Ollama models and anything else large go on `D:`.**
-
 ⚠️ Two things still get a heads-up before they happen, because the disk cannot absorb a mistake: anything **over ~5 GB**, and anything that would write to `C:` when it could write to `D:`. Say what it is and where it is going, then proceed.
+
+**Large data goes on `D:` on both machines.**
+
+### Per-machine facts — check which machine you are on first
+
+> Disk and GPU differ per machine. Never write an unlabelled figure here.
+
+**NODE B — Ashmit's machine** (`LAPTOP-5JCGN9SJ`, user `asus`) — measured 2026-09-11:
+- `C:` **37.7 GB free** (83% full) after a cleanup that freed 18.3 GB; `D:` **177 GB free**
+- GPU: **NVIDIA RTX 3050 Laptop, 4 GB VRAM** — verified with `nvidia-smi`
+- Ollama `v0.15.2` installed; `OLLAMA_MODELS=D:\Nexus AI\.ollama\models`, holding **`mistral:7b` (4.07 GB)** which the separate `D:\Nexus AI` project depends on.
+  **Do not repoint `OLLAMA_MODELS`** without moving the blobs first — `mistral:7b` would vanish from `ollama list`. Let `qwen3:4b` download alongside it.
+
+**NODE A — Abhinendra's machine** — not measured from here. Record its own disk/GPU figures when working on it.
 
 ---
 
