@@ -1,0 +1,86 @@
+name: CI
+
+# Phase 0.8. Hard requirement: CI must pass with NODE B unreachable.
+# No job here may contact an LLM. There is no Ollama service, deliberately --
+# if a test ever needs one, that test is testing the wrong thing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install ruff black mypy
+      - name: ruff
+        run: ruff check .
+      - name: black
+        run: black --check .
+      - name: mypy
+        run: pip install -e ".[dev]" && mypy app worker
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: result_guardian_test
+          POSTGRES_USER: rg_app
+          POSTGRES_PASSWORD: test-only
+        options: >-
+          --health-cmd "pg_isready -U rg_app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        ports:
+          - 5432:5432
+    env:
+      RG_DATABASE_URL: postgresql+asyncpg://rg_app:test-only@localhost:5432/result_guardian_test
+      # Points at nothing. The suite must be green with NODE B unreachable.
+      RG_LLM_BASE_URL: http://127.0.0.1:59999
+      RG_JWT_SECRET: ci-only-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: pytest
+        run: pytest --cov=app --cov=worker --cov-report=term-missing
+      - name: coverage gate
+        run: coverage report --fail-under=70
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          push: false
+          target: runtime
+      - name: Build NODE A database image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./infra/postgres
+          push: false

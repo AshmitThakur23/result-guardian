@@ -5,15 +5,45 @@
 
 ---
 
+## 📍 STATUS SUMMARY — updated 2026-09-11
+
+**Machines:** NODE B = the RTX 3050 laptop (this one). NODE A = the other machine, **not yet provisioned**. See [`../adr/0005-node-roles-and-model.md`](../adr/0005-node-roles-and-model.md).
+
+| § | Runs on | State | Note |
+|---|---|---|---|
+| 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
+| 0.2 Containers — NODE A | A | 🟡 **written, never run** | Needs NODE A + Docker daemon |
+| 0.3 NODE B provisioning | **B** | 🟡 **script written, not yet run** | Can be done on this laptop any time |
+| 0.4 Network runbook | — | ✅ **done** | Real IPs still to be filled in |
+| 0.5 App skeleton | A | 🟡 **written, never run** | |
+| 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
+| 0.7 Worker skeleton | A | 🟡 **written, never run** | Handlers are stubs until Phase 2 |
+| 0.8 CI | — | 🟡 **written, never run** | Runs on first PR |
+| **Exit Gate 0** | A + B | 🔴 **OPEN** | Cannot close until NODE A exists |
+
+**🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**
+
+**Next step (agreed with the user):** set up **NODE A on the other machine first**, then verify across both. No further Phase 0 execution until then.
+
+### Deviations from the build plan, and why
+
+1. **Custom Postgres image.** `pgvector/pgvector:pg16` ships *only* pgvector, but 0.2 also needs `pgmq` and `pg_cron`. `infra/postgres/Dockerfile` adds them. Without this the stack fails on first boot.
+2. **NODE B is Windows, not Ubuntu.** Both `infra/nodeb/setup.sh` and `setup-windows.ps1` ship; env vars are identical.
+3. **`qwen3:4b`, not `8b`.** 4 GB VRAM. `LLM_MODEL` is an env var.
+4. **Worker lives at `api/worker/`,** not root `worker/`. The plan says "same image, different entrypoint", which requires it inside the API build context.
+5. **Dev Postgres on host port 5433.** A native PostgreSQL install already holds 5432 on this machine.
+
+---
+
 ## 0.1 Repository
 
-- [ ] Create repo, `main` protected, PRs required
-- [ ] `.gitignore` — Python, Node, `.env`, `uploads/`, `*.pdf`
-- [ ] `pyproject.toml` with ruff + black + mypy config
-- [ ] pre-commit hooks: ruff, black, trailing whitespace, no-commit-to-main
-- [ ] `README.md` with local setup in under 10 commands
-- [ ] `docs/adr/0001-single-postgres.md` — why one DB
-- [ ] `docs/adr/0002-two-node-split.md` — why the GPU is a separate node, why embeddings stay local
+- [ ] Create repo, `main` protected, PRs required — repo ✅ created (`AshmitThakur23/result-guardian`, private); **branch protection + required PRs still to do**
+- [x] `.gitignore` — Python, Node, `.env`, `uploads/`, `*.pdf`
+- [x] `pyproject.toml` with ruff + black + mypy config
+- [x] pre-commit hooks: ruff, black, trailing whitespace, no-commit-to-main
+- [x] `README.md` with local setup in under 10 commands
+- [x] `docs/adr/0001-single-postgres.md` — why one DB
+- [x] `docs/adr/0002-two-node-split.md` — why the GPU is a separate node, why embeddings stay local
 
 ## 0.2 Containers — NODE A
 
@@ -40,11 +70,11 @@
 
 Write `docs/network-runbook.md` covering:
 
-- [ ] Static IPs or DHCP reservations; **never rely on hostnames resolving**
-- [ ] Fallback chain, in order: managed switch/router → dedicated router → phone hotspot → direct Ethernet with static `10.0.0.1` / `10.0.0.2` → cloud API (last resort, breaks the on-prem claim, must be approved in writing)
-- [ ] Client isolation warning: campus, hotel and guest wifi block node-to-node traffic even when both machines show "connected". **Always test with `ping` before trusting a network.**
-- [ ] The link does not need internet access. It only joins the two nodes.
-- [ ] Docker gotcha: `localhost` and `host.docker.internal` inside the API container **do not reach NODE B**. Always use the literal LAN IP.
+- [x] Static IPs or DHCP reservations; **never rely on hostnames resolving**
+- [x] Fallback chain, in order: managed switch/router → dedicated router → phone hotspot → direct Ethernet with static `10.0.0.1` / `10.0.0.2` → cloud API (last resort, breaks the on-prem claim, must be approved in writing)
+- [x] Client isolation warning: campus, hotel and guest wifi block node-to-node traffic even when both machines show "connected". **Always test with `ping` before trusting a network.**
+- [x] The link does not need internet access. It only joins the two nodes.
+- [x] Docker gotcha: `localhost` and `host.docker.internal` inside the API container **do not reach NODE B**. Always use the literal LAN IP.
 
 ## 0.5 App skeleton
 
@@ -77,12 +107,12 @@ Write `docs/network-runbook.md` covering:
 
 ## 0.6 Base conventions (decide now, costly later)
 
-- [ ] All PKs = UUIDv7 (time-sortable). Add helper `uuid7()`
-- [ ] All timestamps `TIMESTAMPTZ`, stored UTC, displayed IST
-- [ ] Soft delete via `deleted_at` — never hard delete clinical rows
-- [ ] Every table gets `created_at`, `updated_at`, `created_by`, `updated_by`
-- [ ] Enum values stored as text with `CHECK` constraints, not PG enums (easier to alter)
-- [ ] Money/values as `NUMERIC`, never float
+- [x] All PKs = UUIDv7 (time-sortable). Add helper `uuid7()`
+- [x] All timestamps `TIMESTAMPTZ`, stored UTC, displayed IST
+- [x] Soft delete via `deleted_at` — never hard delete clinical rows
+- [x] Every table gets `created_at`, `updated_at`, `created_by`, `updated_by`
+- [x] Enum values stored as text with `CHECK` constraints, not PG enums (easier to alter)
+- [x] Money/values as `NUMERIC`, never float
 
 ## 0.7 Worker skeleton
 

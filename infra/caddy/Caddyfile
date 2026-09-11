@@ -1,0 +1,30 @@
+# Result Guardian — NODE A reverse proxy.
+# Phase 10.1 replaces :80 with the hospital hostname so Caddy provisions TLS.
+
+:80 {
+	encode gzip
+
+	# API
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# React dashboard (built to web/dist, mounted read-only)
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,40 @@
+# NODE B — inference server. Runs on the GPU machine, NOT on NODE A.
+#
+#   docker compose -f docker-compose.nodeb.yml up -d
+#
+# Prefer the native install (infra/nodeb/setup.sh or setup-windows.ps1) when
+# Ollama is already present on the machine — it is, on the current NODE B.
+# This file exists so a bare GPU box can be brought up in one command.
+#
+# NODE B holds no patient data, writes nothing to disk beyond model weights,
+# and can be wiped and rebuilt in under 15 minutes. Phase 10.4.
+
+name: result-guardian-nodeb
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      # Bound to the LAN so NODE A can reach it. Restrict at the firewall to
+      # NODE A's IP only -- not 0.0.0.0/0. Phase 10.1.
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+      # Pin the model in VRAM. Without this the first request after ~5 minutes
+      # idle stalls 20+ seconds while the model reloads. Phase 0.3.
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_NUM_PARALLEL: "2"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  ollama_models:

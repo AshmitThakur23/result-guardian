@@ -1,0 +1,32 @@
+# Dev-only overrides. Compose loads this automatically alongside
+# docker-compose.yml. On NODE A in production, run with
+#   docker compose -f docker-compose.yml up -d
+# so this file is NOT applied.
+
+services:
+  postgres:
+    ports:
+      # 5433 on the host, not 5432: a native PostgreSQL install already holds
+      # 5432 on the current dev machine. See docs/adr/0005-node-roles-and-model.md.
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+
+  api:
+    build:
+      target: dev
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./api:/app
+    ports:
+      - "8000:8000"
+    environment:
+      RG_ENV: dev
+      RG_LOG_LEVEL: DEBUG
+
+  worker:
+    build:
+      target: dev
+    volumes:
+      - ./api:/app
+    environment:
+      RG_ENV: dev
+      RG_LOG_LEVEL: DEBUG

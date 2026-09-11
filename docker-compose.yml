@@ -1,0 +1,104 @@
+# Result Guardian — NODE A stack.
+#
+# NODE B (Ollama) is deliberately NOT in this file. It is a deployment target
+# on another machine, not a service in this compose project. See
+# docs/adr/0002-two-node-split.md. Bring NODE B up with
+# docker-compose.nodeb.yml on that machine, or provision it natively with
+# infra/nodeb/setup.sh (Ubuntu) / setup-windows.ps1 (Windows).
+
+name: result-guardian
+
+services:
+  postgres:
+    build:
+      context: ./infra/postgres
+    image: result-guardian/postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-result_guardian}
+      POSTGRES_USER: ${POSTGRES_USER:-rg_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rg_app} -d ${POSTGRES_DB:-result_guardian}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+    networks: [rg]
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  api:
+    build:
+      context: ./api
+    image: result-guardian/api:dev
+    env_file: [.env]
+    environment:
+      RG_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-rg_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-result_guardian}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=5).status==200 else 1)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks: [rg]
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  worker:
+    build:
+      context: ./api
+    image: result-guardian/api:dev
+    command: ["python", "-m", "worker.main"]
+    env_file: [.env]
+    environment:
+      RG_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-rg_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-result_guardian}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [rg]
+    # SIGTERM -> finish the in-flight message, then exit. Phase 0.7.
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web/dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    restart: unless-stopped
+    networks: [rg]
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  rg:
+    driver: bridge

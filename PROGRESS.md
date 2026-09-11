@@ -5,6 +5,18 @@
 
 **Last updated:** 2026-09-11
 
+> ## ▶ RESUME HERE
+>
+> **Repo:** https://github.com/AshmitThakur23/result-guardian (private, `main`)
+> **NODE B** = the RTX 3050 laptop. **NODE A** = the other machine — **not yet provisioned**.
+>
+> **Next step, agreed with the user:** stand up **NODE A on the other machine first**
+> (`git clone` → `cp .env.example .env` → `docker compose up -d --build` → `curl localhost/api/health`),
+> *then* coordinate the two machines. **Do not run further Phase 0 tasks on NODE B until NODE A is up.**
+>
+> Phase 0 code is **written and pushed but has never been executed**. See the status table
+> in [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md).
+
 ---
 
 ## Phase status
@@ -14,7 +26,7 @@ Status values: `not started` · `in progress` · `blocked` · `exit gate passed`
 | Phase | Node | Status | Exit gate | Notes |
 |---|---|---|---|---|
 | — Knowledge base | — | **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
-| 0 · Foundation | A + B | `not started` | ☐ | 5–7 days. NODE B provisioning (0.3) can be done any time by anyone |
+| 0 · Foundation | A + B | **`in progress`** | ☐ **OPEN** | Code written + pushed, **never executed**. Blocked on NODE A existing. [Status table](docs/build/phase-00-foundation.md) |
 | 1 · Data model + discharge gate ★ | A | `not started` | ☐ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
 | 2 · Durable timers | A | `not started` | ☐ | 1–1.5 wks |
 | 3 · Clinical rule engine | A | `not started` | ☐ | 2–3 wks. **Book clinician time now** |
@@ -51,10 +63,28 @@ Record the decision, the date, and the reasoning. A decision that lives only in 
 
 | # | Decision | Forced by | Status |
 |---|---|---|---|
-| 1 | **OPD in scope or out for v1?** OPD pending results are the same failure mode at higher volume but have no discharge event to hang the gate on. If in scope, the trigger becomes "visit closed". **Changes the encounter model — cannot be deferred past Phase 1.** | Phase 1 scope note | ⬜ **undecided** |
-| 2 | **Who maintains `duty_roster`?** Options: HR/AD sync (Phase 9.4), unit-head weekly entry, or admin upload. A roster nobody updates is worse than no roster — the system will confidently notify someone who left. Must be written into the SOP. | Phase 4.1 | ⬜ **undecided** |
-| 3 | Node IPs / network method for the real deployment (router vs hotspot vs direct ethernet) | Phase 0.4 | ⬜ undecided — docs assume `192.168.1.10` / `192.168.1.50` |
-| 4 | Qwen3 model size: start 8B q4, benchmark 14B/32B against the actual GPU | Phase 8.4 | ⬜ undecided |
+| 1 | **OPD scope** → **OUT for v1, schema stays ready.** `encounters.type` keeps `opd` so no migration is needed later; the gate binds to `ipd\|emergency\|daycare`. No reliable visit-closure trigger exists, and OPD volume would blow the 15% alert-fatigue ceiling before thresholds are tuned. Safe because Phase 7.5 routes caseless results to an orphan queue. | Phase 1 scope note | ✅ **decided 2026-09-11** → [ADR 0003](docs/adr/0003-opd-out-of-scope-v1.md) |
+| 2 | **`duty_roster` owner** → **the unit head, weekly.** HR sync is Phase 9.4 (after MVP) so it cannot be the v1 answer. The unit head is rung 2 of the ladder, so a stale roster escalates to the person maintaining it. Ships with a weekly reminder, a stale badge, and fallthrough to unit head. | Phase 4.1 | ✅ **decided 2026-09-11** → [ADR 0004](docs/adr/0004-duty-roster-ownership.md) |
+| 3 | **Node roles** → this RTX 3050 laptop is **NODE B**; the other machine is **NODE A**. | Phase 0.4 | ✅ **decided 2026-09-11** → [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
+| 4 | **Model** → **`qwen3:4b`**, not 8b. 4 GB VRAM cannot hold 8B q4 (~5–6 GB); it would spill to CPU and trip the 30 s timeout. `RG_LLM_MODEL` is an env var — re-benchmark on the hospital GPU box at Phase 8. | Phase 8.4 | ✅ **decided 2026-09-11** → [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
+| 5 | Real LAN IPs for NODE A / NODE B, and which network method (router vs hotspot vs direct ethernet) | Phase 0.4 | ⬜ **undecided** — fill into [`docs/network-runbook.md`](docs/network-runbook.md) once both machines are on one network |
+
+---
+
+## 🔍 Pre-install scan — 2026-09-11
+
+Per the standing rule in `CLAUDE.md`: check both drives before installing anything. **Nothing needed installing.**
+
+| Tool | Found | Note |
+|---|---|---|
+| Ollama | ✅ `v0.15.2`, `%LOCALAPPDATA%\Programs\Ollama` | not running; configure only |
+| Docker + Compose | ✅ `29.7.2` / `v5.4.0` | daemon stopped |
+| Git / gh CLI | ✅ `2.49.0` / `2.78.0` | `AshmitThakur23` was inactive — switched |
+| Python / Node | ✅ `3.13.7` / `v22.18.0` | API runs 3.11 **in the container** |
+| PostgreSQL | ⚠️ native install present | dev compose uses host port **5433** to avoid the clash |
+| `make` | ❌ absent | `tasks.ps1` mirrors the `Makefile` |
+| GPU | RTX 3050, **4 GB VRAM** | drives decision #4 |
+| Disk | ⚠️ **C: 93% full (17 GB)**, D: 178 GB | Ollama models → `D:\ollama-models`; move Docker disk image to D: too |
 
 ---
 
@@ -71,4 +101,10 @@ Newest first. One line per completed unit of work.
 - Created `CLAUDE.md` — governing rules, mandatory work-logging protocol, locked decisions, doc map.
 - Created `PROGRESS.md` (this file) — phase table, long-lead items, open decisions, session log.
 - Wrote memory base at `~/.claude/projects/d--result-guardian/memory/` (5 memories + index).
-- **Next:** decide Open Decision #1 (OPD scope) before Phase 1; Phase 0.1 repo scaffold is the first code task.
+- Ran the pre-install scan (see table above). **Nothing installed** — everything needed was already present.
+- Decided the two forced decisions (OPD scope, roster owner) → ADRs 0003, 0004. Recorded node roles + model → ADR 0005.
+- `git init` + initial commit; created **private** repo `AshmitThakur23/result-guardian` and pushed. Switched the active `gh` account first — `abhinendra9792` was the default and would have received the repo.
+- Caught a `.gitignore` bug before the first push: the Python `build/` rule was swallowing all of `docs/build/` (13 phase docs). Root-anchored to `/build/`.
+- Wrote the Phase 0 scaffold: compose ×3, custom Postgres image (pgvector + pg_cron + pgmq), API skeleton (config, db, logging, RFC 7807 errors, `/api/health`, `/api/version`, cached non-blocking NODE B probe), worker (pgmq consumer + backoff + DLQ + heartbeat), Alembic, tests, CI, Caddy, both NODE B provisioning scripts, README, network runbook, Makefile + `tasks.ps1`.
+- Ticked Phase 0.4 and 0.6 as genuinely complete. Everything else is **written but unexecuted** and left unticked.
+- **Next:** stand up **NODE A on the other machine**, then verify across both. Per the user: no further Phase 0 execution on NODE B until then.
