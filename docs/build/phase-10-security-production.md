@@ -5,6 +5,24 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 10
+
+> ⚠️ **Do not start this phase until Exit Gate 9 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 10.1 Security | A + B | ⬜ not started |  |
+| 10.2 Privacy / DPDP | A + B | ⬜ not started |  |
+| 10.3 NABH alignment | A + B | ⬜ not started |  |
+| 10.4 Reliability | A + B | ⬜ not started |  |
+| 10.5 Rollout | A + B | ⬜ not started |  |
+| **Exit Gate 10** | A + B | ⬜ **not started** | |
+
+---
+
 ## 10.1 Security
 
 - [ ] TLS everywhere via Caddy; internal service traffic on a **private Docker network only**

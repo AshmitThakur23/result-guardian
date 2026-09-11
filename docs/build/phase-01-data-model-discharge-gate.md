@@ -7,6 +7,28 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 1
+
+> ⚠️ **Do not start this phase until Exit Gate 0 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 1.1 Core schema (Alembic revision 002) | A | ⬜ not started |  |
+| 1.2 Indexes | A | ⬜ not started |  |
+| 1.3 Discharge readiness API | A | ⬜ not started |  |
+| 1.4 Discharge gate UI | A | ⬜ not started |  |
+| 1.5 Supporting screens | A | ⬜ not started |  |
+| 1.6 Test corpus collection ★ calendar-gated | A | 🔴 blocked | permissions take months; start the paperwork NOW |
+| 1.7 Vendor conversations ★ calendar-gated | A | 🔴 blocked | gated by hospital IT / HIS vendor; open the conversation NOW |
+| 1.8 Tests | A | ⬜ not started |  |
+| — OPD scope decision | A | ✅ **decided** | OUT of scope for v1, schema stays ready ([ADR 0003](../adr/0003-opd-out-of-scope-v1.md)) |
+| **Exit Gate 1** | A | ⬜ **not started** | |
+
+---
+
 ## 1.1 Core schema (Alembic revision 002)
 
 - [ ] **`departments`** — id, code, name, unit_head_user_id, active

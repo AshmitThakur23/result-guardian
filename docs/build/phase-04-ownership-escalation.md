@@ -5,6 +5,26 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 4
+
+> ⚠️ **Do not start this phase until Exit Gate 3 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 4.1 Availability model | A | ✅ **decided** | unit head maintains it, weekly ([ADR 0004](../adr/0004-duty-roster-ownership.md)); code ⬜ |
+| 4.2 Owner resolution | A | ⬜ not started |  |
+| 4.3 Notification layer | A | ⬜ not started |  |
+| 4.4 Escalation engine | A | ⬜ not started |  |
+| 4.5 Alert fatigue controls ★ | A | ⬜ not started |  |
+| 4.6 Patient notification | A | ⬜ not started |  |
+| 4.7 Tests | A | ⬜ not started |  |
+| **Exit Gate 4** | A | ⬜ **not started** | |
+
+---
+
 ## 4.1 Availability model
 
 - [ ] **`duty_roster`** — id, user_id, department_id, shift_start, shift_end, role_on_duty (`primary|backup|consultant`)

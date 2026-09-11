@@ -7,6 +7,27 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 3
+
+> ⚠️ **Do not start this phase until Exit Gate 2 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 3.1 Result schema | A | ⬜ not started |  |
+| 3.2 Configuration tables ★ | A | ⬜ not started |  |
+| 3.3 Rule A — Numeric | A | ⬜ not started |  |
+| 3.4 Rule B — Culture / sensitivity ★ | A | ⬜ not started |  |
+| 3.5 Rule C — Narrative | A | ⬜ not started |  |
+| 3.6 Orchestrator | A | ⬜ not started |  |
+| 3.7 Manual entry UI | A | ⬜ not started |  |
+| 3.8 Clinician validation ★ needs a clinician | A | 🔴 blocked | needs clinician time; book it now |
+| **Exit Gate 3** | A | ⬜ **not started** | |
+
+---
+
 ## 3.1 Result schema
 
 - [ ] **`results`** — id, order_id, case_id, report_status (`preliminary|final|amended|corrected`), reported_at, received_at, source (`manual|pdf|hl7|fhir`), source_ref, raw_payload JSONB, superseded_by_result_id

@@ -7,6 +7,24 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 9
+
+> ⚠️ **Do not start this phase until Exit Gate 8 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 9.1 Discovery — on paper | A | 🔴 blocked | needs the vendor conversation from 1.7 |
+| 9.2 HL7 v2 inbound | A | ⬜ not started |  |
+| 9.3 FHIR R4 | A | ⬜ not started |  |
+| 9.4 Master data sync | A | ⬜ not started |  |
+| 9.5 Resilience | A | ⬜ not started |  |
+| **Exit Gate 9** | A | ⬜ **not started** | |
+
+---
+
 ## 9.1 Discovery — do this first, on paper
 
 - [ ] Which HIS/LIS? Which version? Which vendor contact?

@@ -1,8 +1,74 @@
 # Result Guardian — Project Instructions
 
-## What this is
+# 🟢 READ THIS FIRST — PHASE-WISE TRACKING PROTOCOL
 
-An on-premise hospital system that guarantees **no post-discharge investigation result is ever lost**. A doctor physically cannot complete a discharge while a test has no responsible owner and no expected-by date. Pending results are tracked by database timers, classified by a deterministic Python rule engine, and escalated through a five-rung ladder that ends at the patient if nobody acts. It runs on two machines on a private LAN with no internet: **NODE A** (core — Postgres, FastAPI, worker, dashboard, all patient data) and **NODE B** (a stateless GPU box running Qwen 3 via Ollama, used only when a doctor clicks "Explain").
+**This is the most important instruction in this file. The context window resets; these files are the only memory that survives. Work that is not marked is work that gets done twice.**
+
+## The rule
+
+**We build PHASE BY PHASE. Every time any work is done inside a phase, it gets a green tick — immediately — in two places:**
+
+1. **The phase doc** — `docs/build/phase-NN-*.md`
+2. **`PROGRESS.md`** — the session log and the phase status table
+
+**Not at the end of the session. Not "later". The moment the unit of work is finished.**
+
+## Before starting any work
+
+1. Read [`PROGRESS.md`](PROGRESS.md) → the **▶ RESUME HERE** block says exactly where we are.
+2. Open the phase doc for the phase we're in → its **📍 STATUS SUMMARY** table says which sections are done.
+3. Check the previous phase's `## ✅ EXIT GATE` — **never start a phase whose predecessor's gate has unticked boxes.** (The build plan's own rule: *"Do not start a phase until the previous exit gate passes."*)
+
+## After every completed unit of work
+
+| Step | Where | What |
+|---|---|---|
+| 1 | `docs/build/phase-NN-*.md` | Tick the task: `- [ ]` → `- [x]` |
+| 2 | same file, top | Update the **📍 STATUS SUMMARY** row: `⬜` → `🟡` → `✅` |
+| 3 | `PROGRESS.md` | Append a dated line to the **Session log** |
+| 4 | `PROGRESS.md` | Update the phase's row in the status table if it changed |
+
+## The tick legend — use these exact markers
+
+| Marker | Means |
+|---|---|
+| ✅ **done** | Built **and verified**. Actually ran, actually passed. |
+| 🟡 **written, never run** | Code is committed but has not been executed once. **Not done.** |
+| 🔵 **in progress** | Being worked on right now |
+| ⬜ **not started** | — |
+| 🔴 **blocked** | Waiting on something external — say what, in the Note column |
+| 🚫 **out of scope** | Decided against; link the ADR |
+
+## Two hard honesty rules
+
+- **Never tick something because it was typed.** Written ≠ done. If it has not run, it is 🟡, not ✅.
+- **If work was done but not logged, treat it as not done** — go verify it before claiming it.
+
+## When a decision is made
+
+Record it in the **Open decisions** table of `PROGRESS.md` with the date and the reasoning, and write an ADR in `docs/adr/` if it is architectural. *A decision that lives only in chat is a decision that will be re-litigated next session.*
+
+---
+
+## 🖥 Machine roles — DO NOT GET THESE BACKWARDS
+
+| Role | Machine | What runs there |
+|---|---|---|
+| **NODE B — inference** | **This laptop** (NVIDIA RTX 3050, 4 GB VRAM) | **Ollama only.** `qwen3:4b`. Stateless. Never holds patient data. |
+| **NODE A — core** | **The other laptop** | Postgres, FastAPI, worker, Caddy, React dashboard. All patient data, all safety logic. |
+
+- This laptop is **NODE B**. Ollama already installed (`v0.15.2`, `%LOCALAPPDATA%\Programs\Ollama`).
+- 4 GB VRAM → model is **`qwen3:4b`**, not the 8B in the build plan. `RG_LLM_MODEL` is an env var.
+- NODE A code is authored here and pushed; the other laptop pulls and runs it.
+- Repo: **`AshmitThakur23/result-guardian`** (private). `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
+
+## 🔍 Before installing anything — MANDATORY
+
+1. **Check whether it already exists first** — on both `C:` and `D:`.
+2. **Report what was found, then ask once** before installing, downloading or pulling. The user may verify manually and confirm.
+3. **Record the scan in `PROGRESS.md`** so the next session does not repeat it.
+
+`C:` is ~93% full (17 GB free); `D:` has 178 GB. Docker images and Ollama models go on `D:`.
 
 ---
 
@@ -26,60 +92,27 @@ Corollaries that get violated by accident:
 
 ---
 
-## 🖥 Machine roles — DO NOT GET THESE BACKWARDS
-
-| Role | Machine | What runs there |
-|---|---|---|
-| **NODE B — inference** | **This laptop** (the one with the NVIDIA RTX 3050, 4 GB VRAM) | **Ollama only.** `qwen3:4b`. Stateless. Never holds patient data. |
-| **NODE A — core** | **The other laptop** | Postgres, FastAPI, worker, Caddy, React dashboard. All patient data, all safety logic. |
-
-- This laptop is **NODE B**. Ollama is already installed here (`v0.15.2`, `%LOCALAPPDATA%\Programs\Ollama`).
-- The GPU is 4 GB, so the model is **`qwen3:4b`**, not the 8B in the build plan — 8B does not fit. `LLM_MODEL` is an env var; swap it on a real GPU box later.
-- NODE A code is authored here and pushed to GitHub; the other laptop pulls and runs it.
-- Repo: `AshmitThakur23/result-guardian` (private).
-
-## 🔍 Before installing anything — MANDATORY
-
-Standing instruction from the user:
-
-1. **Check whether it already exists first** — on both `C:` and `D:`. (Ollama, Docker, Postgres, Python, Node, git, gh were all already installed; nothing needed installing.)
-2. **Report what was found, then ask once** before installing, downloading or pulling anything. The user may verify manually and confirm.
-3. **Record the scan result in `PROGRESS.md`** so the next session does not repeat it.
-
-Also note: `C:` is ~93% full (17 GB free), `D:` has 178 GB. Large data — Docker images, Ollama models — goes on `D:`.
-
-## 📋 Work-logging protocol — MANDATORY
-
-The context window resets. These files are the only memory that survives.
-
-**Before starting any work:**
-1. Read [`PROGRESS.md`](PROGRESS.md) — it says what is done and what is next.
-2. Read the relevant `docs/build/phase-NN-*.md` — it is the task list.
-3. Never start a phase whose predecessor's `## ✅ EXIT GATE` still has unticked boxes.
-
-**After every completed unit of work — not at end of session, not "later":**
-1. Tick the `- [ ]` → `- [x]` checkbox in the phase doc.
-2. Append a dated line to the **Session log** in `PROGRESS.md`.
-3. Update the phase's row in the `PROGRESS.md` status table if its status changed.
-
-**When a decision is made** (e.g. OPD scope, who maintains the duty roster), record it in the **Open decisions** section of `PROGRESS.md` with the date and the reasoning. A decision that lives only in chat is a decision that will be re-litigated next session.
-
-**If work was done but not logged, treat it as not done** — verify before claiming it.
-
----
-
 ## 🔒 Locked decisions — do not re-litigate
 
-The tech stack is decided in [`docs/build/01-tech-stack-and-repo-layout.md`](docs/build/01-tech-stack-and-repo-layout.md). Do not propose alternatives mid-build. In particular:
+Full stack in [`docs/build/01-tech-stack-and-repo-layout.md`](docs/build/01-tech-stack-and-repo-layout.md). Do not propose alternatives mid-build.
 
 - **One Postgres instance** carries everything: data, vectors (pgvector), queue + timers (pgmq), sweeps (pg_cron), fuzzy text (pg_trgm/unaccent), keyword search (tsvector). **No Redis, no RabbitMQ, no Elasticsearch.**
 - Python 3.11 · FastAPI · Pydantic v2 · SQLAlchemy 2.0 async · Alembic · structlog
 - React 18 + TS · Vite · Tailwind · shadcn/ui · TanStack Query
-- Ollama + Qwen3-Instruct on NODE B only. Embeddings (bge-m3) and reranking stay on NODE A's CPU.
+- Ollama + Qwen3 on NODE B only. Embeddings (bge-m3) and reranking stay on NODE A's CPU.
 
-**Base conventions — costly to change later, so honour them in every migration:**
+**Settled decisions** — see `docs/adr/`:
+| ADR | Decision |
+|---|---|
+| [0001](docs/adr/0001-single-postgres.md) | One Postgres carries everything |
+| [0002](docs/adr/0002-two-node-split.md) | Two nodes; embeddings stay on NODE A |
+| [0003](docs/adr/0003-opd-out-of-scope-v1.md) | **OPD out of scope for v1**, schema stays ready |
+| [0004](docs/adr/0004-duty-roster-ownership.md) | **Unit head maintains `duty_roster`**, weekly |
+| [0005](docs/adr/0005-node-roles-and-model.md) | Node roles + `qwen3:4b` |
 
-- All PKs are **UUIDv7** (time-sortable)
+**Base conventions — costly to change later, honour them in every migration:**
+
+- All PKs are **UUIDv7** (time-sortable) — helpers already in [`api/app/db/types.py`](api/app/db/types.py)
 - All timestamps **`TIMESTAMPTZ`**, stored UTC, displayed IST
 - Soft delete via `deleted_at` — **never hard delete clinical rows**
 - Every table gets `created_at`, `updated_at`, `created_by`, `updated_by`
@@ -95,11 +128,12 @@ The tech stack is decided in [`docs/build/01-tech-stack-and-repo-layout.md`](doc
 
 | Question | File |
 |---|---|
-| What's done / what's next | [`PROGRESS.md`](PROGRESS.md) |
+| **Where are we? What's next?** | [`PROGRESS.md`](PROGRESS.md) |
 | Full doc index | [`docs/README.md`](docs/README.md) |
-| Two-node topology, LAN setup, env vars | [`docs/architecture/00-two-node-topology.md`](docs/architecture/00-two-node-topology.md) |
-| What happens at runtime, step by step | `docs/architecture/01`–`05` |
 | What to build, phase by phase | `docs/build/phase-00` … `phase-10` |
+| What happens at runtime | `docs/architecture/00`–`05` |
+| Two-node topology, LAN, env vars | [`docs/architecture/00-two-node-topology.md`](docs/architecture/00-two-node-topology.md) |
+| Connecting the machines | [`docs/network-runbook.md`](docs/network-runbook.md) |
 | Locked stack + repo layout | [`docs/build/01-tech-stack-and-repo-layout.md`](docs/build/01-tech-stack-and-repo-layout.md) |
 | Degradation ladder | [`docs/build/99-gaps-timeline-degradation.md`](docs/build/99-gaps-timeline-degradation.md) |
 
@@ -107,6 +141,12 @@ The two root PDFs are **archive**. Everything in them is in `docs/`. Don't re-ex
 
 ---
 
-## Current state
+## 📌 Current state
 
-**Knowledge base complete. No code written yet.** Phase 0 has not started. See [`PROGRESS.md`](PROGRESS.md).
+**Phase 0 — 🔵 in progress.** Scaffold written and pushed; **never executed**. Exit Gate 0 is 🔴 **OPEN** — it cannot close until NODE A exists.
+
+**Next:** stand up NODE A on the other laptop, then Phase 1.
+
+⚠️ If Phase 1 work starts before Exit Gate 0 closes, say so plainly and record it in `PROGRESS.md` — writing Phase 1 schema on an unverified foundation is a knowing exception to the build plan's own ordering rule, not an oversight.
+
+Live detail: [`PROGRESS.md`](PROGRESS.md).

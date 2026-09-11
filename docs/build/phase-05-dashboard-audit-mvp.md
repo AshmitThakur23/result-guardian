@@ -5,6 +5,26 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 5
+
+> ⚠️ **Do not start this phase until Exit Gate 4 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 5.1 Auth & authorisation | A | ⬜ not started |  |
+| 5.2 Doctor dashboard | A | ⬜ not started |  |
+| 5.3 Acknowledgement & closure | A | ⬜ not started |  |
+| 5.4 Unit head & admin views | A | ⬜ not started |  |
+| 5.5 Hash-chained audit log ★ | A | ⬜ not started |  |
+| 5.6 Reports & metrics | A | ⬜ not started |  |
+| 5.7 Hardening for pilot | A | ⬜ not started |  |
+| **Exit Gate 5** | A | ⬜ **not started** | |
+
+---
+
 ## 5.1 Auth & authorisation
 
 - [ ] Login with `employee_code` + password (**Argon2id**)

@@ -5,6 +5,24 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 2
+
+> ⚠️ **Do not start this phase until Exit Gate 1 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 2.1 Timer model | A | ⬜ not started |  |
+| 2.2 Timer lifecycle | A | ⬜ not started |  |
+| 2.3 Missing-result path / lab flags ★ | A | ⬜ not started |  |
+| 2.4 Result intake (manual) | A | ⬜ not started |  |
+| 2.5 Tests | A | ⬜ not started |  |
+| **Exit Gate 2** | A | ⬜ **not started** | |
+
+---
+
 ## 2.1 Timer model
 
 - [ ] **`sla_timers`** — id, case_id, timer_type, fire_at, status (`pending|fired|cancelled|superseded`), pgmq_msg_id, attempts, fired_at, idempotency_key (unique)

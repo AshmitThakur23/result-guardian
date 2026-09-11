@@ -7,6 +7,26 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 8
+
+> ⚠️ **Do not start this phase until Exit Gate 7 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 8.1 Knowledge base ingestion | A + B | ⬜ not started |  |
+| 8.2 Indexes | A + B | ⬜ not started |  |
+| 8.3 Retrieval | A + B | ⬜ not started |  |
+| 8.4 Generation — NODE B ★ | A + B | ⬜ not started |  |
+| 8.5 Span verifier ★ | A + B | ⬜ not started |  |
+| 8.6 UI | A + B | ⬜ not started |  |
+| 8.7 Evaluation | A + B | 🔴 blocked | needs clinician time |
+| **Exit Gate 8** | A + B | ⬜ **not started** | |
+
+---
+
 ## 8.1 Knowledge base ingestion — NODE A
 
 - [ ] **`kb_documents`** — id, title, publisher (WHO/ICMR/hospital), doc_type, version, effective_from, effective_to, source_url_or_path, sha256, approved_by, approved_at

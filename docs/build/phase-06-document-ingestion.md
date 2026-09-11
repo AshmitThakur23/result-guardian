@@ -7,6 +7,25 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 6
+
+> ⚠️ **Do not start this phase until Exit Gate 5 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 6.1 Intake channels | A | ⬜ not started |  |
+| 6.2 Type detection | A | ⬜ not started |  |
+| 6.3 Native text path | A | ⬜ not started |  |
+| 6.4 Scanned path | A | ⬜ not started |  |
+| 6.5 Pipeline mechanics | A | ⬜ not started |  |
+| 6.6 Test corpus ★ blocks this phase | A | 🔴 blocked | needs the Phase 1.6 corpus |
+| **Exit Gate 6** | A | ⬜ **not started** | |
+
+---
+
 ## 6.1 Intake channels
 
 - [ ] `POST /api/reports/upload` — multipart, **max 25 MB**, MIME sniffing (**do not trust the extension**)

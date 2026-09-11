@@ -5,6 +5,26 @@
 
 ---
 
+## 📍 STATUS SUMMARY — Phase 7
+
+> ⚠️ **Do not start this phase until Exit Gate 6 passes.**
+
+**Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
+> Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
+
+| § | Node | State | Note |
+|---|---|---|---|
+| 7.1 Report classification | A (+B fallback) | ⬜ not started |  |
+| 7.2 Templates before LLM ★ | A (+B fallback) | ⬜ not started |  |
+| 7.3 Field extraction | A (+B fallback) | ⬜ not started |  |
+| 7.4 Normalisation | A (+B fallback) | ⬜ not started |  |
+| 7.5 Matching — NO AI ★ | A (+B fallback) | ⬜ not started |  |
+| 7.6 Status handling | A (+B fallback) | ⬜ not started |  |
+| 7.7 Evaluation | A (+B fallback) | ⬜ not started |  |
+| **Exit Gate 7** | A (+B fallback) | ⬜ **not started** | |
+
+---
+
 ## 7.1 Report classification
 
 - [ ] **Rules first:** header keywords, lab name, section titles, presence of a sensitivity grid

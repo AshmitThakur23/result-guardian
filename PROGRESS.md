@@ -21,22 +21,34 @@
 
 ## Phase status
 
-Status values: `not started` · `in progress` · `blocked` · `exit gate passed`
+**Legend — same markers everywhere (here and in every phase doc):**
+
+| Marker | Means |
+|---|---|
+| ✅ **done** | Built **and verified**. Actually ran, actually passed. |
+| 🟡 **written, never run** | Committed but never executed. **Not done.** |
+| 🔵 **in progress** | Being worked on now |
+| ⬜ **not started** | — |
+| 🔴 **blocked** | Waiting on something external |
+| 🚫 **out of scope** | Decided against; ADR linked |
+
+> **Every phase doc has its own 📍 STATUS SUMMARY table at the top** showing which sections are done.
+> Tick as you go — see the protocol at the top of [`CLAUDE.md`](CLAUDE.md). **Written is not done.**
 
 | Phase | Node | Status | Exit gate | Notes |
 |---|---|---|---|---|
-| — Knowledge base | — | **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
-| 0 · Foundation | A + B | **`in progress`** | ☐ **OPEN** | Code written + pushed, **never executed**. Blocked on NODE A existing. [Status table](docs/build/phase-00-foundation.md) |
-| 1 · Data model + discharge gate ★ | A | `not started` | ☐ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
-| 2 · Durable timers | A | `not started` | ☐ | 1–1.5 wks |
-| 3 · Clinical rule engine | A | `not started` | ☐ | 2–3 wks. **Book clinician time now** |
-| 4 · Ownership + escalation ★ | A | `not started` | ☐ | 2–3 wks. Alert fatigue controls ship in the same sprint |
-| 5 · Dashboard, closure, audit | A | `not started` | ☐ | 2–3 wks → 🏁 **MVP, pilot ready** |
-| 6 · Document ingestion | A | `not started` | ☐ | 2 wks. ⛔ blocked by 1.6 corpus |
-| 7 · Extraction + matching | A (+B fallback) | `not started` | ☐ | 3 wks |
-| 8 · RAG explanation | A + B | `not started` | ☐ | 3 wks. First phase that uses NODE B |
-| 9 · Hospital integration | A | `not started` | ☐ | 3–5 wks. ⛔ gated by hospital IT / HIS vendor |
-| 10 · Security + production | A + B | `not started` | ☐ | 3 wks + external test turnaround |
+| — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
+| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | Code written + pushed, **never executed**. Blocked on NODE A existing. [Status table](docs/build/phase-00-foundation.md) |
+| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ⬜ not started | ⬜ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
+| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
+| [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
+| [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
+| [5 · Dashboard, closure, audit](docs/build/phase-05-dashboard-audit-mvp.md) | A | ⬜ not started | ⬜ | 2–3 wks → 🏁 **MVP, pilot ready** |
+| [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🔴 blocked | ⬜ | 2 wks. ⛔ blocked by 1.6 corpus |
+| [7 · Extraction + matching](docs/build/phase-07-extraction-matching.md) | A (+B) | ⬜ not started | ⬜ | 3 wks |
+| [8 · RAG explanation](docs/build/phase-08-rag-explanation.md) | A + B | ⬜ not started | ⬜ | 3 wks. First phase that uses NODE B |
+| [9 · Hospital integration](docs/build/phase-09-hospital-integration.md) | A | 🔴 blocked | ⬜ | 3–5 wks. ⛔ gated by hospital IT / HIS vendor |
+| [10 · Security + production](docs/build/phase-10-security-production.md) | A + B | ⬜ not started | ⬜ | 3 wks + external test turnaround |
 
 **Timeline reference:** MVP at 11 weeks (team of 3) / 21 weeks (solo). Production at 25 / 46 weeks.
 
@@ -107,4 +119,5 @@ Newest first. One line per completed unit of work.
 - Caught a `.gitignore` bug before the first push: the Python `build/` rule was swallowing all of `docs/build/` (13 phase docs). Root-anchored to `/build/`.
 - Wrote the Phase 0 scaffold: compose ×3, custom Postgres image (pgvector + pg_cron + pgmq), API skeleton (config, db, logging, RFC 7807 errors, `/api/health`, `/api/version`, cached non-blocking NODE B probe), worker (pgmq consumer + backoff + DLQ + heartbeat), Alembic, tests, CI, Caddy, both NODE B provisioning scripts, README, network runbook, Makefile + `tasks.ps1`.
 - Ticked Phase 0.4 and 0.6 as genuinely complete. Everything else is **written but unexecuted** and left unticked.
+- **Phase-wise tracking protocol installed** (user request): moved it to the **top** of `CLAUDE.md` as the first thing read every session. Added a 📍 **STATUS SUMMARY** table to **all 11 phase docs** with a shared marker legend (✅ / 🟡 / 🔵 / ⬜ / 🔴 / 🚫), linked every phase row here to its own doc, and wrote in the two honesty rules: *written ≠ done*, and *unlogged work counts as not done*.
 - **Next:** stand up **NODE A on the other machine**, then verify across both. Per the user: no further Phase 0 execution on NODE B until then.
