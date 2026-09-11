@@ -7,29 +7,29 @@
 
 ## 📍 STATUS SUMMARY — updated 2026-09-11
 
-**Machines:** **NODE A = the development laptop (this one)** — Docker present, stack never run. **NODE B = Ashmit's machine**, **not yet provisioned**, GPU unknown. See [`../adr/0006-node-roles-corrected.md`](../adr/0006-node-roles-corrected.md) — [ADR 0005](../adr/0005-node-roles-and-model.md) had these backwards and is superseded.
+**Machines:** **NODE A = Abhinendra's laptop** — Docker present, stack never run. **NODE B = Ashmit's machine** (`LAPTOP-5JCGN9SJ`) — **not yet provisioned**. Its GPU is an **RTX 3050, 4 GB VRAM**, verified with `nvidia-smi`. See [`../adr/0006-node-roles-corrected.md`](../adr/0006-node-roles-corrected.md) — [ADR 0005](../adr/0005-node-roles-and-model.md) had these backwards and is superseded.
 
 | § | Runs on | State | Note |
 |---|---|---|---|
 | 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
-| 0.2 Containers — NODE A | A | 🟡 **written, never run** | **NODE A is this machine and Docker is present** — this is runnable now. Defects D2/D3/D7 repaired 2026-09-11, still unrun |
-| 0.3 NODE B provisioning | **B** | 🔴 **blocked** | Must run on **Ashmit's machine**, which is not in hand. Ollama on this laptop is NODE A's and does not count |
+| 0.2 Containers — NODE A | A | 🟡 **written, never run** | **Docker is present on NODE A** — this is runnable there now. Defects D2/D3/D7 repaired 2026-09-11, still unrun |
+| 0.3 NODE B provisioning | **B** | 🔴 **blocked** | Must run on **Ashmit's machine**, which is not in hand. Ollama v0.15.2 is already installed on Ashmit's machine, so provisioning only has to *run*, not install |
 | 0.4 Network runbook | — | ✅ **done** | Real IPs still to be filled in |
 | 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
 | 0.7 Worker skeleton | A | 🟡 **partly verified** | Retry/backoff/DLQ and heartbeat now covered by tests (were **0%**). Handlers stay stubs until Phase 2. Never run against real pgmq |
-| 0.8 CI | — | 🟡 **gates pass locally, workflow never run** | **All five gates verified on this machine:** ruff ✅ black ✅ mypy ✅ pytest ✅ coverage 79% ✅. **Could not pass at all before D1.** The Actions workflow itself is still unrun |
+| 0.8 CI | — | 🟡 **gates pass locally, workflow never run** | **All five gates verified on NODE A:** ruff ✅ black ✅ mypy ✅ pytest ✅ coverage 79% ✅. **Could not pass at all before D1.** The Actions workflow itself is still unrun |
 | **Exit Gate 0** | A + B | 🔴 **OPEN** | Cannot close until NODE A exists |
 
 **🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**
 
-**Next step (agreed with the user):** set up **NODE A on the other machine first**, then verify across both. No further Phase 0 execution until then.
+**Next step:** NODE A is in hand with Docker present, so 0.2/0.5/0.7 are runnable there now. **0.3 still needs `infra/nodeb/setup-windows.ps1` run on Ashmit's machine (NODE B).** Exit Gate 0's cross-node clause needs both on one LAN — open decision #5.
 
 ### 🐞 Defects found by inspection on 2026-09-11 — fixed, all still unrun
 
 A full read of the scaffold before NODE A pulls it. All eight were in code that had never executed, which is why they survived.
 
-**Since the roles were corrected, this machine is NODE A — so three of the eight are now genuinely verified, by running them.** The rest need Docker and stay 🟡. The ✅/🟡 in the last column is the honest split.
+**Three of the eight were verified on NODE A by actually running them.** The rest need Docker and stay 🟡. The ✅/🟡 in the last column is the honest split.
 
 | # | Where | Defect | Fix | Verified? |
 |---|---|---|---|---|
@@ -67,7 +67,7 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 2. **NODE B is Windows, not Ubuntu.** Both `infra/nodeb/setup.sh` and `setup-windows.ps1` ship; env vars are identical.
 3. **`qwen3:4b`, not `8b`.** 4 GB VRAM. `LLM_MODEL` is an env var.
 4. **Worker lives at `api/worker/`,** not root `worker/`. The plan says "same image, different entrypoint", which requires it inside the API build context.
-5. **Dev Postgres on host port 5433.** A native PostgreSQL install already holds 5432 on this machine.
+5. **Dev Postgres on host port 5433.** A native PostgreSQL install already holds 5432 on Ashmit's machine (NODE B); keep the mapping so either machine can run the dev stack.
 6. **`cron.database_name` set from compose, not baked into the image** (defect D3). An exec-form `CMD` cannot expand a variable, so the image default and `POSTGRES_DB` could diverge silently. `docker-compose.yml` now passes it via `command:`, and `init/01-extensions.sql` refuses to boot on a mismatch.
 7. **`worker_health` lives in the Alembic baseline, not in `init/02-queues.sql`** (defect D5). The plan puts queue creation in an init script; that is right for queues, wrong for an application table, because init scripts only run against an empty data directory. Extensions and pgmq queues stay in init — they must exist before Alembic connects.
 
