@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 1.1 Core schema (Alembic revisions 002 + 003) | A | ✅ **done — all 11 tables** | `0002_core_schema` (departments, users, patients, encounters, orders, discharge_contracts) + `0003_core_schema_remaining` (discharge_contract_revisions, pending_cases, case_events, discharge_medications, discharge_overrides). Applied and round-tripped on NODE A; `case_events` append-only **enforced by trigger** and proven to reject UPDATE and DELETE; autogenerate drift = 0 |
 | 1.2 Indexes | A | ✅ **done** | `0004_phase_1_2_indexes`. All 6 verified against PostgreSQL's catalogue, not just metadata: 2 composites, 2 partials, 1 GIN `gin_trgm_ops`, and `case_events(case_id, occurred_at)` reused from 0003 rather than duplicated. Two plain indexes replaced by their partial forms |
-| 1.3 Discharge readiness API | A | 🔵 **3 of 4 endpoints** | ✅ readiness GET · ✅ POST discharge-contracts · ✅ **POST discharge** (server-side recheck under `FOR UPDATE`, five writes in one transaction incl. the pgmq enqueue). ⬜ **remaining: POST discharge-overrides** |
+| 1.3 Discharge readiness API | A | ✅ **done — all 4 endpoints** | readiness GET · POST discharge-contracts · POST discharge · POST discharge-overrides. Server-side rechecks under `FOR UPDATE`, one transaction each, all verified live through Caddy |
 | 1.4 Discharge gate UI | A | ⬜ not started |  |
 | 1.5 Supporting screens | A | ⬜ not started |  |
 | 1.6 Test corpus collection ★ calendar-gated | A | 🔴 **opened 2026-09-12** | 0 of 200+ collected. Manifest + blocker list in [`../test-corpus-manifest.md`](../test-corpus-manifest.md). **All 5 blockers need human action** |
@@ -77,7 +77,7 @@
   - re-runs readiness check server-side (**never trust the client**)
   - returns **409** with the blocking list if unsatisfied
   - inside one transaction: set `encounters.discharged_at`, status `discharged`, create `pending_cases`, enqueue SLA timers, write `case_events`
-- [ ] `POST /api/encounters/{id}/discharge-overrides` — emergency path
+- [x] `POST /api/encounters/{id}/discharge-overrides` — emergency path
   - requires `reason_code` from a fixed list: `patient_lama`, `transfer_out`, `deceased`, `system_outage`, `clinical_urgency`
   - requires free-text reason ≥ 20 chars
   - still creates a `pending_case`, flagged to unit head immediately

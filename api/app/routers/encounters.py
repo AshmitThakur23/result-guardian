@@ -16,6 +16,8 @@ from app.db.session import get_session
 from app.schemas.discharge import (
     DischargeContractsCreate,
     DischargeContractsCreated,
+    DischargeOverrideRequest,
+    DischargeOverrideResult,
     DischargeReadiness,
     DischargeResult,
 )
@@ -28,6 +30,11 @@ from app.services.discharge_contracts import (
     ContractConflictError,
     ContractValidationError,
     create_discharge_contracts,
+)
+from app.services.discharge_override import (
+    NothingToOverrideError,
+    NoUnitHeadError,
+    override_discharge,
 )
 from app.services.discharge_readiness import (
     EncounterNotFoundError,
@@ -162,4 +169,44 @@ async def discharge(
                 "title": "Discharge blocked by outstanding investigations",
                 "blocking_orders": exc.blocking,
             },
+        ) from exc
+
+
+@router.post(
+    "/{encounter_id}/discharge-overrides",
+    response_model=DischargeOverrideResult,
+    status_code=status.HTTP_201_CREATED,
+    summary="Discharge despite the gate — on the record, emergency path",
+)
+async def discharge_override(
+    encounter_id: uuid.UUID,
+    payload: DischargeOverrideRequest,
+    session: AsyncSession = Depends(get_session),
+) -> DischargeOverrideResult:
+    """Bypass the gate, recording why, without dropping anything from tracking.
+
+    Every bypassed investigation still gets a pending case, flagged
+    immediately and owned by the unit head. Contracted investigations on the
+    same encounter keep their own owner and SLA timer.
+
+    * **201** discharged; returns the override records and the cases opened
+    * **404** encounter not found
+    * **409** already discharged, not a gated type, the department has no unit
+      head to flag to, or nothing is actually blocked
+    * **422** bad reason_code, or reason_text under 20 characters
+    """
+    try:
+        return await override_discharge(session, encounter_id, payload)
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
+        ) from exc
+    except (
+        EncounterNotDischargeableError,
+        NoUnitHeadError,
+        NothingToOverrideError,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
         ) from exc

@@ -10,8 +10,9 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 
 class BlockingOrder(BaseModel):
@@ -146,3 +147,76 @@ class DischargeResult(BaseModel):
     status: str
     discharged_at: dt.datetime
     opened_cases: list[OpenedCase]
+
+
+# Build plan 1.3, the emergency path. Every value is a reason a discharge may
+# legitimately bypass the gate; anything else is a bug.
+OVERRIDE_REASON_CODES = (
+    "patient_lama",
+    "transfer_out",
+    "deceased",
+    "system_outage",
+    "clinical_urgency",
+)
+MIN_OVERRIDE_REASON_CHARS = 20
+
+
+class DischargeOverrideRequest(BaseModel):
+    """Bypass the gate, on the record.
+
+    ``overridden_by`` is supplied by the caller because authentication lands
+    in Phase 5.1. Once it exists this comes from the session instead -- until
+    then an override is only as trustworthy as the client, which is one more
+    reason the row is immutable and audited.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason_code: Literal[
+        "patient_lama", "transfer_out", "deceased", "system_outage", "clinical_urgency"
+    ]
+    reason_text: str = Field(min_length=MIN_OVERRIDE_REASON_CHARS, max_length=4000)
+    overridden_by: uuid.UUID
+    # No approval workflow: the plan does not require one, and the column is
+    # nullable. Recorded when a counter-signature happens to exist.
+    approved_by: uuid.UUID | None = None
+
+    @field_validator("reason_text")
+    @classmethod
+    def _meaningful_after_trimming(cls, value: str) -> str:
+        # Mirrors the database CHECK, which trims first. Twenty spaces is not
+        # an audit trail, and min_length alone would let it through.
+        if len(value.strip()) < MIN_OVERRIDE_REASON_CHARS:
+            raise ValueError(
+                f"reason_text must be at least {MIN_OVERRIDE_REASON_CHARS} "
+                "characters after trimming whitespace"
+            )
+        return value
+
+
+class CreatedOverride(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    override_id: uuid.UUID
+    order_id: uuid.UUID
+    case_id: uuid.UUID
+    flagged_owner_id: uuid.UUID = Field(
+        description="The unit head the case was flagged to."
+    )
+
+
+class DischargeOverrideResult(BaseModel):
+    encounter_id: uuid.UUID
+    status: str
+    discharged_at: dt.datetime
+    reason_code: str
+    unit_head_id: uuid.UUID
+    overridden: list[CreatedOverride]
+    opened_cases: list[OpenedCase] = Field(
+        default_factory=list,
+        description=(
+            "Contracted investigations on the same encounter. They keep their "
+            "contracted owner and SLA timer -- an override covers only the "
+            "orders that had no contract."
+        ),
+    )

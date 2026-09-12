@@ -37,9 +37,9 @@
 > and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
 > database trigger and proven to reject both UPDATE and DELETE.
 > **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
-> **🔵 Phase 1.3 in progress — 3 of 4 endpoints.** Readiness GET, contract creation
-> and the discharge action are done. **The Exit Gate 1 demo flow now runs end to end.**
-> **Next: `POST /api/encounters/{id}/discharge-overrides`** (the emergency path).
+> **✅ Phase 1.3 COMPLETE — all 4 endpoints.** Readiness GET, contract creation,
+> the discharge action and the emergency override. **The Exit Gate 1 demo flow runs
+> end to end.** **Next: 1.4 Discharge gate UI** (React, first frontend work).
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -304,3 +304,13 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
 - 🔶 **Phase boundary, stated explicitly.** 1.3 enqueues the `result_due` wake-up on `pgmq` at `contract.expected_by`, using pgmq's own delay so nothing consumes it early — that is precisely what Phase 2.1 says to *"create on discharge"*. **Deferred to Phase 2:** the `sla_timers` table that carries the truth, the pg_cron overdue sweep, idempotent firing, cancellation/supersession, the missing-result lab flow, and the restart/chaos guarantees.
   - ⚠️ **Known residual race, for Phase 1.5.** The encounter lock serialises discharges and the order rows are locked, but an *entirely new* order inserted between the readiness check and the commit is not covered by row locks. Order creation must take the same encounter lock, or refuse to add orders to a non-active encounter. Not reachable today — manual order creation does not exist yet.
 - Tests: **182 passing** (25 unit + 157 integration), coverage **87.44%**, drift 0. Dev database verified empty after every run. Note the cleanup in the committing tests must bypass the append-only trigger via session-scoped `session_replication_role` — `ALTER TABLE ... DISABLE TRIGGER` would persist if a test crashed.
+
+- ✅ **PHASE 1.3 COMPLETE — fourth endpoint, `POST /api/encounters/{id}/discharge-overrides`.** The emergency path, and deliberately **not** an invisible bypass: every overridden investigation still gets a pending case, **flagged immediately**, **owned by the unit head**, with `flagged_at` set so the Phase 4 escalation clock starts.
+  - **The schema answered two design questions rather than me inventing them.** `discharge_overrides.order_id` is NOT NULL → **one override row per uncontracted order**, not one per encounter. `approved_by` is nullable and the plan names no approval step → **no approval workflow**.
+  - **Contracted orders on the same encounter are untouched** — they keep their own owner and their `result_due` timer. An override covers only what was bypassed; an investigation somebody already accepted must not lose its deadline because a different one was overridden.
+  - **Refused when the department has no unit head** (409). *"Flagged to unit head immediately"* cannot be honoured without one, and an unowned flagged case is exactly the silent failure this product exists to prevent. ⚠️ **Operational consequence: a department must have `unit_head_user_id` set before its gate can be overridden.** Consistent with ADR 0004 making the unit head load-bearing.
+  - **Refused when nothing is actually blocked** (409, "use POST /discharge"). Keeps the Phase 5.4 overrides report meaningful — every row in it is a real bypass.
+  - Distinct event type `case_opened_via_override` carrying reason_code, reason_text, who overrode and which unit head it went to, so Phase 5 can tell a bypassed gate from a normal one at a glance.
+  - Same locking and idempotency discipline as the discharge action: encounter `FOR UPDATE` first, repeat request → 409, rollback proven to leave the encounter active with zero overrides and zero cases.
+- 🔶 **Deferred, and stated plainly: no notification is dispatched.** The plan says *"flagged to unit head immediately"*; 1.3 delivers that as **state** (case flagged + owned by the unit head), which is what the Phase 5 dashboard reads. Actual dispatch is Phase 4.3. I deliberately did **not** enqueue to the `notifications` queue — its consumer is still `_todo_handler`, a stub that logs and **deletes**, so a message posted now would be destroyed. Enqueueing would have been worse than not.
+- Tests: **207 passing** (25 unit + 182 integration), coverage **87.50%**, drift 0. Live through Caddy: blocked 409 → short reason 422 → bad code 422 → override 201 → repeat 409, with the case flagged to the unit head. Dev database verified empty afterwards.
