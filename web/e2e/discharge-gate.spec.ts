@@ -25,6 +25,8 @@ interface Seed {
   mrn: string;
   orderA: string;
   orderB: string;
+  /** Already resulted (`final`). Must never block. */
+  orderC: string;
 }
 
 function seed(): Seed {
@@ -54,8 +56,11 @@ test.describe("the gate blocks", () => {
     await page.goto(gateUrl(data.encounterId));
 
     await expect(page.getByRole("heading", { name: data.patientName })).toBeVisible();
-    await expect(page.getByText("Urine Culture")).toBeVisible();
-    await expect(page.getByText("HbA1c")).toBeVisible();
+    // `exact` matters here: the row shows the test name *and* its code, and
+    // Playwright's default text match is case-insensitive and substring, so a
+    // loose "HbA1c" also matches the code "HBA1C" and trips strict mode.
+    await expect(page.getByText("Urine Culture", { exact: true })).toBeVisible();
+    await expect(page.getByText("HbA1c", { exact: true })).toBeVisible();
     await expect(
       page.getByText("2 investigations have no one responsible for their results"),
     ).toBeVisible();
@@ -145,11 +150,28 @@ test.describe("the gate lets a prepared discharge through", () => {
     await page.keyboard.press("Enter");
     await expect(page.getByRole("region", { name: /Step 2/ })).toBeVisible();
 
-    // Reassign the first row to a different doctor with arrows and Enter only.
-    const firstDoctor = page.getByRole("combobox").first();
+    // Reassign **Urine Culture's** row with arrows and Enter only.
+    //
+    // Targeted by order id, not by position: readiness sorts blocking orders
+    // by `ordered_at`, so HbA1c (ordered 30h ago) is legitimately the first
+    // row and Urine Culture (6h ago) the second. Assuming "first combobox"
+    // meant orderA reassigned the wrong row and then asserted against the one
+    // it had not touched.
+    const firstDoctor = page.locator(`#row-${data.orderA}`).getByRole("combobox");
     await firstDoctor.focus();
-    await page.keyboard.type("Ravi");
-    await expect(page.getByRole("option", { name: new RegExp(data.otherName) })).toBeVisible();
+    // The seeded name carries a per-run tag. Typing the whole thing leaves the
+    // listbox with exactly one option, so ArrowDown+Enter is deterministic --
+    // typing just "Ravi" matched every other run's doctor too, and picked one
+    // of theirs.
+    await page.keyboard.type(data.otherName);
+    // Wait for the search to settle to a single match before pressing a key.
+    // The field keeps the previous page of results on screen while the next
+    // query is in flight, so acting the instant the wanted option appears can
+    // land on a row from the list that is about to be replaced -- which is how
+    // this test first picked a doctor from the dev seed instead of this run's.
+    // A human types, waits for the list to stop moving, then chooses.
+    await expect(page.getByRole("option")).toHaveCount(1);
+    await expect(page.getByRole("option", { name: data.otherName })).toBeVisible();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(firstDoctor).toHaveValue(data.otherName);
@@ -282,7 +304,10 @@ test.describe("the override path", () => {
 test.describe("degradation", () => {
   test("a missing encounter is reported, not guessed at", async ({ page }) => {
     await page.goto("/encounters/01900000-0000-7000-8000-000000000000/discharge");
-    await expect(page.getByText("Encounter not found")).toBeVisible();
+    // The API's title carries the id it could not find
+    // ("Encounter <uuid> not found"), so match the shape, not a fixture's
+    // shorter wording.
+    await expect(page.getByText(/Encounter .* not found/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Confirm discharge" })).toHaveCount(0);
   });
 

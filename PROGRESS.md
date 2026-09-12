@@ -61,9 +61,19 @@
 > can never slip past a concurrent discharge. Proven, not assumed: with the lock
 > temporarily removed the race test failed **6 of 6 runs** with the unsafe outcome
 > `['discharged', 'order_created']`; with it restored, 6 of 6 pass.
-> ⚠️ **Phase 1 is NOT complete:** 1.8's Playwright E2E is still 🟡 (never run),
-> 1.6/1.7 are 🔴 calendar-gated, and **Exit Gate 1 stays ⬜**.
-> **Next: the final Phase 1 verification pass**, including running the E2E suite.
+> **✅ Phase 1.8 COMPLETE and 🏁 EXIT GATE 1 PASSED (2026-09-12).** Chromium
+> installed; **22 Playwright tests pass** against the real stack, asserting out of
+> Postgres rather than off the screen. All three Exit Gate 1 clauses verified in a
+> real browser, with NODE B unreachable throughout.
+> The browser run earned its keep: it found **one real product defect** jsdom had
+> missed — a restored draft whose responsible doctor was outside the first page of
+> search results rendered an **empty** field that the gate nonetheless accepted.
+> Fixed, with three regression tests.
+> ⚠️ **1.6 (corpus) and 1.7 (vendor) remain 🔴 open human/calendar items.** They are
+> not Exit Gate 1 clauses: 1.6 gates **Phase 6**, 1.7 gates **Phase 9**. Neither
+> blocks Phase 2.
+> **Next: Phase 2.1 — the timer model** (`sla_timers` table; the queue carries the
+> wake-up, the table carries the truth; pg_cron sweep every 5 minutes).
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -91,7 +101,7 @@
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
-| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | 🔵 **in progress — 1.1–1.5 done** | ⬜ | 2–3 wks. **This is the product.** All code sections ✅. Remaining: 1.8 E2E 🟡 (never run), 1.6 corpus + 1.7 vendor 🔴 calendar-gated |
+| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
@@ -215,6 +225,17 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-12 — Phase 1.8 E2E, and Exit Gate 1
+
+- **Installed Chromium only** (`npx playwright install chromium`, build 1243, 114 MB) and ran the suite that had been sitting 🟡 since Phase 1.4. First run: **7 passed, 3 failed**, plus one flaky — the honest result of code that had never been executed in a browser.
+- 🐞 **One real product defect, found only because a browser ran it.** A draft restoring a responsible doctor who was *not in the first page of `/api/users?role=doctor&limit=20`* rendered the field **completely empty**, placeholder and all — while the form still held the id and the gate still accepted it. A field that reads as unassigned and behaves as assigned. Root cause: `DoctorSelect` was handed a name only when the selection happened to be the attending doctor; every other doctor depended on being inside the current search page. Fixed by letting the page resolve any id it already knows (picked doctors + directory), plus a fallback label so a selection can never render as empty. **Three regression tests**, reproduced in jsdom first.
+- 🐞 **Five E2E defects, all in the tests, none in the product:** an ambiguous `getByText("HbA1c")` that also matched the code `HBA1C`; a keyboard test typing a bare first name that matched doctors left behind by *previous runs*; the same test then racing the async search and pressing Enter against a list that was about to be replaced; a row targeted by position when readiness legitimately sorts by `ordered_at`; and an append-only check reading psql **stdout** when `RAISE NOTICE` goes to **stderr** — the same trap this project was caught by during the Phase 1 audit.
+- **Made the suite repeatable.** It had left every run's rows behind — eighteen "Ravi Kulkarni" doctors had accumulated, which is what made the keyboard test ambiguous. Added `cleanupE2EData()` plus Playwright `globalSetup`/`globalTeardown`, so the suite cleans on the way in *and* out. Uses the connection-scoped `session_replication_role` the Python tests already use — never `DISABLE TRIGGER`, which would survive a crash.
+- **Grew the suite from 10 to 22 tests** to cover the journey the Phase 1.5 screens made possible and the invariants only a real stack can threaten: patient search → encounter → gate; a manual order changing the gate's answer live; case owner, `case_events` and `pgmq.q_sla_timers` all asserted in the database; a **stale page** unable to talk the server into a discharge; a **replayed** discharge refused without opening a second set of cases; a **concurrent** order-vs-discharge over real HTTP; and the append-only trigger refusing to be rewritten.
+- **🏁 EXIT GATE 1 PASSED.** All three clauses verified as one uninterrupted browser journey, using the build plan's own wording. The seeder now creates **3 orders — 1 resulted, 2 pending** exactly as the gate specifies; the resulted one is the control, and it correctly blocks nothing and opens no case. Final state read from Postgres: `discharged`, 2 pending cases, 0 cases from the resulted order, 2 SLA timers queued.
+- **Full regression:** 294 backend · 102 frontend (was 99) · **22 Playwright** · coverage 87% · ruff/black/mypy-strict/tsc/build clean · Docker build + startup + health `ok` · `alembic check` drift 0. Every E2E test ran with **`llm.reachable: false`** and `degraded_features == ["llm_generation"]`.
+- **Database left clean:** 0 E2E rows, 0 orphans of any kind, `trg_case_events_append_only` enabled, `session_replication_role = origin`, all six extensions present. `python -m scripts.seed_dev` repopulates dev data on demand.
 
 ### 2026-09-12 — Phase 1.5, supporting screens
 

@@ -170,6 +170,15 @@ function Gate({ encounterId }: { encounterId: string }) {
 
   /* ---- names ---------------------------------------------------------- */
 
+  /** The record behind an id, from anything this screen already knows. */
+  const doctorFor = useCallback(
+    (doctorId: string | null): UserSummary | null => {
+      if (!doctorId) return null;
+      return pickedDoctors[doctorId] ?? directoryQuery.data?.get(doctorId) ?? null;
+    },
+    [pickedDoctors, directoryQuery.data],
+  );
+
   const nameFor = useCallback(
     (doctorId: string): string => {
       if (!doctorId) return "An unassigned doctor";
@@ -367,7 +376,7 @@ function Gate({ encounterId }: { encounterId: string }) {
           assignments={assignments}
           onChange={(orderId, patch) => patchAssignment(orderId, patch)}
           onApplyToAll={applyToAll}
-          attendingDoctor={encounter.attending_doctor}
+          doctorFor={doctorFor}
           onDoctorResolved={rememberDoctor}
           onBack={() => setStep(1)}
           onContinue={() => setStep(3)}

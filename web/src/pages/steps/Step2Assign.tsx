@@ -27,7 +27,12 @@ export interface Step2Props {
   assignments: Record<string, Assignment>;
   onChange: (orderId: string, patch: Partial<Assignment>) => void;
   onApplyToAll: (patch: Partial<Assignment>) => void;
-  attendingDoctor: UserSummary | null;
+  /**
+   * Every doctor the page can already name -- the attending doctor, anyone
+   * picked on this screen, and the directory. Used to label a field whose
+   * selection is not in the current page of search results.
+   */
+  doctorFor: (doctorId: string | null) => UserSummary | null;
   /** Lets the page remember a chosen doctor so step 3 can print their name. */
   onDoctorResolved: (doctor: UserSummary | null) => void;
   onBack: () => void;
@@ -46,7 +51,7 @@ export function Step2Assign({
   assignments,
   onChange,
   onApplyToAll,
-  attendingDoctor,
+  doctorFor,
   onDoctorResolved,
   onBack,
   onContinue,
@@ -170,12 +175,14 @@ export function Step2Assign({
                     label={`Responsible doctor for ${order.test_name}`}
                     hideLabel
                     value={assignment?.responsible_doctor_id ?? null}
-                    selectedHint={
-                      attendingDoctor &&
-                      assignment?.responsible_doctor_id === attendingDoctor.id
-                        ? attendingDoctor
-                        : null
-                    }
+                    // Was: only supplied when the selection happened to be the
+                    // attending doctor. Every other doctor then depended on
+                    // being inside the current search page, and a restored
+                    // draft naming someone further down the alphabet rendered
+                    // an empty field that the gate nonetheless accepted.
+                    selectedHint={doctorFor(
+                      assignment?.responsible_doctor_id ?? null,
+                    )}
                     onChange={(doctorId, doctor) => {
                       onChange(order.order_id, { responsible_doctor_id: doctorId });
                       onDoctorResolved(doctor);

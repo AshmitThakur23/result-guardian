@@ -132,7 +132,16 @@ export function DoctorSelect({
     }
   }
 
-  const displayValue = open ? query : (resolved?.full_name ?? "");
+  // A selection the field cannot name must still read as a selection. The
+  // lookup above covers everyone the page knows, but a hospital larger than
+  // the directory's page could still hand us an id with no record attached --
+  // and rendering "" there produced a field that read as unassigned while the
+  // form held a doctor and let the gate proceed. A uuid is not an option
+  // either; it is noise that hides the gap rather than naming it.
+  // A by-ids lookup is Phase 5.4.
+  const selectedLabel =
+    resolved?.full_name ?? (value ? "Doctor selected (name unavailable)" : "");
+  const displayValue = open ? query : selectedLabel;
 
   return (
     <div ref={rootRef} className="relative">
@@ -164,7 +173,7 @@ export function DoctorSelect({
         }
         disabled={disabled}
         value={displayValue}
-        placeholder={resolved ? undefined : "Search by name or employee code"}
+        placeholder={selectedLabel ? undefined : "Search by name or employee code"}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);

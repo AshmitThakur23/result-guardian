@@ -76,6 +76,7 @@ export function seedGatedEncounter() {
     encounter: uuidv7(),
     orderA: uuidv7(),
     orderB: uuidv7(),
+    orderC: uuidv7(),
   };
 
   const attendingName = `Asha Menon ${tag}`;
@@ -118,7 +119,14 @@ export function seedGatedEncounter() {
        now() - interval '6 hours', 48, '${ids.doctor}'),
       ('${ids.orderB}', '${ids.encounter}', '${ids.patient}', 'HBA1C',
        'HbA1c', 'lab', 'ordered',
-       now() - interval '30 hours', 24, '${ids.doctor}');
+       now() - interval '30 hours', 24, '${ids.doctor}'),
+      -- Exit Gate 1 is specific: 3 tests, 1 resulted, 2 pending. This is the
+      -- resulted one. It must NOT block the discharge and must NOT open a
+      -- tracking case: final is in ORDER_STATUSES_NOT_BLOCKING, and a gate
+      -- that blocked on it would be blocking on nothing.
+      ('${ids.orderC}', '${ids.encounter}', '${ids.patient}', 'CXR',
+       'Chest X-Ray', 'radiology', 'final',
+       now() - interval '20 hours', 2, '${ids.doctor}');
   `);
 
   return {
@@ -132,10 +140,58 @@ export function seedGatedEncounter() {
     mrn,
     orderA: ids.orderA,
     orderB: ids.orderB,
+    orderC: ids.orderC,
   };
 }
 
 /** Read a row back, to assert against the database rather than the screen. */
 export function query(sql) {
   return psql(sql);
+}
+
+/**
+ * Remove every row this seeder has ever created.
+ *
+ * Run before and after the suite. Without it each run leaves another
+ * "Ravi Kulkarni <tag>" behind, and by the eighteenth the doctor search that
+ * the keyboard test types into is ambiguous -- which is exactly how the
+ * Phase 1.8 run first failed. A suite that is not repeatable is not a suite.
+ *
+ * `session_replication_role = replica` bypasses the case_events append-only
+ * trigger for this connection only. That is the same mechanism the Python
+ * integration tests already use, and deliberately NOT
+ * `ALTER TABLE ... DISABLE TRIGGER`, which would persist if this crashed and
+ * leave a production guarantee switched off for everyone.
+ */
+export function cleanupE2EData() {
+  psql(`
+    SET session_replication_role = replica;
+
+    DELETE FROM discharge_overrides WHERE encounter_id IN
+      (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%');
+    DELETE FROM case_events WHERE case_id IN
+      (SELECT id FROM pending_cases WHERE encounter_id IN
+        (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    DELETE FROM pending_cases WHERE encounter_id IN
+      (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%');
+    DELETE FROM discharge_contracts WHERE encounter_id IN
+      (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%');
+    DELETE FROM discharge_medications WHERE encounter_id IN
+      (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%');
+    DELETE FROM orders WHERE encounter_id IN
+      (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%');
+    DELETE FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%';
+    DELETE FROM patients WHERE mrn LIKE 'E2E-%';
+    UPDATE users SET department_id = NULL WHERE employee_code LIKE 'E2E%';
+    DELETE FROM departments WHERE code LIKE 'E2E-%';
+    DELETE FROM users WHERE employee_code LIKE 'E2E%';
+
+    -- The SLA timers this suite queued. Their cases are gone; leaving the
+    -- messages would hand the worker wake-ups for encounters that no longer
+    -- exist.
+    DELETE FROM pgmq.q_sla_timers
+     WHERE message->>'encounter_id' NOT IN (SELECT id::text FROM encounters);
+
+    SET session_replication_role = origin;
+  `);
 }

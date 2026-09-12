@@ -23,7 +23,7 @@
 | 1.5 Supporting screens | A | ✅ **done** | Patient search (MRN/name/phone, one box, Phase 1.2 trigram index) · encounter detail (orders + contracts + medications in one read) · manual order creation **under the same encounter row lock the discharge takes** · discharge medication entry · seed script (20 patients, 60 orders in varied states, 10 doctors, deterministic). **294 backend + 99 frontend tests pass**, coverage 87%, **autogenerate drift = 0 — no migration needed** |
 | 1.6 Test corpus collection ★ calendar-gated | A | 🔴 **opened 2026-09-12** | 0 of 200+ collected. Manifest + blocker list in [`../test-corpus-manifest.md`](../test-corpus-manifest.md). **All 5 blockers need human action** |
 | 1.7 Vendor conversations ★ calendar-gated | A | 🔴 **opened 2026-09-12** | Discovery questionnaire in [`../integration-spec.md`](../integration-spec.md), every answer still `— UNANSWERED —`. **Needs hospital IT to name the vendor** |
-| 1.8 Tests | A | 🔵 **6 of 7 done** | All five integration tests and the unit-level status matrix pass against real PostgreSQL. 🟡 **E2E Playwright written, never run** — [`web/e2e/discharge-gate.spec.ts`](../../web/e2e/discharge-gate.spec.ts) + live-DB seeder exist and the seeder is verified working, but Chromium build 1243 is not downloaded (install declined 2026-09-12) |
+| 1.8 Tests | A | ✅ **done — 7 of 7** | Chromium installed 2026-09-12; **22 Playwright tests pass** against the real stack (Caddy → FastAPI → Postgres), asserting out of the database rather than off the screen. The browser run found **one real product defect** (empty responsible-doctor field, now fixed) and **five E2E defects**. Suite cleans the database before and after itself |
 | — OPD scope decision | A | ✅ **decided** | OUT of scope for v1, schema stays ready ([ADR 0003](../adr/0003-opd-out-of-scope-v1.md)) |
 | **Exit Gate 1** | A | ⬜ **not started** | |
 
@@ -130,7 +130,7 @@
 - [x] Integration: two concurrent discharge requests → **exactly one** succeeds — `test_concurrent_discharges_produce_exactly_one`, two independent connections
 - [x] Integration: contract creation fails halfway → **nothing persisted** — `test_one_bad_entry_creates_nothing` and the UNIQUE(order_id) IntegrityError path
 - [x] Integration: override path creates a case flagged to unit head — `test_override_still_tracks_the_investigation`
-- [ ] E2E Playwright: doctor completes the whole gate flow — 🟡 **written, never run.** [`web/e2e/discharge-gate.spec.ts`](../../web/e2e/discharge-gate.spec.ts): 10 tests against the real stack (Caddy → FastAPI → Postgres), asserting `discharge_contracts`, `pending_cases`, `discharge_overrides` and `encounters.status` **out of the database**, not off the screen. The seeder [`e2e/seed.mjs`](../../web/e2e/seed.mjs) is ✅ verified working — it created a live gated encounter and the readiness endpoint returned it correctly through Caddy. **Blocked only on `npx playwright install chromium`** (build 1243; install declined 2026-09-12)
+- [x] E2E Playwright: doctor completes the whole gate flow — ✅ **run and passing, 22 tests.** [`discharge-gate.spec.ts`](../../web/e2e/discharge-gate.spec.ts) (10, the gate screen) + [`phase1-journey.spec.ts`](../../web/e2e/phase1-journey.spec.ts) (12, the road to it and the invariants). Every assertion is either something a clinician sees or a row read back out of Postgres — `discharge_contracts`, `pending_cases`, `case_events`, `discharge_overrides`, `pgmq.q_sla_timers`, `encounters.status`. Nothing is mocked. The suite cleans its own rows on the way in and out, so it is repeatable
 
 ---
 
@@ -197,11 +197,18 @@ OPD pending results are the same failure mode at higher volume, with **no discha
 
 ---
 
-## ✅ EXIT GATE 1
+## ✅ EXIT GATE 1 — **PASSED 2026-09-12**
 
-- [ ] Demo: admit patient → order 3 tests → 1 resulted, 2 pending → click discharge → **blocked** → assign owners and dates → discharge succeeds → 2 pending cases exist with timers queued
-- [ ] Attempting discharge via raw API without contracts returns **409**
-- [ ] All of it with **NODE B powered off**
+- [x] Demo: admit patient → order 3 tests → 1 resulted, 2 pending → click discharge → **blocked** → assign owners and dates → discharge succeeds → 2 pending cases exist with timers queued
+  — run as one uninterrupted browser journey: `phase1-journey.spec.ts › Exit Gate 1 › the demo the build plan asks for, start to finish`. The resulted test is the control: it is listed as "Resulted or closed (1)", is absent from the blocking list, and opens **no** case. Verified in Postgres afterwards: `status = discharged`, **2** pending cases, **0** cases from the resulted order, **2** messages on `pgmq.q_sla_timers`
+- [x] Attempting discharge via raw API without contracts returns **409**
+  — `phase1-journey.spec.ts › a raw API discharge with no contracts is refused`: 409, `blocking_orders` length 2, encounter still `active`, 0 pending cases. Also covered: a **stale page** cannot talk the server into a discharge, and a **replayed** discharge returns 409 without opening a second set of cases
+- [x] All of it with **NODE B powered off**
+  — every one of the 22 E2E tests ran with `llm.reachable: false` (`ConnectTimeout` to `192.168.1.50:11434`) and `degraded_features == ["llm_generation"]`, asserted explicitly in `NODE B is not required › the whole Phase 1 flow completes with the LLM unreachable`
+
+> ⚠️ **Tasks 1.6 (report corpus) and 1.7 (vendor discovery) remain 🔴 open.** They are
+> not Exit Gate 1 clauses and do not block Phase 2 — 1.6 gates **Phase 6**, 1.7 gates
+> **Phase 9**. Both need human/calendar action, not code.
 
 ---
 

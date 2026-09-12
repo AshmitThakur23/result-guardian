@@ -215,15 +215,20 @@ export function installServer(handlers: Handlers = {}) {
       const search = new URL(url, "http://t").searchParams;
       const q = search.get("q")?.toLowerCase() ?? "";
       const role = search.get("role");
-      return respond(
-        all.filter(
+      // `limit` is honoured, not ignored: on a real ward the doctor list is
+      // longer than one page, and a previously chosen doctor falling outside
+      // it is exactly the condition that broke draft restore in the browser.
+      const limit = Number(search.get("limit") ?? "50");
+      const matched = all
+        .filter(
           (user) =>
             (!role || user.role === role) &&
             (!q ||
               user.full_name.toLowerCase().includes(q) ||
               user.employee_code.toLowerCase().includes(q)),
-        ),
-      );
+        )
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+      return respond(matched.slice(0, limit));
     }
     if (method === "GET" && path.endsWith("/discharge-readiness")) {
       return result(handlers.readiness?.() ?? readiness());

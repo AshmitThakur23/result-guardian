@@ -681,3 +681,109 @@ describe("availability is not claimed", () => {
     expect(OTHER_DOCTOR.is_active).toBe(true);
   });
 });
+
+describe("a doctor outside the first page of search results", () => {
+  /**
+   * Regression, found by the Phase 1.8 browser run.
+   *
+   * `GET /api/users?role=doctor&limit=20` returns one page, ordered by name.
+   * On a ward with more doctors than that, a responsible doctor chosen earlier
+   * and restored from a draft is not in the page the field happens to be
+   * showing — and the field rendered **completely empty**, placeholder and
+   * all, while the form still held the id and let the doctor continue.
+   *
+   * A blank "responsible doctor" that the gate nonetheless accepts is the
+   * worst of both: it reads as unassigned and behaves as assigned.
+   */
+  const MANY_DOCTORS = [
+    ...Array.from({ length: 24 }, (_, i) => ({
+      id: `4${String(i).padStart(7, "0")}-0000-4000-8000-000000000000`,
+      employee_code: `D-2${String(i).padStart(3, "0")}`,
+      // Sorts before "Ravi", so Ravi falls off the end of a 20-row page.
+      full_name: `Anita Crowd ${String(i).padStart(2, "0")}`,
+      role: "doctor",
+      is_active: true,
+      department_id: null,
+    })),
+    DOCTOR,
+    OTHER_DOCTOR,
+  ];
+
+  function seedDraftChoosing(doctorId: string) {
+    sessionStorage.setItem(
+      `rg.discharge-draft.${ENCOUNTER_ID}`,
+      JSON.stringify({
+        version: 1,
+        encounter_id: ENCOUNTER_ID,
+        step: 2,
+        assignments: {
+          [ORDER_A]: {
+            responsible_doctor_id: doctorId,
+            expected_by_input: "2026-12-01T18:00",
+          },
+          [ORDER_B]: {
+            responsible_doctor_id: doctorId,
+            expected_by_input: "2026-12-01T18:00",
+          },
+        },
+        saved_at: new Date().toISOString(),
+      }),
+    );
+  }
+
+  it("still shows the doctor's name after a restore", async () => {
+    installServer({ users: () => MANY_DOCTORS });
+    seedDraftChoosing(OTHER_DOCTOR.id);
+    renderGate();
+
+    await screen.findByRole("region", { name: /Step 2/ });
+    await waitFor(() =>
+      expect(screen.getAllByRole("combobox")[0]).toHaveValue(
+        OTHER_DOCTOR.full_name,
+      ),
+    );
+  });
+
+  it("never renders an empty field for an assignment that is actually set", async () => {
+    installServer({ users: () => MANY_DOCTORS });
+    seedDraftChoosing(OTHER_DOCTOR.id);
+    renderGate();
+
+    await screen.findByRole("region", { name: /Step 2/ });
+    await waitFor(() =>
+      expect(screen.getAllByRole("combobox")[0]).not.toHaveValue(""),
+    );
+  });
+});
+
+describe("a doctor the screen cannot name at all", () => {
+  it("still reads as a selection, never as an empty field", async () => {
+    // Larger than the directory page: the id resolves nowhere. The field must
+    // not imply "nothing chosen" while the form holds a doctor.
+    installServer({ users: () => [] });
+    sessionStorage.setItem(
+      `rg.discharge-draft.${ENCOUNTER_ID}`,
+      JSON.stringify({
+        version: 1,
+        encounter_id: ENCOUNTER_ID,
+        step: 2,
+        assignments: {
+          [ORDER_A]: {
+            responsible_doctor_id: "99999999-9999-4999-8999-999999999999",
+            expected_by_input: "2026-12-01T18:00",
+          },
+        },
+        saved_at: new Date().toISOString(),
+      }),
+    );
+    renderGate();
+
+    await screen.findByRole("region", { name: /Step 2/ });
+    const field = screen.getAllByRole("combobox")[0];
+    await waitFor(() => expect(field).not.toHaveValue(""));
+    // And never a raw identifier in front of a doctor.
+    expect((field as HTMLInputElement).value).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+    );
+  });
+});
