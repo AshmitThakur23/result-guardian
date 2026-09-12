@@ -113,6 +113,29 @@ jobs:
         working-directory: .
         run: docker logs rg-postgres
 
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: typecheck
+        run: npx tsc --noEmit
+      # The gate's own rules live in these tests -- most importantly that no
+      # control anywhere offers to skip an unassigned result. A change that
+      # reintroduces one must fail the build, not a code review.
+      - name: vitest
+        run: npm run test
+      - name: production build
+        run: npm run build
+
   build:
     runs-on: ubuntu-latest
     steps:
