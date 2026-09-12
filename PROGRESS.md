@@ -72,8 +72,21 @@
 > ⚠️ **1.6 (corpus) and 1.7 (vendor) remain 🔴 open human/calendar items.** They are
 > not Exit Gate 1 clauses: 1.6 gates **Phase 6**, 1.7 gates **Phase 9**. Neither
 > blocks Phase 2.
-> **Next: Phase 2.1 — the timer model** (`sla_timers` table; the queue carries the
-> wake-up, the table carries the truth; pg_cron sweep every 5 minutes).
+> **✅ Phase 2.1 — the timer model is COMPLETE (2026-09-12).** Migration
+> `0005_sla_timers`: the table that carries timer truth, plus the `pg_cron` sweep
+> that closes the gap if the queue is ever lost. **330 backend tests** (+36),
+> drift 0, and a real head→0004→head migration round trip.
+> ⚠️ **Creating a timer on discharge is Phase 2.2, not 2.1** — the build plan puts
+> it under "Timer lifecycle". Phase 1.3's discharge still enqueues its own
+> `result_due` wake-up and writes no `sla_timers` row; wiring them together is
+> 2.2's first bullet. Until then the sweep has nothing to sweep, which is the
+> correct state of a half-built phase.
+> ⚠️ **One genuine spec ambiguity, reported not buried:** the plan names
+> `idempotency_key (unique)` and never defines its construction. See the Open
+> decisions table.
+> **Next: Phase 2.2 — timer lifecycle** (create on discharge, idempotent fire
+> handler under `SELECT ... FOR UPDATE`, atomic cancel on case closure,
+> supersede, and the deceased/transferred pause).
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -102,7 +115,7 @@
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
-| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
+| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | 🔵 **in progress — 2.1 done** | ⬜ | 1–1.5 wks. `sla_timers` + pg_cron sweep ✅. Next: 2.2 lifecycle |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
 | [5 · Dashboard, closure, audit](docs/build/phase-05-dashboard-audit-mvp.md) | A | ⬜ not started | ⬜ | 2–3 wks → 🏁 **MVP, pilot ready** |
@@ -142,6 +155,8 @@ Record the decision, the date, and the reasoning. A decision that lives only in 
 | 3 | **Node roles** → ~~this laptop is NODE B~~ **CORRECTED: Abhinendra's laptop (`LAPTOP-06ER0HBM`) is NODE A; Ashmit's (`LAPTOP-5JCGN9SJ`) is NODE B.** The original entry was backwards. | Phase 0.4 | ✅ **re-decided 2026-09-11** → [ADR 0006](docs/adr/0006-node-roles-corrected.md), superseding [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
 | 4 | **Model** → **`qwen3:4b`. A sound decision, not a placeholder.** It was derived from **4 GB of VRAM on the machine that actually runs inference** — `nvidia-smi` on Ashmit's `LAPTOP-5JCGN9SJ` confirms the RTX 3050 is on **NODE B**, and NODE A has no NVIDIA GPU at all (Intel UHD only). 8B q4 (~5–6 GB) genuinely does not fit. Re-benchmark before Phase 8 as the build plan says; `RG_LLM_MODEL` is an env var. | Phase 8.4 | ✅ **decided 2026-09-11, re-confirmed 2026-09-12** → [ADR 0006 correction](docs/adr/0006-node-roles-corrected.md). *Was briefly reopened on a wrong GPU attribution; that is now resolved.* |
 | 5 | Real LAN IPs for NODE A / NODE B, and which network method (router vs hotspot vs direct ethernet) | Phase 0.4 | ⬜ **undecided** — fill into [`docs/network-runbook.md`](docs/network-runbook.md) once both machines are on one network |
+| 6 | **`sla_timers.idempotency_key` construction** → **`case_id:timer_type:fire_at`** (UTC, microsecond precision). ⚠️ **Derived, not quoted — the build plan names the column and marks it unique but never defines its construction.** This is the only reading that satisfies both 2.2 ("one `result_due` per case at `contract.expected_by`"; a replayed discharge must not create a second) and 2.3 ("re-check every 24h until resolved" — a different instant, so a different timer). A second `UNIQUE(case_id, timer_type, fire_at)` was deliberately **not** added: the plan specifies one unique column, and encoding the rule twice means two places to change. | Phase 2.1 | 🟡 **decided provisionally 2026-09-12** — revisit when 2.2 creates the first real timer |
+| 7 | **`(status = 'fired') = (fired_at IS NOT NULL)`** as a CHECK on `sla_timers`. ⚠️ **Derived** from the column's meaning; the plan lists the field but states no rule. A fired timer knows when it fired, and nothing else claims to have fired. | Phase 2.1 | 🟡 **decided provisionally 2026-09-12** — if a 2.2 lifecycle transition is refused by it, this constraint is the thing to revisit, not the transition |
 
 ---
 
@@ -225,6 +240,17 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-12 — Phase 2.1, the SLA timer model
+
+- **Read the task boundary before writing anything, and it mattered.** The build plan puts *"Create on discharge: `result_due` at `contract.expected_by`"* under **2.2 Timer lifecycle**, not 2.1 — so Phase 1.3's discharge is deliberately left untouched and writes no `sla_timers` row. The `pg_cron` sweep, by contrast, **is** a 2.1 bullet, so it is implemented. Doing the discharge coupling here would have been implementing 2.2 under 2.1's name.
+- **Migration `0005_sla_timers`** — 14 columns, 4 CHECK constraints, 3 foreign keys, 5 indexes, **0 PostgreSQL enum types**. `pgmq_msg_id` is **BIGINT** to match `pgmq.q_sla_timers.msg_id` (an int4 column would overflow silently on a long-lived queue) and **nullable**, because a timer whose message was consumed, archived or lost is still a timer — finding exactly those is what the sweep is for.
+- **`case_id → pending_cases ON DELETE RESTRICT`**, matching every other clinical FK in the schema. Cases close, they do not vanish; a cascade would only ever fire on a mistake, and silently taking the escalation clock with it is the worst possible response to one.
+- **The sweep** `rg_sweep_overdue_sla_timers()` — pending timers more than 10 minutes overdue whose queue message is gone, re-enqueued with the same payload shape Phase 1.3 uses so a swept wake-up is indistinguishable from an original. Written as a function rather than inline in the cron command, because *a scheduled job that can only be observed by waiting five minutes is a job nobody verifies*. Scheduled `*/5 * * * *` as `rg-sla-timer-sweep`.
+- ⚠️ **Reported a genuine spec ambiguity rather than quietly choosing.** The plan says `idempotency_key (unique)` and never defines its construction. Used `case_id:timer_type:fire_at` (UTC, microsecond) — the only reading that satisfies both 2.2's "one `result_due` per case, and a replayed discharge must not create a second" and 2.3's "re-check every 24h", which is a different instant each time. Deliberately did **not** add a second `UNIQUE(case_id, timer_type, fire_at)`: the plan specifies one unique column. `(status = 'fired') = (fired_at IS NOT NULL)` is likewise flagged as derived, with a note that 2.2 should revisit it if a lifecycle transition is refused.
+- **Migration round trip run for real** — head → 0004 → head, asserting at each stop that downgrade removes *only* Phase 2.1's additions and leaves all 12 Phase 1 tables, all 6 extensions, all 5 queues and the `case_events` append-only trigger untouched. The test restores head in a `finally`, so a failure cannot strand the database at 0004 and fail every other integration test for unrelated reasons.
+- **36 new tests** covering every valid status and type, every refusal (unknown type, unknown status, negative attempts, missing case, duplicate key, fired-without-fired_at, fired_at-without-fired), TIMESTAMPTZ on all five timestamp columns, bigint round-trip at max value, index definitions, and six sweep behaviours including the one that matters most — **it must not re-send a timer that still has a live message**.
+- **Regression:** 330 backend (was 294) · 102 frontend · **22 Playwright** · coverage 87.43% · ruff/black/mypy-strict/tsc/build clean · Docker rebuild + startup + health `ok` with **`llm.reachable: false`** · `alembic check` drift 0 at head `0005_sla_timers`. Phase 1 fully intact.
 
 ### 2026-09-12 — Phase 1.8 E2E, and Exit Gate 1
 

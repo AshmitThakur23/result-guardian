@@ -14,7 +14,7 @@
 
 | § | Node | State | Note |
 |---|---|---|---|
-| 2.1 Timer model | A | ⬜ not started |  |
+| 2.1 Timer model | A | ✅ **done** | Migration `0005_sla_timers`. Table + 4 CHECKs + 3 FKs + 5 indexes, **0 PG enum types**, `alembic check` drift 0, and a real head→0004→head round trip. `pg_cron` job `rg-sla-timer-sweep` scheduled `*/5 * * * *`. **36 new tests.** ⚠️ Creating a timer on discharge is **2.2**, not here |
 | 2.2 Timer lifecycle | A | ⬜ not started |  |
 | 2.3 Missing-result path / lab flags ★ | A | ⬜ not started |  |
 | 2.4 Result intake (manual) | A | ⬜ not started |  |
@@ -25,10 +25,20 @@
 
 ## 2.1 Timer model
 
-- [ ] **`sla_timers`** — id, case_id, timer_type, fire_at, status (`pending|fired|cancelled|superseded`), pgmq_msg_id, attempts, fired_at, idempotency_key (unique)
-  - timer_type: `result_due`, `owner_reminder`, `unit_head_escalation`, `patient_notification`, `stale_preliminary`
-- [ ] **Timers are derived from the DB, not only from the queue.** pgmq carries the wake-up; **the table carries the truth.**
-- [ ] `pg_cron` sweep **every 5 minutes**: any pending timer with `fire_at < now() - interval '10 min'` and no live queue message → re-enqueue. This closes the gap if the queue is ever lost.
+- [x] **`sla_timers`** — id, case_id, timer_type, fire_at, status (`pending|fired|cancelled|superseded`), pgmq_msg_id, attempts, fired_at, idempotency_key (unique) — [`models/timers.py`](../../api/app/db/models/timers.py), migration [`0005_sla_timers`](../../api/alembic/versions/20260912_0005_sla_timers.py). Every field present, plus the Phase 0.6 audit/soft-delete columns every clinical table since 1.1 carries. `pgmq_msg_id` is **BIGINT** to match `pgmq.q_sla_timers.msg_id`, and **nullable** on purpose
+  - [x] timer_type: `result_due`, `owner_reminder`, `unit_head_escalation`, `patient_notification`, `stale_preliminary` — text + CHECK, never a PG enum. **Not one value more**
+- [x] **Timers are derived from the DB, not only from the queue.** pgmq carries the wake-up; **the table carries the truth.** `pgmq_msg_id` points outward, from truth to wake-up, and never back — a missing message is indistinguishable from a timer that never existed, one that fired, and one that was lost, so the answer lives where it can be constrained and audited
+- [x] `pg_cron` sweep **every 5 minutes**: any pending timer with `fire_at < now() - interval '10 min'` and no live queue message → re-enqueue — `rg_sweep_overdue_sla_timers()`, scheduled as `rg-sla-timer-sweep`. Written as a function rather than inline in the cron command so a test can call it instead of waiting five minutes. Verified: re-enqueues an overdue timer with no message, **leaves one that still has a live message**, ignores the 10-minute grace window, ignores non-pending and soft-deleted timers, and never changes timer state
+
+### Scope boundary, stated explicitly
+
+**"Create on discharge: `result_due` at `contract.expected_by`" is §2.2, not §2.1.** Phase 1.3's discharge still enqueues its own wake-up and writes **no** `sla_timers` row; wiring the two together is 2.2's first bullet. Until then the sweep has nothing to sweep — the correct state of a half-built phase, not a defect, and the reason the sweep is tested by inserting timer rows directly.
+
+### ⚠️ Spec ambiguity — `idempotency_key`
+
+The build plan names the column and marks it unique, and **never defines its construction**. Reported rather than silently decided. The construction used is `case_id:timer_type:fire_at` (UTC, microsecond precision) — the only reading that satisfies both 2.2 (one `result_due` per case at `contract.expected_by`; a replayed discharge must not create a second) and 2.3 (a re-check "every 24h until resolved" is a different instant and so must be a different timer). A second `UNIQUE(case_id, timer_type, fire_at)` was **not** added: the plan specifies one unique column, and encoding the rule twice means two places to change if 2.2 refines it.
+
+`(status = 'fired') = (fired_at IS NOT NULL)` is likewise **derived** from the column's meaning rather than quoted. If a 2.2 lifecycle transition is refused by it, that constraint is the thing to revisit.
 
 ## 2.2 Timer lifecycle
 
