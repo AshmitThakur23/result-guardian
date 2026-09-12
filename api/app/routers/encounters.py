@@ -17,6 +17,12 @@ from app.schemas.discharge import (
     DischargeContractsCreate,
     DischargeContractsCreated,
     DischargeReadiness,
+    DischargeResult,
+)
+from app.services.discharge_action import (
+    DischargeBlockedError,
+    EncounterNotDischargeableError,
+    discharge_encounter,
 )
 from app.services.discharge_contracts import (
     ContractConflictError,
@@ -111,5 +117,49 @@ async def create_contracts(
                     }
                     for v in exc.violations
                 ],
+            },
+        ) from exc
+
+
+@router.post(
+    "/{encounter_id}/discharge",
+    response_model=DischargeResult,
+    status_code=status.HTTP_200_OK,
+    summary="Discharge the encounter — re-checks readiness server-side",
+)
+async def discharge(
+    encounter_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> DischargeResult:
+    """Complete the discharge, opening a tracking case per pending order.
+
+    Takes **no body**. There is deliberately nothing a client can send that
+    influences the decision: readiness is re-derived from the database inside
+    the transaction, under a row lock on the encounter. A readiness response
+    the caller fetched a minute ago has no authority here.
+
+    * **200** discharged; returns the cases opened and their queued timers
+    * **404** encounter not found
+    * **409** already discharged, not a gated encounter type, or an
+      outstanding investigation still has no contract -- the blocking list is
+      included, as the build plan requires
+    """
+    try:
+        return await discharge_encounter(session, encounter_id)
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
+        ) from exc
+    except EncounterNotDischargeableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+    except DischargeBlockedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "title": "Discharge blocked by outstanding investigations",
+                "blocking_orders": exc.blocking,
             },
         ) from exc

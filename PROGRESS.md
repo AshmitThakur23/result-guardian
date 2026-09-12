@@ -37,10 +37,9 @@
 > and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
 > database trigger and proven to reject both UPDATE and DELETE.
 > **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
-> **🔵 Phase 1.3 in progress — 2 of 4 endpoints.** Readiness GET and contract creation done.
-> **Next: `POST /api/encounters/{id}/discharge`** (the discharge action: 409 when
-> unsatisfied; one transaction sets discharged_at, creates pending_cases, enqueues
-> SLA timers and writes case_events).
+> **🔵 Phase 1.3 in progress — 3 of 4 endpoints.** Readiness GET, contract creation
+> and the discharge action are done. **The Exit Gate 1 demo flow now runs end to end.**
+> **Next: `POST /api/encounters/{id}/discharge-overrides`** (the emergency path).
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -295,3 +294,13 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
   - ADR 0003: contracting an **OPD** encounter is refused (`encounter_not_gated`) — it would be an accountability record nothing ever acts on.
   - `app/errors.py` extended so a dict `detail` becomes RFC 7807 extension members instead of being stringified into the title. Without it the violation list arrived as a Python repr.
 - Tests: **167 passing** (25 unit + 142 integration), coverage **86.41%**. 23 new. The concurrency test commits for real against two connections and cleans up after itself; the rest run inside a savepoint-scoped transaction. Dev database verified empty afterwards (0 rows in every clinical table).
+
+- ✅ **PHASE 1.3, third endpoint — `POST /api/encounters/{id}/discharge`.** The action the product exists for. **Takes no body at all** — there is deliberately nothing a caller can send that influences the decision.
+  - **Concurrency:** the encounter row is taken `SELECT ... FOR UPDATE` *before* anything is read, and the readiness re-check runs inside that lock. Two simultaneous discharges serialise; the loser wakes to `status='discharged'` and is refused. Proven with two independent connections via `asyncio.gather` — exactly one case, one event, one timer.
+  - **One transaction, five writes**, including the pgmq enqueue. ADR 0001 chose a single Postgres precisely so this is possible: *"there is no window where the case exists and the timer does not."* There is **no** "commit then best-effort enqueue" anywhere. A forced failure at the enqueue rolls back the encounter, the cases and the events together — tested.
+  - **Idempotency:** a second POST returns **409**, not a duplicate case set.
+  - **Stale readiness cannot authorise a discharge** — a test fetches readiness showing `can_discharge: true`, inserts a new uncontracted order behind it, then posts and gets 409.
+  - **Exit Gate 1 flow verified live through Caddy:** discharge → **409** with the blocking list → assign owner + deadline → discharge → **200**, one case, one event, one queued timer → repeat → **409**.
+- 🔶 **Phase boundary, stated explicitly.** 1.3 enqueues the `result_due` wake-up on `pgmq` at `contract.expected_by`, using pgmq's own delay so nothing consumes it early — that is precisely what Phase 2.1 says to *"create on discharge"*. **Deferred to Phase 2:** the `sla_timers` table that carries the truth, the pg_cron overdue sweep, idempotent firing, cancellation/supersession, the missing-result lab flow, and the restart/chaos guarantees.
+  - ⚠️ **Known residual race, for Phase 1.5.** The encounter lock serialises discharges and the order rows are locked, but an *entirely new* order inserted between the readiness check and the commit is not covered by row locks. Order creation must take the same encounter lock, or refuse to add orders to a non-active encounter. Not reachable today — manual order creation does not exist yet.
+- Tests: **182 passing** (25 unit + 157 integration), coverage **87.44%**, drift 0. Dev database verified empty after every run. Note the cleanup in the committing tests must bypass the append-only trigger via session-scoped `session_replication_role` — `ALTER TABLE ... DISABLE TRIGGER` would persist if a test crashed.

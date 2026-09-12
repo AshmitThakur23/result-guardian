@@ -120,3 +120,29 @@ class CreatedContract(BaseModel):
 class DischargeContractsCreated(BaseModel):
     encounter_id: uuid.UUID
     created: list[CreatedContract]
+
+
+class OpenedCase(BaseModel):
+    """A post-discharge tracking case, opened by the discharge action."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    case_id: uuid.UUID
+    order_id: uuid.UUID
+    contract_id: uuid.UUID
+    current_owner_id: uuid.UUID
+    expected_by: dt.datetime
+    timer_msg_id: int = Field(
+        description=(
+            "pgmq message id of the result_due wake-up, enqueued in the same "
+            "transaction as the case. Phase 2 adds the sla_timers table that "
+            "carries the truth; this is only the wake-up."
+        )
+    )
+
+
+class DischargeResult(BaseModel):
+    encounter_id: uuid.UUID
+    status: str
+    discharged_at: dt.datetime
+    opened_cases: list[OpenedCase]
