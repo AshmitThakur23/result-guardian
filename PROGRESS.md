@@ -84,9 +84,16 @@
 > ⚠️ **One genuine spec ambiguity, reported not buried:** the plan names
 > `idempotency_key (unique)` and never defines its construction. See the Open
 > decisions table.
-> **Next: Phase 2.2 — timer lifecycle** (create on discharge, idempotent fire
-> handler under `SELECT ... FOR UPDATE`, atomic cancel on case closure,
-> supersede, and the deceased/transferred pause).
+> **🟡 ALL OF PHASE 2 IS IMPLEMENTED (2026-09-12) — NOT YET AUDITED, NOT PUSHED.**
+> 2.2 lifecycle, 2.3 missing-result/lab flags, 2.4 manual intake, 2.5 tests, and
+> the **Exit Gate 2 chaos test passes**: 50 cases, two restarts (the second
+> including Postgres), **exactly 50 flags, no duplicates, no misses**.
+> **415 backend tests** (+85) · 102 frontend · 22 Playwright · coverage 87.94% ·
+> drift 0 at head `0006_phase_2_lifecycle` · health `ok` with
+> `llm.reachable: false`.
+> ⚠️ Status is 🟡 not ✅ **by the tick legend**: a comprehensive Phase 2 audit has
+> not been run, and the work is deliberately **unpushed** pending it.
+> **Next: the comprehensive Phase 2 audit**, then the final push.
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -115,7 +122,7 @@
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
-| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | 🔵 **in progress — 2.1 done** | ⬜ | 1–1.5 wks. `sla_timers` + pg_cron sweep ✅. Next: 2.2 lifecycle |
+| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | 🟡 **all sections implemented, audit pending** | 🟡 chaos test passes | 2.1–2.5 all built. Exit Gate 2's 50-case double-restart chaos test passes. **Unpushed** pending the Phase 2 audit |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
 | [5 · Dashboard, closure, audit](docs/build/phase-05-dashboard-audit-mvp.md) | A | ⬜ not started | ⬜ | 2–3 wks → 🏁 **MVP, pilot ready** |
@@ -155,8 +162,8 @@ Record the decision, the date, and the reasoning. A decision that lives only in 
 | 3 | **Node roles** → ~~this laptop is NODE B~~ **CORRECTED: Abhinendra's laptop (`LAPTOP-06ER0HBM`) is NODE A; Ashmit's (`LAPTOP-5JCGN9SJ`) is NODE B.** The original entry was backwards. | Phase 0.4 | ✅ **re-decided 2026-09-11** → [ADR 0006](docs/adr/0006-node-roles-corrected.md), superseding [ADR 0005](docs/adr/0005-node-roles-and-model.md) |
 | 4 | **Model** → **`qwen3:4b`. A sound decision, not a placeholder.** It was derived from **4 GB of VRAM on the machine that actually runs inference** — `nvidia-smi` on Ashmit's `LAPTOP-5JCGN9SJ` confirms the RTX 3050 is on **NODE B**, and NODE A has no NVIDIA GPU at all (Intel UHD only). 8B q4 (~5–6 GB) genuinely does not fit. Re-benchmark before Phase 8 as the build plan says; `RG_LLM_MODEL` is an env var. | Phase 8.4 | ✅ **decided 2026-09-11, re-confirmed 2026-09-12** → [ADR 0006 correction](docs/adr/0006-node-roles-corrected.md). *Was briefly reopened on a wrong GPU attribution; that is now resolved.* |
 | 5 | Real LAN IPs for NODE A / NODE B, and which network method (router vs hotspot vs direct ethernet) | Phase 0.4 | ⬜ **undecided** — fill into [`docs/network-runbook.md`](docs/network-runbook.md) once both machines are on one network |
-| 6 | **`sla_timers.idempotency_key` construction** → **`case_id:timer_type:fire_at`** (UTC, microsecond precision). ⚠️ **Derived, not quoted — the build plan names the column and marks it unique but never defines its construction.** This is the only reading that satisfies both 2.2 ("one `result_due` per case at `contract.expected_by`"; a replayed discharge must not create a second) and 2.3 ("re-check every 24h until resolved" — a different instant, so a different timer). A second `UNIQUE(case_id, timer_type, fire_at)` was deliberately **not** added: the plan specifies one unique column, and encoding the rule twice means two places to change. | Phase 2.1 | 🟡 **decided provisionally 2026-09-12** — revisit when 2.2 creates the first real timer |
-| 7 | **`(status = 'fired') = (fired_at IS NOT NULL)`** as a CHECK on `sla_timers`. ⚠️ **Derived** from the column's meaning; the plan lists the field but states no rule. A fired timer knows when it fired, and nothing else claims to have fired. | Phase 2.1 | 🟡 **decided provisionally 2026-09-12** — if a 2.2 lifecycle transition is refused by it, this constraint is the thing to revisit, not the transition |
+| 6 | **`sla_timers.idempotency_key` construction** → **`case_id:timer_type:fire_at`** (UTC, microsecond precision). ⚠️ **Derived, not quoted — the build plan names the column and marks it unique but never defines its construction.** This is the only reading that satisfies both 2.2 ("one `result_due` per case at `contract.expected_by`"; a replayed discharge must not create a second) and 2.3 ("re-check every 24h until resolved" — a different instant, so a different timer). A second `UNIQUE(case_id, timer_type, fire_at)` was deliberately **not** added: the plan specifies one unique column, and encoding the rule twice means two places to change. | Phase 2.1 | ✅ **confirmed 2026-09-12** — 2.2 now creates real timers and the construction held unchanged. A replayed discharge recomputes the identical key and the unique index refuses it; 2.3's 24h re-checks are distinct instants and so distinct timers, exactly as predicted |
+| 7 | **`(status = 'fired') = (fired_at IS NOT NULL)`** as a CHECK on `sla_timers`. ⚠️ **Derived** from the column's meaning; the plan lists the field but states no rule. A fired timer knows when it fired, and nothing else claims to have fired. | Phase 2.1 | ✅ **confirmed 2026-09-12** — every 2.2 transition was implemented against it and none needed relaxing. `pending→fired` sets both together in one statement; `pending→cancelled/superseded` leaves `fired_at` null; a fired timer is never rewritten, because cancel and supersede both carry `WHERE status = 'pending'` |
 
 ---
 
@@ -240,6 +247,18 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-12 — Phase 2.2 → 2.5 and Exit Gate 2 (implemented, **not pushed**)
+
+- **Read the whole of Phase 2 before writing anything, and the task boundary decided the shape.** "Create on discharge" is a 2.2 bullet, so Phase 1.3's discharge is now wired to a durable timer; the `pg_cron` sweep was already 2.1's and stayed. 2.3's "Notify" is enqueued as an intent and stops there — channel, template and the escalation ladder are Phase 4.3/4.6.
+- **Migration `0006_phase_2_lifecycle`** — `lab_flags` (2.3), `results` (2.4), `sla_timers.paused_at`/`pause_reason` (2.2), and the `classify` queue. ⚠️ **`results` is specified in Phase 3.1, not Phase 2**, and is pulled forward only because 2.4's endpoint cannot function without it and the plan says that endpoint *"stays forever"*. 3.1's analyte/organism/sensitivity/narrative tables are deliberately **not** created — those exist to be read by the rule engine.
+- **Pause is not a fifth status.** The plan enumerates exactly `pending|fired|cancelled|superseded`, so a paused timer stays `pending` with its deadline intact and is skipped by the handler and the sweep. Resume is one `UPDATE` that restores the *same* deadline rather than deriving a new one. The reason is read from the encounter and cannot be supplied by a caller — a client able to assert "this patient died" could otherwise silence any case's timers.
+- **Caught a real defect by running it, not reading it.** The stub consumers Phase 0.7 started on every queue log the message and then **delete** it. That was harmless while nothing produced messages; it became destructive the moment 2.3 began enqueueing notification intents, which were being erased within two seconds. Only `sla_timers` now has a consumer; an unconsumed queue is the correct state for an unbuilt phase. A regression test asserts the consumer list.
+- **Both Phase 2.1 provisional decisions confirmed rather than changed.** The idempotency key `case_id:timer_type:fire_at` held once 2.2 created real timers, and the `fired_at`/`status` biconditional refused no transition 2.2 needed.
+- **The four races tested on two real connections**, not simulated sequentially: two workers on one timer, closure vs firing, result arrival vs firing, and three concurrent creations of the same timer. Plus recovery: a lost message, a two-hour outage, a visibility-timeout redelivery, repeated sweeps, and a sweep racing a worker.
+- **🏁 Exit Gate 2 chaos test passes** — `scripts/chaos_exit_gate_2.sh`, run from the host because it restarts the containers the suite runs inside. 50 real discharges through Caddy, deadlines two minutes out, **restarted twice** (the second restart taking Postgres too). Result: **50 flags, 50 fired timers, 50 events, max 1 flag on any case.** The count comes from `lab_flags` in PostgreSQL — a duplicate queue message is not a second clinical event.
+- **415 backend tests** (was 330) · 102 frontend · 22 Playwright · coverage **87.94%** · ruff/black/mypy-strict/tsc/build clean · Docker rebuild + startup + health `ok` with **`llm.reachable: false`** · `alembic check` drift 0 · migration round trip re-verified across **both** Phase 2 migrations · all six queues, six extensions and the append-only trigger intact.
+- 🟡 **Marked implemented, not done.** The comprehensive Phase 2 audit has not run, and the work is **deliberately unpushed** pending it.
 
 ### 2026-09-12 — Phase 2.1, the SLA timer model
 

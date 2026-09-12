@@ -11,10 +11,11 @@ No database. The SQL shape and the failure handling are what is under test.
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 import worker.main as worker_main
-from worker.main import HEARTBEAT_INTERVAL_S, WORKER_NAME, _todo_handler, heartbeat
+from worker.main import HEARTBEAT_INTERVAL_S, WORKER_NAME, heartbeat
 
 
 class _FakeSession:
@@ -93,9 +94,27 @@ async def test_heartbeat_exits_immediately_when_already_shut_down(
     assert session.sql == []  # loop body never ran
 
 
-async def test_placeholder_handler_accepts_a_message() -> None:
-    """Phase 2 replaces this per queue; until then it must not raise."""
-    await _todo_handler(object(), {"case_id": "abc"})
+def test_only_queues_with_a_real_handler_are_consumed() -> None:
+    """Phase 2 replaced the placeholder handler, and removing it mattered.
+
+    A stub that logs and returns causes the consumer to ``pgmq.delete`` the
+    message. That was harmless while nothing produced messages; it stopped
+    being harmless the moment Phase 2.3 began enqueueing notification intents
+    and 2.4 began enqueueing classification work, because those were being
+    destroyed within two seconds of being created.
+
+    An unconsumed queue is the correct state for a phase that has not been
+    built: the messages accumulate durably and wait for their handler.
+    """
+    import inspect
+
+    source = inspect.getsource(worker_main.main)
+    consumed = re.findall(r'QueueConsumer\(\s*"([a-z_]+)"', source)
+
+    assert consumed == ["sla_timers"], (
+        "a queue without a real handler is being consumed, which deletes "
+        f"messages a later phase needs: {consumed}"
+    )
 
 
 def test_heartbeat_interval_is_well_inside_the_stale_threshold() -> None:

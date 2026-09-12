@@ -449,6 +449,7 @@ async def test_failure_mid_transaction_rolls_everything_back(
     never queued is exactly the silent failure this product exists to prevent.
     """
     import app.services.discharge_action as action
+    import app.services.timers as timers
 
     ids = await _fixture(session)
     order_id = await _order(session, ids)
@@ -457,13 +458,21 @@ async def test_failure_mid_transaction_rolls_everything_back(
     # test isolates what the *discharge* wrote, not the setup.
     await session.commit()
 
-    original = action.SLA_TIMER_QUEUE
-    action.SLA_TIMER_QUEUE = "queue_that_does_not_exist"
+    # Patched on app.services.timers, which owns the enqueue since Phase 2.2
+    # moved it into create_timer. Patching the old name on discharge_action
+    # silently stopped breaking anything -- the discharge then succeeded and
+    # this test passed while proving nothing.
+    timers_before = (
+        await session.execute(text("SELECT count(*) FROM sla_timers"))
+    ).scalar()
+
+    original = timers.SLA_TIMER_QUEUE
+    timers.SLA_TIMER_QUEUE = "queue_that_does_not_exist"
     try:
         with pytest.raises(Exception, match=r"(?i)does not exist|undefined"):
             await action.discharge_encounter(session, uuid.UUID(ids["enc"]))
     finally:
-        action.SLA_TIMER_QUEUE = original
+        timers.SLA_TIMER_QUEUE = original
 
     await session.rollback()
 
@@ -473,6 +482,20 @@ async def test_failure_mid_transaction_rolls_everything_back(
     assert state["discharged_at"] is None
     assert state["cases"] == 0, "a pending case survived a failed discharge"
     assert state["events"] == 0, "a case event survived a failed discharge"
+
+    timers_after = (
+        await session.execute(text("SELECT count(*) FROM sla_timers"))
+    ).scalar()
+
+    # Phase 2.2 adds a fifth thing to the transaction. A durable timer row
+    # surviving a failed discharge would be worse than the old failure mode:
+    # a timer for a case that does not exist, which nothing would ever clear.
+    #
+    # Counted before and after rather than by joining to this encounter: the
+    # case is rolled back too, so a leaked timer has no case to join through,
+    # and an unscoped "orphans anywhere" count measures the tidiness of every
+    # other test in the suite instead of this rollback.
+    assert timers_after == timers_before, "a timer survived a failed discharge"
 
 
 # ── the real race ─────────────────────────────────────────────────────
@@ -581,6 +604,17 @@ async def test_concurrent_discharges_produce_exactly_one(monkeypatch: Any) -> No
                 await cleanup.execute(
                     text(
                         "DELETE FROM case_events WHERE case_id IN "
+                        "(SELECT id FROM pending_cases WHERE encounter_id = :e)"
+                    ),
+                    {"e": ids["enc"]},
+                )
+                # Phase 2.2 hangs timers off the case; they must go first or
+                # the delete below leaves them orphaned. (It would not even
+                # fail: session_replication_role = replica disables the FK
+                # trigger along with the append-only one.)
+                await cleanup.execute(
+                    text(
+                        "DELETE FROM sla_timers WHERE case_id IN "
                         "(SELECT id FROM pending_cases WHERE encounter_id = :e)"
                     ),
                     {"e": ids["enc"]},

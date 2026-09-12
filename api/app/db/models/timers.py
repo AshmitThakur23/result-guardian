@@ -63,6 +63,10 @@ TIMER_TYPES = (
 
 TIMER_STATUSES = ("pending", "fired", "cancelled", "superseded")
 
+# Phase 2.2: "Pause capability for patient `deceased` / `transferred` states".
+# Exactly those two encounter statuses, no invented third.
+PAUSE_REASONS = ("deceased", "transferred")
+
 # Phase 2.1's sweep: "any pending timer with fire_at < now() - interval '10 min'
 # and no live queue message -> re-enqueue".
 SWEEP_OVERDUE_GRACE = dt.timedelta(minutes=10)
@@ -144,6 +148,17 @@ class SlaTimer(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
 
     idempotency_key: Mapped[str] = mapped_column(String(200), nullable=False)
 
+    # Phase 2.2's pause capability. NOT a fifth status: the plan enumerates
+    # exactly pending|fired|cancelled|superseded, so a paused timer stays
+    # `pending` -- it still exists, still has a deadline, still shows in timer
+    # truth -- and is simply skipped by the fire handler and the sweep.
+    # Resuming is one UPDATE rather than a re-derivation that might land on a
+    # different deadline. Phase 4.6 owns the policy this serves.
+    paused_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    pause_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     __table_args__ = (
         CheckConstraint(
             text_enum("timer_type", TIMER_TYPES), name="ck_sla_timers_timer_type"
@@ -173,9 +188,15 @@ class SlaTimer(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
         # deadline. Partial because every one of those reads filters on
         # status = 'pending', and fired timers accumulate forever -- the same
         # reasoning Phase 1.2 applied to its partial indexes.
+        # A reason without a pause, or a pause without a reason, is a
+        # half-recorded decision.
+        CheckConstraint(
+            "(paused_at IS NULL) = (pause_reason IS NULL)",
+            name="ck_sla_timers_pause_reason_matches_paused_at",
+        ),
         Index(
             "ix_sla_timers_pending_fire_at",
             "fire_at",
-            postgresql_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending' AND paused_at IS NULL"),
         ),
     )

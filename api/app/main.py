@@ -13,7 +13,14 @@ from app.config import get_settings
 from app.db.session import dispose_engine
 from app.errors import register_exception_handlers
 from app.logging import RequestIdMiddleware, configure_logging
-from app.routers import encounters, health, patients, users
+from app.routers import (
+    encounters,
+    health,
+    lab_flags,
+    orders,
+    patients,
+    users,
+)
 from app.services.llm_probe import LlmProbe
 
 log = structlog.get_logger(__name__)
@@ -63,6 +70,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(health.router, prefix="/api")
     app.include_router(encounters.router, prefix="/api")
+    app.include_router(lab_flags.router, prefix="/api")
+    app.include_router(orders.router, prefix="/api")
     app.include_router(patients.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     return app

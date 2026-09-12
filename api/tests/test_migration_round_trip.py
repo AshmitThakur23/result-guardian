@@ -1,8 +1,11 @@
-"""Phase 2.1 — migration 0005 is genuinely reversible.
+"""Phase 2 — the migrations are genuinely reversible.
 
 A migration that has only ever been run forwards is a migration nobody can
 back out of at 2am. This runs the round trip for real: head → 0004 → head,
 against the live database, asserting what exists at each stop.
+
+Going back to 0004 exercises **both** Phase 2 migrations (0006 then 0005),
+and both their upgrades again on the way back.
 
 ⚠️ **This test mutates schema.** It therefore always restores the database to
 head in a ``finally``, whether it passed, failed or was interrupted — leaving
@@ -39,9 +42,15 @@ pytestmark = pytest.mark.integration
 
 T = TypeVar("T")
 
+# 0005
 TABLE = "sla_timers"
 FUNCTION = "rg_sweep_overdue_sla_timers"
 CRON_JOB = "rg-sla-timer-sweep"
+# 0006
+LAB_FLAGS = "lab_flags"
+RESULTS = "results"
+CLASSIFY_QUEUE = "classify"
+PAUSE_COLUMN = "paused_at"
 
 # Everything downgrade() must leave completely alone.
 PHASE_1_TABLES = (
@@ -59,6 +68,8 @@ PHASE_1_TABLES = (
     "worker_health",
 )
 EXTENSIONS = ("vector", "pgmq", "pg_cron", "pg_trgm", "unaccent", "pgcrypto")
+# The five Phase 0 queues. `classify` is 0006's and is checked separately,
+# because downgrade is supposed to remove it.
 QUEUES = ("sla_timers", "notifications", "ingest", "extract", "dlq")
 
 
@@ -84,6 +95,14 @@ def _reachable() -> bool:
         return False
 
 
+def _head_revision(config: Config) -> str:
+    from alembic.script import ScriptDirectory
+
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return str(head)
+
+
 @pytest.fixture
 def alembic_config() -> Config:
     # The project's own alembic.ini and env.py, unmodified: env.py builds the
@@ -105,10 +124,41 @@ async def _state(conn: Any) -> dict[str, bool]:
     job = await conn.execute(
         text("SELECT count(*) FROM cron.job WHERE jobname = :n"), {"n": CRON_JOB}
     )
+    lab_flags = await conn.execute(
+        text(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name = :n AND table_schema = 'public'"
+        ),
+        {"n": LAB_FLAGS},
+    )
+    results = await conn.execute(
+        text(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name = :n AND table_schema = 'public'"
+        ),
+        {"n": RESULTS},
+    )
+    paused = await conn.execute(
+        text(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = 'sla_timers' AND column_name = :n"
+        ),
+        {"n": PAUSE_COLUMN},
+    )
+    classify = await conn.execute(
+        text("SELECT count(*) FROM pgmq.list_queues() WHERE queue_name = :n"),
+        {"n": CLASSIFY_QUEUE},
+    )
     return {
+        # 0005
         "table": bool(table.scalar()),
         "function": bool(function.scalar()),
         "cron_job": bool(job.scalar()),
+        # 0006
+        "lab_flags": bool(lab_flags.scalar()),
+        "results": bool(results.scalar()),
+        "pause_column": bool(paused.scalar()),
+        "classify_queue": bool(classify.scalar()),
     }
 
 
@@ -168,7 +218,9 @@ def test_migration_0005_round_trips(alembic_config: Config) -> None:
         command.downgrade(alembic_config, "0004_phase_1_2_indexes")
 
         after = _run(_state)
-        assert after == {"table": False, "function": False, "cron_job": False}, after
+        assert not any(
+            after.values()
+        ), f"downgrade left Phase 2 objects behind: {after}"
         _run(_phase_1_intact)
         assert _run(_version) == "0004_phase_1_2_indexes"
 
@@ -178,7 +230,11 @@ def test_migration_0005_round_trips(alembic_config: Config) -> None:
         again = _run(_state)
         assert all(again.values()), again
         _run(_phase_1_intact)
-        assert _run(_version) == "0005_sla_timers"
+        # Read head from the migration graph rather than hardcoding it: this
+        # test is about 0005 round-tripping, and pinning the literal revision
+        # made it fail the moment 0006 was added for reasons unrelated to what
+        # it checks.
+        assert _run(_version) == _head_revision(alembic_config)
 
         # Scheduled exactly once — re-running must not leave two jobs doing
         # the same work every five minutes.

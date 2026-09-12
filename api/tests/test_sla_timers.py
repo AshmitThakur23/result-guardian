@@ -345,6 +345,10 @@ async def test_every_timestamp_column_is_timezone_aware(
     assert {r.column_name for r in rows} == {
         "fire_at",
         "fired_at",
+        # Phase 2.2's pause capability. Added to the expected set rather than
+        # loosening the assertion: the point is that EVERY timestamp column is
+        # timezone-aware, so a new one has to be named here deliberately.
+        "paused_at",
         "created_at",
         "updated_at",
         "deleted_at",

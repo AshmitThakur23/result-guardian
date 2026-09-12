@@ -492,6 +492,12 @@ async def test_order_creation_cannot_race_a_discharge(monkeypatch: Any) -> None:
                 for sql in (
                     "DELETE FROM case_events WHERE case_id IN "
                     "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
+                    "DELETE FROM sla_timers WHERE case_id IN "
+                    "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
+                    "DELETE FROM lab_flags WHERE case_id IN "
+                    "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
+                    "DELETE FROM results WHERE case_id IN "
+                    "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
                     "DELETE FROM pending_cases WHERE encounter_id = :e",
                     "DELETE FROM discharge_contracts WHERE encounter_id = :e",
                     "DELETE FROM orders WHERE encounter_id = :e",
@@ -573,6 +579,12 @@ async def test_order_after_a_committed_discharge_is_always_refused(
                 await cleanup.execute(text("SET session_replication_role = replica"))
                 for sql in (
                     "DELETE FROM case_events WHERE case_id IN "
+                    "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
+                    "DELETE FROM sla_timers WHERE case_id IN "
+                    "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
+                    "DELETE FROM lab_flags WHERE case_id IN "
+                    "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
+                    "DELETE FROM results WHERE case_id IN "
                     "(SELECT id FROM pending_cases WHERE encounter_id = :e)",
                     "DELETE FROM pending_cases WHERE encounter_id = :e",
                     "DELETE FROM discharge_contracts WHERE encounter_id = :e",

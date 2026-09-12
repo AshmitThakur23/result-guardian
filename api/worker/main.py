@@ -3,8 +3,9 @@
 Runs the pgmq consumers plus a heartbeat. Started as
 ``python -m worker.main`` from the same image as the API.
 
-Handlers are stubs until Phase 2 -- the skeleton exists now so the heartbeat
-and the shutdown path can be proven at Exit Gate 0.
+The ``sla_timers`` queue has a real handler since Phase 2.2. No other queue is
+consumed: a stub that logs and acknowledges would *delete* messages that later
+phases are supposed to process. See the comment in ``main()``.
 """
 
 from __future__ import annotations
@@ -13,16 +14,15 @@ import asyncio
 import contextlib
 import os
 import signal
-from typing import Any
 
 import structlog
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.logging import configure_logging
 from worker.consumer import QueueConsumer
+from worker.consumers.sla_timers import handle_sla_timer
 
 log = structlog.get_logger(__name__)
 
@@ -59,11 +59,6 @@ async def heartbeat(shutdown: asyncio.Event) -> None:
             await asyncio.wait_for(shutdown.wait(), timeout=HEARTBEAT_INTERVAL_S)
 
 
-async def _todo_handler(session: AsyncSession, message: dict[str, Any]) -> None:
-    """Placeholder. Phase 2 replaces this per queue."""
-    log.info("message_received_no_handler", message=message)
-
-
 async def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
@@ -78,11 +73,25 @@ async def main() -> None:
             # Windows dev: add_signal_handler is unsupported on ProactorEventLoop.
             signal.signal(sig, lambda *_: shutdown.set())
 
+    # ⚠️ Only queues with a REAL handler get a consumer.
+    #
+    # Phase 0.7 started a stub consumer on every queue to prove the skeleton,
+    # which was harmless while nothing produced messages. It stopped being
+    # harmless the moment Phase 2.3 began enqueueing notification intents and
+    # Phase 2.4 began enqueueing classification work: the stub logs the message
+    # and the consumer then DELETES it, so an obligation the plan requires to
+    # be recorded ("Notify: lab department queue + responsible doctor") was
+    # being destroyed within two seconds of being created.
+    #
+    # An unconsumed queue is the correct state for a phase that has not been
+    # built. The messages accumulate durably, survive restarts, and are there
+    # for Phase 3 (classify), Phase 4.3 (notifications), Phase 6 (ingest) and
+    # Phase 7 (extract) to consume when those phases add their handlers.
     consumers = [
-        QueueConsumer("sla_timers", _todo_handler, shutdown),
-        QueueConsumer("notifications", _todo_handler, shutdown),
-        QueueConsumer("ingest", _todo_handler, shutdown),
-        QueueConsumer("extract", _todo_handler, shutdown),
+        # The only real handler in Phase 2. It is idempotent by construction
+        # (SELECT ... FOR UPDATE on the timer row), which is what lets pgmq's
+        # at-least-once delivery be safe rather than merely tolerable.
+        QueueConsumer("sla_timers", handle_sla_timer, shutdown),
     ]
 
     tasks = [asyncio.create_task(heartbeat(shutdown))]

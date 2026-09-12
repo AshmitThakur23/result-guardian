@@ -38,10 +38,14 @@ from app.services.discharge_readiness import (
     EncounterNotFoundError,
     get_discharge_readiness,
 )
+from app.services.timers import SLA_TIMER_QUEUE, create_timer
 
-# Phase 2.1: "Create on discharge: result_due at contract.expected_by".
+# Phase 2.2: "Create on discharge: result_due at contract.expected_by".
 TIMER_TYPE_RESULT_DUE = "result_due"
-SLA_TIMER_QUEUE = "sla_timers"
+
+# Re-exported from app.services.timers, which now owns the queue name. Kept
+# here because Phase 1 tests and callers import it from this module.
+__all__ = ["SLA_TIMER_QUEUE", "TIMER_TYPE_RESULT_DUE", "discharge_encounter"]
 
 # Phase 1.1's case_events. One per case opened.
 EVENT_CASE_OPENED = "case_opened"
@@ -205,33 +209,32 @@ async def discharge_encounter(
             },
         )
 
-        # The SLA wake-up, in this same transaction. pgmq's delay keeps the
-        # message invisible until the deadline, so nothing consumes it early.
-        # Phase 2.1 adds the sla_timers table that carries the truth and the
-        # pg_cron sweep that re-fires anything the queue loses; this is only
-        # the wake-up that Phase 1.3 is required to enqueue.
-        delay_seconds = max(0, int((contract.expected_by - now).total_seconds()))
-        msg_id = (
-            await session.execute(
-                text(
-                    "SELECT pgmq.send(:q, CAST(:payload AS jsonb), CAST(:d AS integer))"
-                ),
-                {
-                    "q": SLA_TIMER_QUEUE,
-                    "payload": json.dumps(
-                        {
-                            "timer_type": TIMER_TYPE_RESULT_DUE,
-                            "case_id": str(case_id),
-                            "order_id": str(order.id),
-                            "encounter_id": str(encounter_id),
-                            "contract_id": str(contract.id),
-                            "fire_at": contract.expected_by.isoformat(),
-                        }
-                    ),
-                    "d": delay_seconds,
-                },
-            )
-        ).scalar()
+        # Phase 2.2: "Create on discharge: result_due at contract.expected_by."
+        #
+        # Phase 1.3 enqueued a bare wake-up here. It now goes through
+        # create_timer, which writes the durable sla_timers row FIRST and only
+        # then rings the doorbell -- still in this same transaction, so the
+        # case, the timer, the wake-up and the event all commit together or
+        # none of them do. That atomicity is the reason ADR 0001 put the queue
+        # inside Postgres.
+        #
+        # Idempotent by construction: the timer's key is derived from
+        # (case_id, result_due, expected_by), so a replay cannot produce a
+        # second timer or a second wake-up. The discharge itself is already
+        # refused on replay by the encounter row lock above; this is the
+        # second line of defence, in the database rather than in this function.
+        timer = await create_timer(
+            session,
+            case_id=case_id,
+            timer_type=TIMER_TYPE_RESULT_DUE,
+            fire_at=contract.expected_by,
+            order_id=order.id,
+            encounter_id=encounter_id,
+            contract_id=contract.id,
+            actor_user_id=actor_user_id,
+            now=now,
+        )
+        msg_id = timer.pgmq_msg_id
 
         opened.append(
             OpenedCase(
