@@ -39,9 +39,20 @@
 > **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
 > **✅ Phase 1 BACKEND COMPLETE and audited — 1.1, 1.2, 1.3, and 6 of 7 of 1.8.**
 > A full verification pass on 2026-09-12 found **zero current defects**.
-> ⚠️ **Phase 1 as a whole is NOT complete:** 1.4 (gate UI) and 1.5 (supporting
-> screens) are not started, and Exit Gate 1 stays ⬜ until they are.
-> **Next: 1.4 Discharge gate UI** — React 18 + TS + Vite + Tailwind + shadcn/ui.
+> **✅ Phase 1.4 — Discharge gate UI is COMPLETE (2026-09-12).** The frontend now
+> exists: `web/`, React 18 + TS + Vite + Tailwind, three-step gate at
+> `/encounters/:id/discharge`. **59 tests pass**, `npm run build` is green, and the
+> bundle is served live through Caddy (`/encounters/<id>/discharge` → 200, assets 200).
+> **There is no skip control anywhere** and a test enforces that by scanning every
+> button and link on the page.
+> 🟡 **One thing did not run: the Playwright E2E spec.** It is written
+> (`web/e2e/discharge-gate.spec.ts`, 10 tests asserting against the database, not the
+> screen) and its live-DB seeder is verified working — but Chromium build 1243 is not
+> downloaded, so the spec has **never executed**. It stays 🟡, not ✅.
+> ⚠️ **Phase 1 as a whole is NOT complete:** 1.5 (supporting screens) is not started,
+> 1.8's E2E is 🟡, and Exit Gate 1 stays ⬜ until they are.
+> **Next: 1.5 Supporting screens** — patient search, encounter detail, manual order
+> creation, discharge medication entry, and the 20-patient seed script.
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -69,7 +80,7 @@
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
-| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | 🔵 **in progress** | ⬜ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
+| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | 🔵 **in progress — 1.1–1.4 done** | ⬜ | 2–3 wks. **This is the product.** Backend ✅ + gate UI ✅. Remaining: 1.5 screens, 1.8 E2E 🟡, 1.6 corpus + 1.7 vendor 🔴 |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
@@ -193,6 +204,22 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-12 — Phase 1.4, discharge gate UI
+
+- **Unblocked 1.4 first.** The gate could not be built as specified: nothing exposed a list of doctors to search, and nothing exposed `encounters.attending_doctor_id`. Reported rather than inventing a later phase; the user approved **two minimal read-only endpoints**. Added `GET /api/users` (role + `q` search, inactive hidden by default, hard cap 100) and `GET /api/encounters/{id}` (patient + attending doctor). No new tables, no migration, no write path. **13 tests, all passing**; ruff/black/mypy clean.
+- **Scanned before installing** (CLAUDE.md rule): Node **v24.14.0** and npm **11.9.0** already on NODE A at `C:\Program Files
+odejs` — nothing to install. `npm install` pulled 286 packages into `web/node_modules` (gitignored).
+- **Scaffolded `web/`** — Vite 6 + React 18 + TypeScript strict + Tailwind 3, dev proxy `/api` → `localhost:8000`. **No build-time API host**: Caddy already serves `web/dist` and proxies `/api`, so the app is always same-origin.
+- **Built the three-step gate** at `/encounters/:id/discharge`: step 1 pending investigations with a red banner, step 2 per-order owner + expected-by with "apply first row to all", step 3 plain-language review, then a success screen carrying the contract references.
+- **No skip control, and it is enforced by a test**, not by inspection: the suite walks every button and link and fails on `skip|dismiss|ignore|discharge anyway|not required|remind me later|mark as done`.
+- **Override path** is a separate red button → Radix dialog → reason code + 20 trimmed characters + an overriding doctor, all three required before Confirm enables. The dialog states plainly that an override is not a dismissal.
+- **Draft persistence** in `sessionStorage` (not `localStorage` — a ward terminal is shared), Zod-validated on read. A corrupt, version-stale or **foreign-encounter** draft is deleted rather than half-read; an assignment whose order stopped blocking is dropped before submit, since the batch is all-or-nothing.
+- **Found and fixed a real ordering bug while writing the tests:** if contract creation succeeded but the discharge POST then failed, pressing Confirm again re-posted the contracts and 409'd on `UNIQUE (order_id)`, stranding the doctor on an error they could not clear. The created contracts are now held in state and creation is skipped on retry. Covered by `does not create the contracts twice when only the discharge failed`.
+- **59 tests pass** (37 gate flow + 11 draft + 11 datetime), `tsc --noEmit` clean, `npm run build` green (396 kB / 122 kB gzip). Verified served live through Caddy: route 200, JS 200, CSS 200.
+- **Playwright E2E written against the real stack** — `web/e2e/discharge-gate.spec.ts`, 10 tests that read `discharge_contracts`, `pending_cases`, `discharge_overrides` and `encounters.status` **out of Postgres** rather than trusting the screen. Seeder `web/e2e/seed.mjs` generates UUIDv7 PKs and is ✅ **verified working** — it created a live gated encounter and the readiness endpoint returned it correctly through Caddy.
+- 🟡 **The E2E spec has never run.** Playwright wants Chromium build 1243; only 1228 is cached and the download was declined. **Marked 🟡, not ✅** — written is not done.
+- **Deviations recorded** in the phase doc: availability badge 🚫 deferred to Phase 4.1 (needs `duty_roster`/`user_absences`; showing `is_active` as availability would say "on duty" about someone on leave), contract reference = the `contract_id` itself (no human-readable column exists to prettify), and the override dialog collects an overriding doctor because auth is Phase 5.1.
 
 ### 2026-09-11
 

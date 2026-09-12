@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.schemas.directory import EncounterDetail
 from app.schemas.discharge import (
     DischargeContractsCreate,
     DischargeContractsCreated,
@@ -21,6 +22,7 @@ from app.schemas.discharge import (
     DischargeReadiness,
     DischargeResult,
 )
+from app.services.directory import get_encounter_detail
 from app.services.discharge_action import (
     DischargeBlockedError,
     EncounterNotDischargeableError,
@@ -209,4 +211,27 @@ async def discharge_override(
     ) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+
+
+@router.get(
+    "/{encounter_id}",
+    response_model=EncounterDetail,
+    summary="Encounter with patient and attending doctor",
+)
+async def encounter_detail(
+    encounter_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> EncounterDetail:
+    """Read-only context for the gate header, and the attending doctor that
+    Step 2 defaults the responsible-doctor field to.
+
+    * **404** encounter not found
+    """
+    try:
+        return await get_encounter_detail(session, encounter_id)
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
         ) from exc

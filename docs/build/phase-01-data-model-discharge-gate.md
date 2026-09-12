@@ -19,11 +19,11 @@
 | 1.1 Core schema (Alembic revisions 002 + 003) | A | ✅ **done — all 11 tables** | `0002_core_schema` (departments, users, patients, encounters, orders, discharge_contracts) + `0003_core_schema_remaining` (discharge_contract_revisions, pending_cases, case_events, discharge_medications, discharge_overrides). Applied and round-tripped on NODE A; `case_events` append-only **enforced by trigger** and proven to reject UPDATE and DELETE; autogenerate drift = 0 |
 | 1.2 Indexes | A | ✅ **done** | `0004_phase_1_2_indexes`. All 6 verified against PostgreSQL's catalogue, not just metadata: 2 composites, 2 partials, 1 GIN `gin_trgm_ops`, and `case_events(case_id, occurred_at)` reused from 0003 rather than duplicated. Two plain indexes replaced by their partial forms |
 | 1.3 Discharge readiness API | A | ✅ **done — all 4 endpoints** | readiness GET · POST discharge-contracts · POST discharge · POST discharge-overrides. Server-side rechecks under `FOR UPDATE`, one transaction each, all verified live through Caddy |
-| 1.4 Discharge gate UI | A | ⬜ not started |  |
+| 1.4 Discharge gate UI | A | ✅ **done** | React 18 + TS + Vite + Tailwind in [`web/`](../../web). Three-step gate at `/encounters/:id/discharge`, **no skip control anywhere**, sessionStorage draft, full keyboard operation. **59 tests pass** (37 gate + 11 draft + 11 datetime) and `npm run build` is green; bundle served live through Caddy. Availability badge 🚫 **deferred to Phase 4.1** — `duty_roster`/`user_absences` do not exist, see deviations below |
 | 1.5 Supporting screens | A | ⬜ not started |  |
 | 1.6 Test corpus collection ★ calendar-gated | A | 🔴 **opened 2026-09-12** | 0 of 200+ collected. Manifest + blocker list in [`../test-corpus-manifest.md`](../test-corpus-manifest.md). **All 5 blockers need human action** |
 | 1.7 Vendor conversations ★ calendar-gated | A | 🔴 **opened 2026-09-12** | Discovery questionnaire in [`../integration-spec.md`](../integration-spec.md), every answer still `— UNANSWERED —`. **Needs hospital IT to name the vendor** |
-| 1.8 Tests | A | 🔵 **6 of 7 done** | All five integration tests and the unit-level status matrix pass against real PostgreSQL. ⬜ **E2E Playwright blocked on 1.4** — no UI to drive |
+| 1.8 Tests | A | 🔵 **6 of 7 done** | All five integration tests and the unit-level status matrix pass against real PostgreSQL. 🟡 **E2E Playwright written, never run** — [`web/e2e/discharge-gate.spec.ts`](../../web/e2e/discharge-gate.spec.ts) + live-DB seeder exist and the seeder is verified working, but Chromium build 1243 is not downloaded (install declined 2026-09-12) |
 | — OPD scope decision | A | ✅ **decided** | OUT of scope for v1, schema stays ready ([ADR 0003](../adr/0003-opd-out-of-scope-v1.md)) |
 | **Exit Gate 1** | A | ⬜ **not started** | |
 
@@ -85,17 +85,18 @@
 
 ## 1.4 Discharge gate UI
 
-- [ ] Route `/encounters/:id/discharge`
-- [ ] **Step 1:** summary of pending investigations, red banner, **no "skip" button anywhere on screen**
-- [ ] **Step 2:** per-order row with two required fields
-  - Responsible doctor: searchable select, defaults to attending doctor, shows availability badge
-  - Expected-by: date-time picker, default = `ordered_at + TAT`, min = `now+1h`
-  - "Apply to all" convenience button
-- [ ] **Step 3:** review screen in plain language: *"Dr. X will review Urine Culture by 14 Mar, 6:00 PM"*
-- [ ] Confirm → success screen with contract reference numbers
-- [ ] Override flow behind a separate red button with a confirmation modal and typed reason
-- [ ] Form state survives refresh (persist draft in `sessionStorage`)
-- [ ] **Full keyboard operation** — doctors will not reach for a mouse
+- [x] Route `/encounters/:id/discharge` — [`web/src/pages/DischargeGate.tsx`](../../web/src/pages/DischargeGate.tsx). A malformed id is refused client-side before any request is made
+- [x] **Step 1:** summary of pending investigations, red banner, **no "skip" button anywhere on screen** — [`Step1Pending.tsx`](../../web/src/pages/steps/Step1Pending.tsx). A test walks every button and link on the page and fails on `skip|dismiss|ignore|discharge anyway|not required|remind me later|mark as done`
+- [x] **Step 2:** per-order row with two required fields — [`Step2Assign.tsx`](../../web/src/pages/steps/Step2Assign.tsx)
+  - [x] Responsible doctor: searchable select, defaults to attending doctor — ARIA 1.2 combobox, [`DoctorSelect.tsx`](../../web/src/components/DoctorSelect.tsx)
+  - [x] Expected-by: date-time picker, default = `ordered_at + TAT`, min = `now+1h`, max = 30 days (mirrors `MAX_CONTRACT_HORIZON_DAYS`)
+  - [x] "Apply to all" convenience button
+  - 🚫 **Availability badge deferred to Phase 4.1** — it needs `duty_roster` / `user_absences`, which do not exist. The field shows no availability at all rather than implying `is_active` means "on duty"
+- [x] **Step 3:** review screen in plain language: *"Dr Asha Menon will review Urine Culture by 14 Mar 2026, 6:00 PM"* — [`Step3Review.tsx`](../../web/src/pages/steps/Step3Review.tsx). A doctor whose name cannot be resolved reads as "The assigned doctor", never as a raw uuid
+- [x] Confirm → success screen with contract reference numbers — [`SuccessScreen.tsx`](../../web/src/pages/steps/SuccessScreen.tsx). The reference **is the `contract_id`**: `discharge_contracts` has no human-readable reference column and inventing one would print an id nothing in the system can look up
+- [x] Override flow behind a separate red button with a confirmation modal and typed reason — [`OverrideDialog.tsx`](../../web/src/components/OverrideDialog.tsx). Confirm stays disabled until reason code + 20 trimmed characters + an overriding doctor are all present
+- [x] Form state survives refresh (persist draft in `sessionStorage`) — [`draft.ts`](../../web/src/lib/draft.ts). Zod-validated on read; a corrupt, version-stale or foreign-encounter draft is **deleted, not half-read**
+- [x] **Full keyboard operation** — doctors will not reach for a mouse. Arrow/Enter/Escape/Tab on the combobox, focus ring never suppressed. ⚠️ Proven in jsdom; **the real-browser keyboard path is part of the 🟡 E2E spec that has not run**
 
 ## 1.5 Supporting screens
 
@@ -129,7 +130,18 @@
 - [x] Integration: two concurrent discharge requests → **exactly one** succeeds — `test_concurrent_discharges_produce_exactly_one`, two independent connections
 - [x] Integration: contract creation fails halfway → **nothing persisted** — `test_one_bad_entry_creates_nothing` and the UNIQUE(order_id) IntegrityError path
 - [x] Integration: override path creates a case flagged to unit head — `test_override_still_tracks_the_investigation`
-- [ ] E2E Playwright: doctor completes the whole gate flow — ⬜ **blocked on 1.4**, there is no UI to drive yet
+- [ ] E2E Playwright: doctor completes the whole gate flow — 🟡 **written, never run.** [`web/e2e/discharge-gate.spec.ts`](../../web/e2e/discharge-gate.spec.ts): 10 tests against the real stack (Caddy → FastAPI → Postgres), asserting `discharge_contracts`, `pending_cases`, `discharge_overrides` and `encounters.status` **out of the database**, not off the screen. The seeder [`e2e/seed.mjs`](../../web/e2e/seed.mjs) is ✅ verified working — it created a live gated encounter and the readiness endpoint returned it correctly through Caddy. **Blocked only on `npx playwright install chromium`** (build 1243; install declined 2026-09-12)
+
+---
+
+## Deviations from the build plan, and why
+
+| § | Plan said | Built instead | Why |
+|---|---|---|---|
+| 1.4 Step 2 | Responsible-doctor select "shows availability badge" | **No availability shown at all** | Availability comes from `duty_roster` and `user_absences`, which are **Phase 4.1** and do not exist. The only liveness signal the schema carries is `users.is_active`, and inactive users are already filtered out server-side. Rendering `is_active` as an availability badge would tell a doctor "on duty" about someone who is on leave — worse than showing nothing. Restore the badge in 4.1, where the roster makes it true |
+| 1.4 success screen | "contract reference numbers" | **The `contract_id` UUID**, copyable | `discharge_contracts` has no human-readable reference column. A prettified short code would print an identifier that cannot be looked up in the database, the API or a support call |
+| 1.4 override dialog | Typed reason | Typed reason **plus an "overriding doctor" field** | `DischargeOverrideRequest.overridden_by` is required and authentication is **Phase 5.1**. Until a session exists, the identity has to come from somewhere; the field carries a note saying it disappears once auth lands |
+| 1.4 (addendum to 1.3) | — | **Two new read-only endpoints**: `GET /api/users` and `GET /api/encounters/{id}` | The gate cannot be built without a way to search for a doctor and a way to read the encounter's `attending_doctor_id`. Both are plain reads — no new tables, no migration, no write path. 13 tests, all passing. Approved as the minimal unblock rather than pulling Phase 5.4 admin work forward |
 
 ---
 

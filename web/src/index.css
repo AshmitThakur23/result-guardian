@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+
+  /* Keyboard operation is a hard requirement of the gate, so the focus ring is
+     never removed -- only replaced with one that is visible against every
+     background used here. A doctor tabbing through this screen must always be
+     able to see where they are. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-600 ring-offset-2 ring-offset-white;
+  }
+}
