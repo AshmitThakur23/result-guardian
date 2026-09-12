@@ -49,10 +49,21 @@
 > (`web/e2e/discharge-gate.spec.ts`, 10 tests asserting against the database, not the
 > screen) and its live-DB seeder is verified working — but Chromium build 1243 is not
 > downloaded, so the spec has **never executed**. It stays 🟡, not ✅.
-> ⚠️ **Phase 1 as a whole is NOT complete:** 1.5 (supporting screens) is not started,
-> 1.8's E2E is 🟡, and Exit Gate 1 stays ⬜ until they are.
-> **Next: 1.5 Supporting screens** — patient search, encounter detail, manual order
-> creation, discharge medication entry, and the 20-patient seed script.
+> **✅ Phase 1.5 — Supporting screens is COMPLETE (2026-09-12).** Patient search
+> (MRN/name/phone in one box, on the Phase 1.2 trigram index), encounter detail
+> (orders + contracts + medications in one read), manual order creation,
+> discharge medication entry, and a deterministic seed script
+> (20 patients · 60 orders in varied states · 10 doctors).
+> **294 backend + 99 frontend tests pass**, coverage **87%** (was 79%), ruff/black/
+> mypy-strict/tsc/build all clean, **autogenerate drift = 0 — no migration needed.**
+> 🔒 **The documented order-creation race is closed.** `create_manual_order` takes
+> the *same* `FOR UPDATE` encounter lock the discharge action takes, so an order
+> can never slip past a concurrent discharge. Proven, not assumed: with the lock
+> temporarily removed the race test failed **6 of 6 runs** with the unsafe outcome
+> `['discharged', 'order_created']`; with it restored, 6 of 6 pass.
+> ⚠️ **Phase 1 is NOT complete:** 1.8's Playwright E2E is still 🟡 (never run),
+> 1.6/1.7 are 🔴 calendar-gated, and **Exit Gate 1 stays ⬜**.
+> **Next: the final Phase 1 verification pass**, including running the E2E suite.
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -80,7 +91,7 @@
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
-| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | 🔵 **in progress — 1.1–1.4 done** | ⬜ | 2–3 wks. **This is the product.** Backend ✅ + gate UI ✅. Remaining: 1.5 screens, 1.8 E2E 🟡, 1.6 corpus + 1.7 vendor 🔴 |
+| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | 🔵 **in progress — 1.1–1.5 done** | ⬜ | 2–3 wks. **This is the product.** All code sections ✅. Remaining: 1.8 E2E 🟡 (never run), 1.6 corpus + 1.7 vendor 🔴 calendar-gated |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
@@ -204,6 +215,20 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-12 — Phase 1.5, supporting screens
+
+- **Patient search** — `GET /api/patients?q=`, one box serving MRN, name and phone, ranked so an unambiguous identifier always beats a fuzzy name. Name matching runs on the **Phase 1.2 GIN `gin_trgm_ops` index** (verified: "Sunta Rao" finds "Sunita Rao", so a clerk who mistypes does not create a duplicate record). Phone compares digits to digits because the column is E.164 and the clerk types what is written on the file.
+- **Closed a patient-index dump before it existed:** LIKE wildcards inside `q` are escaped, so a one-character search of `%` returns nothing instead of every patient in the hospital. Four probes (`%`, `_`, `%%`, `\`) are asserted to return zero rows.
+- **Encounter detail** — `GET /api/encounters/{id}/detail`: orders with status, their contracts and owners, and discharge medications, assembled in **one transaction** so the three cannot disagree. It reports the gate's answer by calling the same `get_discharge_readiness` the discharge action re-runs, rather than re-implementing the blocking rule — a second copy is a second thing that can drift. The Phase 1.4 gate's own endpoint is untouched.
+- 🔒 **Closed the order-creation race documented in the Phase 1.3 audit.** `create_manual_order` takes `SELECT … FOR UPDATE` on the **same encounter row the discharge action locks**, so the two serialise: discharge first → the order is refused 409; order first → the discharge re-derives readiness inside its own lock and is blocked 409. The fix needed **no change to the discharge algorithm**, no advisory lock, no SERIALIZABLE, no retry loop.
+- **Proved the race test is not vacuous.** With `.with_for_update()` temporarily removed, `test_order_creation_cannot_race_a_discharge` failed **6 of 6 runs** with exactly the unsafe outcome `['discharged', 'order_created']` — a discharged encounter holding a new order nobody owned. Lock restored: 6 of 6 pass. The test asserts the invariant out of the database, not off the screen.
+- **Discharge medication entry** — capture only, for Phase 3's Rule B. No interaction checking, no dose validation, no AI. Accepted **after** discharge as well as before, deliberately: a summary is often typed up once the patient has left, and a medication row changes nothing the gate reads.
+- **Seed script** `api/scripts/seed_dev.py` — 20 patients, 60 orders across all seven statuses, 10 doctors, 1 department with a unit head. Deterministic: ids are stable **UUIDv7** values derived from a fixed namespace, so a second run upserts the same twenty people instead of creating forty. Obviously synthetic — `(SEED)` suffix, `SEED-` MRNs, 555-range phone numbers — and it refuses to run when `RG_ENV=prod`.
+- **Two real bugs found by running the code, not by reading it:** (1) order and medication creation flushed but never committed, so an order vanished the moment the request ended — caught by a live curl, not by a test; (2) the seed gave every encounter three *identical* orders, because 60 orders over 20 encounters with 10 tests made `i % 10` line up, defeating the build plan's own "varied states" requirement.
+- **Hardened the runtime image.** Adding `scripts/` meant `COPY . /app` was shipping a fake-patient writer into the production image. `scripts/` and `tests/` are now stripped from the `runtime` stage and copied back in `dev`. Verified both ways: absent from runtime, present in dev, `app` and `alembic` still intact.
+- **Exit check run end to end against real data:** find patient → open encounter → see orders → add a manual order → **gate blocks (409)** → assign contracts → discharge → 3 cases + 3 SLA timers opened → enter discharge medications → a post-discharge order is **refused**. Final database state: `discharged, 3 contracts, 3 cases, 3 events, 0 unowned outstanding`.
+- **Regression:** 294 backend tests (was 220) and 99 frontend tests (was 59) pass; coverage **87%**, raised from 79% with tests rather than by lowering the gate. ruff · black · mypy-strict · tsc · production build all clean. **`alembic check` → no new upgrade operations: Phase 1.5 needed no migration.** All six extensions and the `case_events` append-only trigger intact. `/api/health` returns `ok` with **`llm.reachable: false`** — NODE B stays irrelevant.
 
 ### 2026-09-12 — Phase 1.4, discharge gate UI
 

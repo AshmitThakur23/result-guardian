@@ -2,6 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
 import type {
+  DischargeMedicationCreate,
+  DischargeMedicationRow,
+  EncounterFullDetail,
+  OrderCreate,
+  OrderCreated,
+  PatientSearchRow,
+  PatientWithEncounters,
   DischargeContractRequest,
   DischargeContractsCreated,
   DischargeOverrideRequest,
@@ -116,6 +123,85 @@ export function useDischargeOverride(encounterId: string) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: keys.readiness(encounterId) });
       void queryClient.invalidateQueries({ queryKey: keys.encounter(encounterId) });
+    },
+  });
+}
+
+/* ── Phase 1.5 supporting screens ─────────────────────────────────── */
+
+export const phase15Keys = {
+  patientSearch: (q: string) => ["patients", "search", q] as const,
+  patient: (id: string) => ["patients", id] as const,
+  encounterDetail: (id: string) => ["encounter", id, "detail"] as const,
+};
+
+/**
+ * Patient search.
+ *
+ * `enabled` on a non-empty query: the endpoint requires `q` and refuses an
+ * empty one with a 422, deliberately -- an endpoint that returns the whole
+ * patient index for a blank search is a patient-index dump waiting to happen.
+ * So the screen shows a prompt rather than firing a request it knows fails.
+ */
+export function usePatientSearch(query: string) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: phase15Keys.patientSearch(trimmed),
+    queryFn: () =>
+      api.get<PatientSearchRow[]>(
+        `/patients?q=${encodeURIComponent(trimmed)}&limit=20`,
+      ),
+    enabled: trimmed.length > 0,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function usePatient(patientId: string) {
+  return useQuery({
+    queryKey: phase15Keys.patient(patientId),
+    queryFn: () => api.get<PatientWithEncounters>(`/patients/${patientId}`),
+  });
+}
+
+export function useEncounterDetail(encounterId: string) {
+  return useQuery({
+    queryKey: phase15Keys.encounterDetail(encounterId),
+    queryFn: () =>
+      api.get<EncounterFullDetail>(`/encounters/${encounterId}/detail`),
+    // Orders and the gate's answer both move underneath this screen.
+    staleTime: 0,
+  });
+}
+
+export function useCreateOrder(encounterId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: OrderCreate) =>
+      api.post<OrderCreated>(`/encounters/${encounterId}/orders`, payload),
+    onSettled: () => {
+      // A new order changes the gate's answer. Both the detail payload and
+      // the readiness the gate screen reads have to be re-fetched, or a
+      // doctor could walk to the gate with a stale "ready".
+      void queryClient.invalidateQueries({
+        queryKey: phase15Keys.encounterDetail(encounterId),
+      });
+      void queryClient.invalidateQueries({ queryKey: keys.readiness(encounterId) });
+    },
+  });
+}
+
+export function useAddMedication(encounterId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: DischargeMedicationCreate) =>
+      api.post<DischargeMedicationRow>(
+        `/encounters/${encounterId}/discharge-medications`,
+        payload,
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: phase15Keys.encounterDetail(encounterId),
+      });
     },
   });
 }

@@ -1,8 +1,8 @@
-"""Encounter endpoints. Phase 1.3.
+"""Encounter endpoints. Phase 1.3, extended by Phase 1.5.
 
-Only the readiness read lives here so far. The three actions that follow it in
-the build plan -- bulk contract creation, the discharge action itself, and the
-override path -- are separate 1.3 tasks and are deliberately absent.
+The gate's four actions (readiness, contracts, discharge, override) are 1.3.
+Phase 1.5 adds the supporting reads and writes around them: the full detail
+payload, manual order creation, and discharge medication entry.
 """
 
 from __future__ import annotations
@@ -22,6 +22,12 @@ from app.schemas.discharge import (
     DischargeReadiness,
     DischargeResult,
 )
+from app.schemas.encounter_detail import EncounterFullDetail
+from app.schemas.medications import (
+    DischargeMedicationCreate,
+    DischargeMedicationRow,
+)
+from app.schemas.orders import OrderCreate, OrderCreated
 from app.services.directory import get_encounter_detail
 from app.services.discharge_action import (
     DischargeBlockedError,
@@ -41,6 +47,18 @@ from app.services.discharge_override import (
 from app.services.discharge_readiness import (
     EncounterNotFoundError,
     get_discharge_readiness,
+)
+from app.services.encounter_detail import get_encounter_full_detail
+from app.services.medications import (
+    DuplicateMedicationError,
+    add_discharge_medication,
+    list_discharge_medications,
+)
+from app.services.orders import (
+    DuplicateExternalOrderError,
+    EncounterNotOrderableError,
+    OrderValidationError,
+    create_manual_order,
 )
 
 router = APIRouter(prefix="/encounters", tags=["encounters"])
@@ -209,6 +227,129 @@ async def discharge_override(
         NoUnitHeadError,
         NothingToOverrideError,
     ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+
+
+# ── Phase 1.5 supporting screens ──────────────────────────────────────
+
+
+@router.get(
+    "/{encounter_id}/detail",
+    response_model=EncounterFullDetail,
+    summary="Encounter with orders, contracts and discharge medications",
+)
+async def encounter_full_detail(
+    encounter_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> EncounterFullDetail:
+    """Everything the Phase 1.5 detail screen renders, in one transaction.
+
+    Separate from ``GET /encounters/{id}`` on purpose: the Phase 1.4 gate needs
+    only the header and would pay for an orders join it never reads.
+
+    ``can_discharge`` here is the same server-derived answer the discharge
+    action re-checks under a row lock. It is a display value, not permission.
+
+    * **404** encounter not found
+    """
+    try:
+        return await get_encounter_full_detail(session, encounter_id)
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
+        ) from exc
+
+
+@router.post(
+    "/{encounter_id}/orders",
+    response_model=OrderCreated,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add an investigation manually — until HIS integration exists",
+)
+async def create_order(
+    encounter_id: uuid.UUID,
+    payload: OrderCreate,
+    session: AsyncSession = Depends(get_session),
+) -> OrderCreated:
+    """Create one order against an **open** encounter.
+
+    Takes the same ``FOR UPDATE`` lock on the encounter row that the discharge
+    action takes, which is what stops a new order from slipping past a
+    concurrent discharge. See ``app/services/orders.py`` for the full
+    argument.
+
+    The response carries the gate's re-derived answer, so the caller learns
+    immediately that the encounter is now blocked.
+
+    * **404** encounter not found
+    * **409** the encounter is no longer active, or the external_order_id is
+      already in use
+    * **422** bad field values, or a referenced user that does not exist
+    """
+    try:
+        return await create_manual_order(session, encounter_id, payload)
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
+        ) from exc
+    except EncounterNotOrderableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+    except DuplicateExternalOrderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+    except OrderValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
+
+
+@router.get(
+    "/{encounter_id}/discharge-medications",
+    response_model=list[DischargeMedicationRow],
+    summary="What the patient is going home on",
+)
+async def list_medications(
+    encounter_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> list[DischargeMedicationRow]:
+    """Antibiotics first — Phase 3's Rule B only considers those."""
+    return await list_discharge_medications(session, encounter_id)
+
+
+@router.post(
+    "/{encounter_id}/discharge-medications",
+    response_model=DischargeMedicationRow,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record a discharge medication",
+)
+async def create_medication(
+    encounter_id: uuid.UUID,
+    payload: DischargeMedicationCreate,
+    session: AsyncSession = Depends(get_session),
+) -> DischargeMedicationRow:
+    """Capture only. No interaction checking, no dose validation, no AI.
+
+    Accepted after discharge as well as before: a discharge summary is often
+    typed up once the patient has left, and a medication row changes nothing
+    the gate reads.
+
+    * **404** encounter not found
+    * **409** the same drug, dose and frequency is already recorded
+    * **422** bad field values
+    """
+    try:
+        return await add_discharge_medication(session, encounter_id, payload)
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
+        ) from exc
+    except DuplicateMedicationError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=exc.detail
         ) from exc

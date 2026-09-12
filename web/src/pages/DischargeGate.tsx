@@ -38,6 +38,7 @@ import type {
 } from "../api/types";
 import { OVERRIDE_REASON_LABELS } from "../api/types";
 import { inputValueToIso, isoToInputValue } from "../lib/datetime";
+import { UUID_RE } from "../lib/ids";
 import type { Assignment } from "../lib/draft";
 import {
   clearDraft,
@@ -50,9 +51,6 @@ import { Step1Pending } from "./steps/Step1Pending";
 import { Step2Assign } from "./steps/Step2Assign";
 import { Step3Review } from "./steps/Step3Review";
 import { SuccessScreen } from "./steps/SuccessScreen";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function DischargeGatePage() {
   const { encounterId = "" } = useParams<{ encounterId: string }>();

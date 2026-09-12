@@ -72,6 +72,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# `scripts/` is deliberately NOT a declared wheel package -- the seed script
+# writes fake patients and has no business in the runtime image. It still has
+# to be importable by its tests, so put the project root on the path here
+# rather than shipping it.
+pythonpath = ["."]
 addopts = "-q --strict-markers"
 markers = [
     # Talks to a real Postgres with pgmq. Skips itself when none is reachable,

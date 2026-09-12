@@ -251,3 +251,215 @@ export function installServer(handlers: Handlers = {}) {
       calls.filter((call) => call.method === "POST" && call.path.endsWith(suffix)),
   };
 }
+
+/* ── Phase 1.5 supporting screens ─────────────────────────────────── */
+
+export const PATIENT_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+export function patientRow(
+  overrides: Partial<import("../api/types").PatientSearchRow> = {},
+): import("../api/types").PatientSearchRow {
+  return {
+    id: PATIENT_ID,
+    mrn: "MRN-77021",
+    name: "Sunita Rao",
+    dob: "1978-04-02",
+    sex: "F",
+    phone_primary_e164: "+915550000001",
+    active_encounter_count: 1,
+    ...overrides,
+  };
+}
+
+export function encounterFullDetail(
+  overrides: Partial<import("../api/types").EncounterFullDetail> = {},
+): import("../api/types").EncounterFullDetail {
+  return {
+    id: ENCOUNTER_ID,
+    encounter_no: "ENC-2026-0042",
+    type: "ipd",
+    status: "active",
+    admitted_at: new Date(Date.now() - 72 * HOUR).toISOString(),
+    discharged_at: null,
+    ward: "Ward 3",
+    bed: "B12",
+    department_id: null,
+    patient: { id: PATIENT_ID, mrn: "MRN-77021", name: "Sunita Rao" },
+    attending_doctor: DOCTOR,
+    orders: [
+      {
+        id: ORDER_A,
+        test_code: "URC",
+        test_name: "Urine Culture",
+        category: "micro",
+        status: "in_lab",
+        ordered_at: new Date(Date.now() - 6 * HOUR).toISOString(),
+        sample_collected_at: null,
+        expected_tat_hours: "48.00",
+        external_order_id: null,
+        is_outstanding: true,
+        contract_id: null,
+        responsible_doctor_id: null,
+        responsible_doctor_name: null,
+        expected_by: null,
+      },
+      {
+        id: ORDER_B,
+        test_code: "CXR",
+        test_name: "Chest X-Ray",
+        category: "radiology",
+        status: "final",
+        ordered_at: new Date(Date.now() - 30 * HOUR).toISOString(),
+        sample_collected_at: null,
+        expected_tat_hours: "2.00",
+        external_order_id: "ACC-100234",
+        is_outstanding: false,
+        contract_id: null,
+        responsible_doctor_id: null,
+        responsible_doctor_name: null,
+        expected_by: null,
+      },
+    ],
+    medications: [],
+    gate_applies: true,
+    can_discharge: false,
+    blocking_order_count: 1,
+    can_add_orders: true,
+    ...overrides,
+  };
+}
+
+export interface Phase15Handlers {
+  patientSearch?: (q: string) => import("../api/types").PatientSearchRow[] | Problemish;
+  patient?: () => import("../api/types").PatientWithEncounters | Problemish;
+  encounterDetail?: () =>
+    | import("../api/types").EncounterFullDetail
+    | Problemish;
+  createOrder?: (body: unknown) =>
+    | import("../api/types").OrderCreated
+    | Problemish;
+  addMedication?: (body: unknown) =>
+    | import("../api/types").DischargeMedicationRow
+    | Problemish;
+}
+
+/**
+ * The Phase 1.5 screens talk to a different set of endpoints from the gate,
+ * so they get their own stub rather than widening `installServer` with five
+ * more optional handlers the gate tests would never use.
+ */
+export function installPhase15Server(handlers: Phase15Handlers = {}) {
+  const calls: Call[] = [];
+
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const path = url.replace(/^\/api/, "");
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ method, path, body });
+
+    const respond = (payload: unknown, status = 200) =>
+      new Response(JSON.stringify(payload), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    const result = (value: unknown, okStatus = 200) => {
+      if (typeof value === "object" && value !== null && "__problem" in value) {
+        const problemValue = value as Problemish;
+        const { __problem: _flag, ...rest } = problemValue;
+        void _flag;
+        return new Response(JSON.stringify({ type: "about:blank", ...rest }), {
+          status: problemValue.status,
+          headers: { "Content-Type": "application/problem+json" },
+        });
+      }
+      return respond(value, okStatus);
+    };
+
+    if (method === "GET" && path.startsWith("/patients/")) {
+      return result(
+        handlers.patient?.() ?? {
+          patient: patientRow(),
+          encounters: [
+            {
+              id: ENCOUNTER_ID,
+              encounter_no: "ENC-2026-0042",
+              type: "ipd",
+              status: "active",
+              admitted_at: new Date(Date.now() - 72 * HOUR).toISOString(),
+              discharged_at: null,
+              ward: "Ward 3",
+              bed: "B12",
+            },
+          ],
+        },
+      );
+    }
+    if (method === "GET" && path.startsWith("/patients")) {
+      const q = new URL(url, "http://t").searchParams.get("q") ?? "";
+      return result(handlers.patientSearch?.(q) ?? [patientRow()]);
+    }
+    if (method === "GET" && path.endsWith("/detail")) {
+      return result(handlers.encounterDetail?.() ?? encounterFullDetail());
+    }
+    if (method === "POST" && path.endsWith("/orders")) {
+      const created = handlers.createOrder?.(body);
+      if (created) return result(created, 201);
+      const fields = body as Record<string, string>;
+      return result(
+        {
+          order: {
+            id: "0aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            test_code: fields.test_code,
+            test_name: fields.test_name,
+            category: fields.category,
+            status: fields.status ?? "ordered",
+            ordered_at: new Date().toISOString(),
+            sample_collected_at: null,
+            expected_tat_hours: fields.expected_tat_hours ?? null,
+            external_order_id: fields.external_order_id ?? null,
+            is_outstanding: true,
+            contract_id: null,
+            responsible_doctor_id: null,
+            responsible_doctor_name: null,
+            expected_by: null,
+          },
+          encounter_id: ENCOUNTER_ID,
+          encounter_can_discharge: false,
+          blocking_order_count: 2,
+        },
+        201,
+      );
+    }
+    if (method === "POST" && path.endsWith("/discharge-medications")) {
+      const added = handlers.addMedication?.(body);
+      if (added) return result(added, 201);
+      const fields = body as Record<string, unknown>;
+      return result(
+        {
+          id: "0bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          encounter_id: ENCOUNTER_ID,
+          drug_name: fields.drug_name,
+          drug_code: null,
+          atc_code: fields.atc_code ?? null,
+          dose: fields.dose ?? null,
+          route: fields.route ?? null,
+          frequency: fields.frequency ?? null,
+          duration_days: fields.duration_days ?? null,
+          is_antibiotic: fields.is_antibiotic ?? false,
+        },
+        201,
+      );
+    }
+
+    return respond({ title: "No handler", status: 404 }, 404);
+  });
+
+  vi.stubGlobal("fetch", fetchMock);
+  return {
+    calls,
+    postsTo: (suffix: string) =>
+      calls.filter((call) => call.method === "POST" && call.path.endsWith(suffix)),
+  };
+}

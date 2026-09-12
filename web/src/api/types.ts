@@ -157,3 +157,122 @@ export interface ContractViolation {
   code: string;
   detail: string;
 }
+
+/* ── Phase 1.5 supporting screens ─────────────────────────────────── */
+
+export interface PatientSearchRow {
+  id: string;
+  mrn: string;
+  name: string;
+  dob: string | null;
+  sex: string | null;
+  phone_primary_e164: string | null;
+  active_encounter_count: number;
+}
+
+export interface PatientEncounterRow {
+  id: string;
+  encounter_no: string;
+  type: string;
+  status: string;
+  admitted_at: string;
+  discharged_at: string | null;
+  ward: string | null;
+  bed: string | null;
+}
+
+export interface PatientWithEncounters {
+  patient: PatientSearchRow;
+  encounters: PatientEncounterRow[];
+}
+
+export interface OrderRow {
+  id: string;
+  test_code: string;
+  test_name: string;
+  category: string;
+  status: string;
+  ordered_at: string;
+  sample_collected_at: string | null;
+  /** NUMERIC on the wire, so it arrives as a JSON string. */
+  expected_tat_hours: string | number | null;
+  external_order_id: string | null;
+  /** Derived server-side: status is not final, cancelled or rejected. */
+  is_outstanding: boolean;
+  contract_id: string | null;
+  responsible_doctor_id: string | null;
+  responsible_doctor_name: string | null;
+  expected_by: string | null;
+}
+
+export interface DischargeMedicationRow {
+  id: string;
+  encounter_id: string;
+  drug_name: string;
+  drug_code: string | null;
+  atc_code: string | null;
+  dose: string | null;
+  route: string | null;
+  frequency: string | null;
+  duration_days: string | number | null;
+  is_antibiotic: boolean;
+}
+
+export interface EncounterFullDetail {
+  id: string;
+  encounter_no: string;
+  type: string;
+  status: string;
+  admitted_at: string;
+  discharged_at: string | null;
+  ward: string | null;
+  bed: string | null;
+  department_id: string | null;
+  patient: PatientSummary;
+  attending_doctor: UserSummary | null;
+  orders: OrderRow[];
+  medications: DischargeMedicationRow[];
+  gate_applies: boolean;
+  can_discharge: boolean;
+  blocking_order_count: number;
+  /** False once the encounter leaves 'active'. A display hint only — the
+   *  server enforces it under a row lock regardless. */
+  can_add_orders: boolean;
+}
+
+/** Statuses a manually created order may start in. Terminal states are
+ *  reached by resulting an order, not by creating one. */
+export const MANUAL_ORDER_STATUSES = ["ordered", "collected", "in_lab"] as const;
+export type ManualOrderStatus = (typeof MANUAL_ORDER_STATUSES)[number];
+
+export const ORDER_CATEGORIES = ["lab", "radiology", "pathology", "micro"] as const;
+export type OrderCategory = (typeof ORDER_CATEGORIES)[number];
+
+export interface OrderCreate {
+  test_code: string;
+  test_name: string;
+  category: OrderCategory;
+  status?: ManualOrderStatus;
+  ordered_at?: string | null;
+  expected_tat_hours?: string | null;
+  external_order_id?: string | null;
+  ordered_by_user_id?: string | null;
+}
+
+export interface OrderCreated {
+  order: OrderRow;
+  encounter_id: string;
+  encounter_can_discharge: boolean;
+  blocking_order_count: number;
+}
+
+export interface DischargeMedicationCreate {
+  drug_name: string;
+  drug_code?: string | null;
+  atc_code?: string | null;
+  dose?: string | null;
+  route?: string | null;
+  frequency?: string | null;
+  duration_days?: string | null;
+  is_antibiotic: boolean;
+}

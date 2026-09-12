@@ -36,6 +36,16 @@ RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
 
 COPY --chown=rg:rg . /app
 
+# Development-only code must not reach a hospital server. `scripts/` holds the
+# Phase 1.5 seeder, which writes twenty fake patients; it refuses to run when
+# RG_ENV=prod, but the safer position is for it not to be on the machine at
+# all. `tests/` is the same argument, minus the fake patients.
+#
+# Removed here rather than via .dockerignore because the `dev` stage below
+# genuinely needs both, and .dockerignore applies to the whole build.
+# `alembic/` stays: migrations run in production.
+RUN rm -rf /app/scripts /app/tests
+
 USER rg
 EXPOSE 8000
 
@@ -59,4 +69,10 @@ RUN pip install --no-cache-dir \
         "ruff>=0.5" \
         "black>=24.4" \
         "mypy>=1.10"
+
+# Put back what the runtime stage stripped. The dev image is where the suite
+# runs and where `python -m scripts.seed_dev` is invoked.
+COPY --chown=rg:rg tests /app/tests
+COPY --chown=rg:rg scripts /app/scripts
+
 USER rg

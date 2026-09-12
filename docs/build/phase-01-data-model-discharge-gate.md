@@ -20,7 +20,7 @@
 | 1.2 Indexes | A | ✅ **done** | `0004_phase_1_2_indexes`. All 6 verified against PostgreSQL's catalogue, not just metadata: 2 composites, 2 partials, 1 GIN `gin_trgm_ops`, and `case_events(case_id, occurred_at)` reused from 0003 rather than duplicated. Two plain indexes replaced by their partial forms |
 | 1.3 Discharge readiness API | A | ✅ **done — all 4 endpoints** | readiness GET · POST discharge-contracts · POST discharge · POST discharge-overrides. Server-side rechecks under `FOR UPDATE`, one transaction each, all verified live through Caddy |
 | 1.4 Discharge gate UI | A | ✅ **done** | React 18 + TS + Vite + Tailwind in [`web/`](../../web). Three-step gate at `/encounters/:id/discharge`, **no skip control anywhere**, sessionStorage draft, full keyboard operation. **59 tests pass** (37 gate + 11 draft + 11 datetime) and `npm run build` is green; bundle served live through Caddy. Availability badge 🚫 **deferred to Phase 4.1** — `duty_roster`/`user_absences` do not exist, see deviations below |
-| 1.5 Supporting screens | A | ⬜ not started |  |
+| 1.5 Supporting screens | A | ✅ **done** | Patient search (MRN/name/phone, one box, Phase 1.2 trigram index) · encounter detail (orders + contracts + medications in one read) · manual order creation **under the same encounter row lock the discharge takes** · discharge medication entry · seed script (20 patients, 60 orders in varied states, 10 doctors, deterministic). **294 backend + 99 frontend tests pass**, coverage 87%, **autogenerate drift = 0 — no migration needed** |
 | 1.6 Test corpus collection ★ calendar-gated | A | 🔴 **opened 2026-09-12** | 0 of 200+ collected. Manifest + blocker list in [`../test-corpus-manifest.md`](../test-corpus-manifest.md). **All 5 blockers need human action** |
 | 1.7 Vendor conversations ★ calendar-gated | A | 🔴 **opened 2026-09-12** | Discovery questionnaire in [`../integration-spec.md`](../integration-spec.md), every answer still `— UNANSWERED —`. **Needs hospital IT to name the vendor** |
 | 1.8 Tests | A | 🔵 **6 of 7 done** | All five integration tests and the unit-level status matrix pass against real PostgreSQL. 🟡 **E2E Playwright written, never run** — [`web/e2e/discharge-gate.spec.ts`](../../web/e2e/discharge-gate.spec.ts) + live-DB seeder exist and the seeder is verified working, but Chromium build 1243 is not downloaded (install declined 2026-09-12) |
@@ -100,11 +100,11 @@
 
 ## 1.5 Supporting screens
 
-- [ ] Patient search (MRN, name, phone)
-- [ ] Encounter detail: orders list with status, discharge medications, contracts
-- [ ] Manual order creation (until HIS integration exists)
-- [ ] Discharge medication entry form — required for Rule B later
-- [ ] Seed script: 20 patients, 60 orders in varied states, 10 doctors
+- [x] **Patient search (MRN, name, phone)** — `GET /api/patients?q=`, one box for all three. Ranked so an unambiguous identifier wins: exact MRN → MRN prefix → phone → fuzzy name. Name matching uses the Phase 1.2 GIN `gin_trgm_ops` index (a clerk typing "Sunta Rao" finds "Sunita Rao", so they do not create a duplicate record). Phone compares digits to digits, since the column is E.164 and the clerk types what is on the file. **LIKE wildcards in `q` are escaped** — unescaped, a single `%` is a patient-index dump through a search box. UI: [`PatientSearch.tsx`](../../web/src/pages/PatientSearch.tsx), debounced, never fires on an empty box
+- [x] **Encounter detail: orders list with status, discharge medications, contracts** — `GET /api/encounters/{id}/detail`, all three in **one transaction** so they cannot disagree with each other. Reports the gate's answer by calling `get_discharge_readiness`, never by re-implementing the blocking rule. UI: [`EncounterDetail.tsx`](../../web/src/pages/EncounterDetail.tsx). The Phase 1.4 gate's own `GET /encounters/{id}` is **untouched**
+- [x] **Manual order creation (until HIS integration exists)** — `POST /api/encounters/{id}/orders`, [`services/orders.py`](../../api/app/services/orders.py). **Takes `SELECT … FOR UPDATE` on the encounter row — the same lock the discharge action takes.** That is the whole safety argument; see the race section below. `patient_id` is denormalised from the encounter and never accepted from the client (Phase 7.5 matches on it — a client-supplied value would be a wrong-patient hazard by construction)
+- [x] **Discharge medication entry form — required for Rule B later** — `POST/GET /api/encounters/{id}/discharge-medications`. Capture only: no interaction checking, no dose validation, no formulary, no AI. Only `drug_name` is required, matching the table. **Accepted after discharge on purpose** — a summary is often typed up once the patient has left, and a medication row changes nothing the gate reads
+- [x] **Seed script: 20 patients, 60 orders in varied states, 10 doctors** — [`api/scripts/seed_dev.py`](../../api/scripts/seed_dev.py). Deterministic (ids are stable **UUIDv7** derived from a fixed namespace, so re-running upserts rather than duplicating), obviously synthetic (`(SEED)` suffix, `SEED-` MRNs, 555-range phone numbers), and refuses to run when `RG_ENV=prod`. All 7 order statuses represented; the department has a unit head so the override path works on seeded data
 
 ## 1.6 Test corpus collection starts NOW ★
 
@@ -134,6 +134,42 @@
 
 ---
 
+## 🔒 The order-creation race, and how it is closed
+
+Phase 1.5 added the first thing in the product that can add work to an
+encounter the gate has already looked at. Without a lock, this interleaving is
+reachable:
+
+```
+T1 (discharge)     lock encounter, readiness = clear
+T2 (create order)                                     INSERT order, COMMIT
+T1                 UPDATE status = discharged, COMMIT
+```
+
+— leaving an encounter **discharged with an outstanding, uncontracted order
+nobody owns**, without the gate ever being wrong.
+
+**The fix lives in order creation, not in the discharge algorithm.**
+`create_manual_order` takes `SELECT … FOR UPDATE` on the same encounter row
+the discharge action locks. Postgres then serialises the two, and both
+orderings are safe:
+
+| Winner | What happens |
+|---|---|
+| Discharge | Order creation wakes to `status = 'discharged'` → **409**, nothing written |
+| Order | Discharge wakes and re-derives readiness *inside its own lock*, sees the new uncontracted order → **409 blocked** |
+
+Nothing else was needed: no change to `discharge_action`, no advisory lock, no
+SERIALIZABLE isolation, no retry loop.
+
+**The test is proven to catch it.** `test_order_creation_cannot_race_a_discharge`
+uses two independent connections, real commits and real locks, and asserts the
+invariant out of the database afterwards. With `.with_for_update()` temporarily
+removed it failed **6 out of 6 runs** with `['discharged', 'order_created']` —
+the unsafe outcome, reproduced. With the lock restored it passed 6 of 6.
+
+---
+
 ## Deviations from the build plan, and why
 
 | § | Plan said | Built instead | Why |
@@ -141,6 +177,9 @@
 | 1.4 Step 2 | Responsible-doctor select "shows availability badge" | **No availability shown at all** | Availability comes from `duty_roster` and `user_absences`, which are **Phase 4.1** and do not exist. The only liveness signal the schema carries is `users.is_active`, and inactive users are already filtered out server-side. Rendering `is_active` as an availability badge would tell a doctor "on duty" about someone who is on leave — worse than showing nothing. Restore the badge in 4.1, where the roster makes it true |
 | 1.4 success screen | "contract reference numbers" | **The `contract_id` UUID**, copyable | `discharge_contracts` has no human-readable reference column. A prettified short code would print an identifier that cannot be looked up in the database, the API or a support call |
 | 1.4 override dialog | Typed reason | Typed reason **plus an "overriding doctor" field** | `DischargeOverrideRequest.overridden_by` is required and authentication is **Phase 5.1**. Until a session exists, the identity has to come from somewhere; the field carries a note saying it disappears once auth lands |
+| 1.5 medications | Entry form | **Accepted after discharge, not only before** | A discharge summary is often typed up once the patient has left. A medication row neither blocks nor unblocks the gate, so refusing it would starve Phase 3's Rule B for exactly the busiest encounters |
+| 1.5 seed | "20 patients, 60 orders, 10 doctors" | Also **1 department with a unit head**, and 5 discharge medications | Without a unit head the Phase 1.3 override path 409s on seeded data with "no unit head to flag to", making the emergency path unusable in a demo |
+| 1.5 (infrastructure) | — | **`scripts/` and `tests/` stripped from the runtime Docker image** | Adding `scripts/seed_dev.py` meant a script that writes twenty fake patients was being copied into the production image by `COPY . /app`. It refuses to run at `RG_ENV=prod`, but not being on a hospital server at all is the safer position. The `dev` stage copies both back |
 | 1.4 (addendum to 1.3) | — | **Two new read-only endpoints**: `GET /api/users` and `GET /api/encounters/{id}` | The gate cannot be built without a way to search for a doctor and a way to read the encounter's `attending_doctor_id`. Both are plain reads — no new tables, no migration, no write path. 13 tests, all passing. Approved as the minimal unblock rather than pulling Phase 5.4 admin work forward |
 
 ---
