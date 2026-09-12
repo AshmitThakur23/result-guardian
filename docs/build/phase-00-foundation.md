@@ -12,34 +12,34 @@
 | § | Runs on | State | Note |
 |---|---|---|---|
 | 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
-| 0.2 Containers — NODE A | A | 🟡 **written, never run** | **Docker is present on NODE A** — this is runnable there now. Defects D2/D3/D7 repaired 2026-09-11, still unrun |
+| 0.2 Containers — NODE A | A | 🟡 **database ✅, full stack not yet** | **Postgres image builds and runs** — verified on NODE A and in CI (all 6 extensions, pgmq round-trip). `api`/`worker`/`caddy` compose stack still never brought up together |
 | 0.3 NODE B provisioning | **B** | 🔴 **blocked** | Must run on **Ashmit's machine**, which is not in hand. Ollama v0.15.2 is already installed on Ashmit's machine, so provisioning only has to *run*, not install |
 | 0.4 Network runbook | — | ✅ **done** | Real IPs still to be filled in |
 | 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
 | 0.7 Worker skeleton | A | 🟡 **partly verified** | Retry/backoff/DLQ and heartbeat now covered by tests (were **0%**). Handlers stay stubs until Phase 2. Never run against real pgmq |
-| 0.8 CI | — | 🟡 **gates pass locally, workflow never run** | **All five gates verified on NODE A:** ruff ✅ black ✅ mypy ✅ pytest ✅ coverage 79% ✅. **Could not pass at all before D1.** The Actions workflow itself is still unrun |
+| 0.8 CI | — | ✅ **done — fully green** | **All 3 jobs pass on GitHub Actions** (run `34670777455`, 2026-09-12): `lint` ✅ `build` ✅ `test` ✅. The test job builds the real NODE A image, asserts all 6 extensions, applies migrations, runs 25 tests and clears the 70% coverage gate. **Every prior run had failed.** Deviation: uses a real container rather than `testcontainers` |
 | **Exit Gate 0** | A + B | 🔴 **OPEN** | Cannot close until NODE A exists |
 
 **🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**
 
 **Next step:** NODE A is in hand with Docker present, so 0.2/0.5/0.7 are runnable there now. **0.3 still needs `infra/nodeb/setup-windows.ps1` run on Ashmit's machine (NODE B).** Exit Gate 0's cross-node clause needs both on one LAN — open decision #5.
 
-### 🐞 Defects found by inspection on 2026-09-11 — fixed, all still unrun
+### 🐞 Defects found by inspection on 2026-09-11 — all fixed, all now verified
 
 A full read of the scaffold before NODE A pulls it. All eight were in code that had never executed, which is why they survived.
 
-**Three of the eight were verified on NODE A by actually running them.** The rest need Docker and stay 🟡. The ✅/🟡 in the last column is the honest split.
+**All eight are now ✅ — verified by actually running them**, on NODE A and on GitHub Actions. D4 is verified at unit level only; everything else ran end to end.
 
 | # | Where | Defect | Fix | Verified? |
 |---|---|---|---|---|
 | D1 | `api/pyproject.toml` | No `[build-system]`; `api/` is a flat layout with 3 top-level packages → `pip install -e ".[dev]"` fails on discovery. **No CI job could go green.** | hatchling backend + explicit `packages = ["app", "worker"]` | ✅ **ran** — `pip install -e ".[dev]"` succeeds; `import app, worker` OK |
-| D2 | `docker-compose.yml` | No `build.target`, and `dev` is the last stage in `api/Dockerfile` → a production build ships pytest/ruff/mypy to a hospital server | `target: runtime` on `api` and `worker`; CI asserts the runtime image is clean | 🟡 needs Docker |
-| D3 | `infra/postgres/Dockerfile` | `cron.database_name` hardcoded while `POSTGRES_DB` is configurable → renaming the DB silently boots **without pg_cron**, removing Phase 2's reboot-recovery guarantee | Driven from `POSTGRES_DB` via compose `command:`; boot-time guard in `init/01-extensions.sql` raises on mismatch | 🟡 needs Docker |
+| D2 | `docker-compose.yml` | No `build.target`, and `dev` is the last stage in `api/Dockerfile` → a production build ships pytest/ruff/mypy to a hospital server | `target: runtime` on `api` and `worker`; CI asserts the runtime image is clean | ✅ **ran in CI** — `build` job's "runtime image carries no dev tooling" check passes |
+| D3 | `infra/postgres/Dockerfile` | `cron.database_name` hardcoded while `POSTGRES_DB` is configurable → renaming the DB silently boots **without pg_cron**, removing Phase 2's reboot-recovery guarantee | Driven from `POSTGRES_DB` via compose `command:`; boot-time guard in `init/01-extensions.sql` raises on mismatch | ✅ **ran** — pg_cron present both locally and in CI with `cron.database_name` driven from `POSTGRES_DB`; the guard did not fire |
 | D4 | `api/app/routers/health.py` | `SELECT 1` and the `worker_health` lookup shared one `try` → a missing table reported **`db: error` and 503**, failing Exit Gate 0 and the RULE 2 assertion | Probes split; an unknown worker degrades to `worker`, never to `database`. Regression test added | ✅ **ran** at unit level — `test_missing_worker_health_does_not_report_the_database_as_down` passes. Still unproven against a real Postgres |
-| D5 | `infra/postgres/init/02-queues.sql` | `worker_health` created by an init script, which only runs on an empty data dir → absent in CI, testcontainers, restored volumes | Moved into the Alembic baseline revision | 🟡 needs Docker — migration never applied |
-| D6 | `api/Dockerfile` | Builder `pip wheel`s a hand-copied duplicate of the `pyproject.toml` dependency list → drifts silently | Installs from `pyproject.toml` | 🟡 needs Docker |
-| D7 | `.github/workflows/ci.yml` | Test job used stock `pgvector/pgvector:pg16` — no pgmq, no pg_cron, no init scripts. Phase 1.8's integration tests break on contact | Builds and runs the real NODE A image, asserts all six extensions, applies migrations | 🟡 needs Actions |
+| D5 | `infra/postgres/init/02-queues.sql` | `worker_health` created by an init script, which only runs on an empty data dir → absent in CI, testcontainers, restored volumes | Moved into the Alembic baseline revision | ✅ **ran in CI** — "Migrations apply to an empty database" passes, creating `worker_health` |
+| D6 | `api/Dockerfile` | Builder `pip wheel`s a hand-copied duplicate of the `pyproject.toml` dependency list → drifts silently | Installs from `pyproject.toml` | ✅ **ran in CI** — `build` job green |
+| D7 | `.github/workflows/ci.yml` | Test job used stock `pgvector/pgvector:pg16` — no pgmq, no pg_cron, no init scripts. Phase 1.8's integration tests break on contact | Builds and runs the real NODE A image, asserts all six extensions, applies migrations | ✅ **ran in CI** — real NODE A image built and started, all six extensions asserted |
 | D8 | `api/pyproject.toml` + 7 files | `line-length = 100` but code written at 88 → `black --check` reformats on sight; `E501` at `app/db/session.py:7` | Set 88 (black's default, matching the code); 7 long lines wrapped | ✅ **ran** — ruff, black and mypy `--strict` all clean |
 
 ### 🐞 D9 — found by CI, fixed and verified on NODE A

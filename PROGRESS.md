@@ -9,17 +9,25 @@
 >
 > **Repo:** https://github.com/AshmitThakur23/result-guardian (private, `main`)
 >
-> **🔄 ROLES CORRECTED 2026-09-11 — they were recorded backwards.**
-> **NODE A = the development laptop (Abhinendra's), the machine in hand.**
-> **NODE B = Ashmit's machine** — not provisioned, **GPU unknown**.
+> **Machines** — never write "this machine"; name the owner.
+> **NODE A = Abhinendra's laptop**, `LAPTOP-06ER0HBM`. Docker present. No NVIDIA GPU.
+> **NODE B = Ashmit's machine**, `LAPTOP-5JCGN9SJ` — **not yet provisioned**. RTX 3050, 4 GB VRAM.
 > See [ADR 0006](docs/adr/0006-node-roles-corrected.md), which supersedes ADR 0005.
 >
-> **⚠️ This moves the critical path.** The old plan — *"stand up NODE A on the other
-> machine first, run nothing until then"* — was written believing NODE A was elsewhere.
-> **NODE A is this machine, and Docker is already on it.** Phase 0 execution
-> (`cp .env.example .env` → `docker compose up -d --build` → `alembic upgrade head` →
-> `curl localhost/api/health`) is **runnable here, now**, and closes 6 of the 8 items on
-> the first-boot checklist below. Only the two cross-node clauses need Ashmit's machine.
+> **🏁 CI is GREEN — all 3 jobs (2026-09-12, run `34670777455`).** All nine defects D1–D9
+> are **verified**, not merely fixed. The NODE A Postgres image builds and runs with
+> pgmq 1.4.4 + pg_cron 1.6 + all six extensions, and migrations apply cleanly.
+>
+> **▶ NEXT, on NODE A:** bring up the **full compose stack** — the piece still unproven.
+> `cp .env.example .env` (set `POSTGRES_PASSWORD`, `RG_JWT_SECRET`, `RG_LLM_BASE_URL`) →
+> `docker compose up -d --build` → `docker compose exec api alembic upgrade head` →
+> `curl localhost/api/health`. That covers Exit Gate 0 items 1–3 and finishes 0.2/0.5/0.7.
+> ⚠️ Port 5432 is taken on NODE A by the native `postgresql-x64-18` service — dev compose
+> already maps **5433**, so do not change it.
+>
+> **Then Exit Gate 0 still needs NODE B:** `infra/nodeb/setup-windows.ps1` on Ashmit's
+> machine, both on one LAN, and `curl http://<NODE_B_IP>:11434/api/tags` from NODE A —
+> plus the power-off-NODE-B degradation check. Open decision #5 (LAN IPs) is undecided.
 >
 > **Next step: decide whether to execute Phase 0 on this machine.** Nothing structural
 > blocks it any more.
@@ -53,7 +61,7 @@
 | Phase | Node | Status | Exit gate | Notes |
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
-| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | Code written + pushed, **never executed**. Blocked on NODE A existing. [Status table](docs/build/phase-00-foundation.md) |
+| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. Blocked on NODE A existing. [Status table](docs/build/phase-00-foundation.md) |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ⬜ not started | ⬜ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
@@ -208,6 +216,8 @@ Newest first. One line per completed unit of work.
 - **CI ran for the first time ever.** `lint` ✅ and `build` ✅ — confirming **D1, D8, D6 and D2** on a clean Ubuntu runner (the build job proves the runtime image ships no pytest/ruff/mypy). The 5 prior runs on `main` had all failed at `pip install -e ".[dev]"` with *"Multiple top-level packages discovered in a flat-layout"* — D1, verbatim, exactly as diagnosed.
 - 🐞 **D9 found by CI and fixed — `infra/postgres/Dockerfile` shipped a broken pgmq.** `test` failed with *"extension pgmq has no installation script nor update path for version 1.4.4"*, killing the Postgres container at init. **Root cause:** pgmq's tarball contains only *upgrade* scripts (`pgmq--X--Y.sql`); the base `pgmq--1.4.4.sql` is **generated** by the Makefile's `all` target from `sql/pgmq.sql`. PGXS's `install` does not depend on `all`, and `DATA = $(wildcard sql/*--*.sql)` is expanded at parse time — so the base script was neither generated nor listed. The image built cleanly while being unusable. Fixed by generating the base script before `make install`, deriving the version from `pgmq.control` (not the git tag), and **asserting both files exist at build time** so the build fails instead of the first boot.
 - ✅ **D9 verified on NODE A with real Docker** — image builds, container starts in ~6 s and stays healthy, and `pg_extension` contains all seven: **pgmq 1.4.4**, **pg_cron 1.6**, vector 0.8.6, pg_trgm, unaccent, pgcrypto, plpgsql. All five queues created; `pgmq.send`/`pgmq.read` round-trip works. `cron.database_name` correctly resolved to the database — **which also verifies the D3 guard**.
+- 🏁 **CI IS GREEN — all three jobs, for the first time in this repo's history** (run `34670777455`). `lint` ✅ · `build` ✅ · `test` ✅. The test job builds the real NODE A image, asserts all six extensions, applies Alembic migrations to an empty database, runs 25 tests and clears the 70% coverage gate. **Every one of the 7 previous runs had failed.**
+- ✅ **All nine defects (D1–D9) are now verified**, not merely fixed. D2, D5, D6 and D7 were confirmed by this CI run; D3 and D9 both locally and in CI; D1, D8 locally; D4 at unit level. Phase 0.8 moves 🟡 → ✅.
 - **Recorded NODE A's real machine specs** (see the scan table above) — `LAPTOP-06ER0HBM`, i5-12450H, 15.7 GB RAM, C: 39.5 GB free / D: 683 GB free. **NODE A has no NVIDIA GPU at all** (Intel UHD only, no `nvidia-smi`), independently confirming Ashmit's `nvidia-smi` finding that the RTX 3050 is on **NODE B**. Also found the native `postgresql-x64-18` service holding **port 5432 on NODE A too**, so the dev 5433 mapping is required on both machines — not a NODE-B-only quirk as previously recorded.
 - **Installed the lint/test toolchain and actually ran it** (new install rule — scanned first, all absent, installed without asking). `ruff 0.16.7`, `black 26.5.1`, `mypy 2.3.1`, plus `pip install -e ".[dev]"`. Python here is **3.11.9**, matching the project pin. **`C:` now has 43 GB free, not the 17 GB in the old scan** — that figure was stale.
 - **Running it found 5 more defects that reading had missed** — the clearest possible evidence for *written ≠ done*. Notably `alembic/env.py` had **pre-existing unsorted imports**, so `ruff check .` would have failed CI even after the D8 fix. Also 2 × `RUF100` unused pragmas, 2 × `SIM105`, and 2 mypy-strict errors (`2 ** n` types as `Any`; an unused `type: ignore`). All fixed.
