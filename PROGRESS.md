@@ -37,7 +37,8 @@
 > and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
 > database trigger and proven to reject both UPDATE and DELETE.
 > **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
-> **Next: 1.3 Discharge readiness API.**
+> **🔵 Phase 1.3 in progress — 1 of 4 endpoints.** `GET .../discharge-readiness` done.
+> **Next: `POST /api/encounters/{id}/discharge-contracts`** (bulk, atomic, all-or-nothing).
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -275,3 +276,11 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
   - **`case_events(case_id, occurred_at)` reused from 0003, not duplicated.** A test asserts exactly one index exists on that column pair.
   - Round-trip passes (0004→0003→baseline→head, 3 upgrades / 2 downgrades); downgrade correctly restores the two plain indexes. Drift = 0. pg_trgm similarity proven live, not just parsed.
 - Tests: **118 passing** (25 unit + 93 integration), coverage **85.86%**.
+
+- ✅ **PHASE 1.3, first endpoint — `GET /api/encounters/{id}/discharge-readiness`.** Server-side only, derived from PostgreSQL on every call; no cache, no client-supplied `can_discharge`. Two SELECTs, scoped to the one encounter. Verified live through Caddy on :80 and cleaned up after — the dev database is back to 0 patients / 0 encounters / 0 orders.
+  - **Two readings of the spec I had to settle, both from the source documents rather than invented:**
+    1. **A contracted order stops blocking.** The plan defines blocking as `status NOT IN (final, cancelled, rejected)`, but Exit Gate 1 requires *"blocked → assign owners and dates → discharge succeeds"*. If contracted orders kept blocking, the gate could never be passed and the whole contract mechanism would be inert. So outstanding orders partition into `blocking_orders` (no contract) and `already_contracted` (has one); `can_discharge` is true when the first list is empty.
+    2. **OPD is not gated.** ADR 0003 line 43 names this endpoint as checking `encounter.type IN ('ipd','emergency','daycare')`. For OPD the gate does not bind, so `can_discharge` is true — but the outstanding orders are **still reported**, because the data is true whether or not the gate applies. A `gate_applies` flag makes that explicit rather than leaving a self-contradictory response.
+  - Response carries three extra fields beyond the plan's `{can_discharge, blocking_orders, already_contracted}`: `encounter_id`, `encounter_type`, `gate_applies`. A superset, not a change — the three specified keys are present and correct.
+  - Soft-deleted orders and contracts are excluded. Orders on other encounters cannot influence the result — tested.
+- Tests: **144 passing** (25 unit + 119 integration), coverage **86.98%**. 26 new, covering every order status the schema defines, both directions of the contract transition, cross-encounter isolation, 404/422 handling, and an explicit no-side-effects check (no contract, no pending case, no order or encounter mutated across repeated calls).
