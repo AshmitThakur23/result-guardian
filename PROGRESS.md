@@ -33,11 +33,10 @@
 > provisioning) and Exit Gate 0's two cross-node clauses remain, and neither blocks
 > Phase 1, which is NODE-A-only.
 >
-> **Phase 1.1 is 6 of 11 tables done** — migration `0002_core_schema` created
-> departments, users, patients, encounters, orders and discharge_contracts.
-> **Next: the remaining five** — `discharge_contract_revisions`, `pending_cases`,
-> `case_events` (append-only, trigger-enforced), `discharge_medications`,
-> `discharge_overrides`.
+> **✅ Phase 1.1 is COMPLETE — all 11 tables**, across migrations `0002_core_schema`
+> and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
+> database trigger and proven to reject both UPDATE and DELETE.
+> **Next: 1.2 Indexes.**
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -258,3 +257,12 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
   - **Open question for the hospital:** `patients.sex` is deliberately left without a CHECK. The build plan specifies value sets for every other enum-like column but not this one, and the coding scheme (M/F/O vs male/female/other) is theirs to decide.
 - **Long-lead items 1.6 and 1.7 opened** (build plan: week one of Phase 1). Both are **human-blocked and honestly recorded as such** — no fabricated progress. 1.6: 0 of 200+ reports, 5 named blockers, manifest headers only, reports stay out of git. 1.7: full discovery questionnaire, every answer `— UNANSWERED —`, 4 blockers starting with "which HIS/LIS is it".
 - Tests: **52 passing** (25 unit + 27 integration), coverage **84.73%**.
+
+- ✅ **PHASE 1.1 COMPLETE — migration `0003_core_schema_remaining`** adds the final five tables: `discharge_contract_revisions`, `pending_cases`, `case_events`, `discharge_medications`, `discharge_overrides`. Full downgrade-to-baseline → upgrade round-trip passes; pgmq, pg_cron and all five queues intact afterwards; **autogenerate drift = 0**.
+  - **`case_events` append-only is enforced, not documented.** A `BEFORE UPDATE OR DELETE` trigger calls `rg_reject_mutation()`, which raises with SQLSTATE `restrict_violation`. Tests issue a real UPDATE and a real DELETE and require the database to refuse both. The function is deliberately generic so Phase 5.5's `audit_log` can reuse it.
+  - `case_events` and `discharge_contract_revisions` have **no `deleted_at`** — a soft delete is an UPDATE, and neither table may be mutated. A revision history whose rows can be removed is not a history.
+  - **Drift check earned its keep again**: five indexes existed in the database but not in the models, so the next autogenerate would have dropped and recreated them. Declared on the models; drift back to 0.
+  - Hit the `::` bind-parameter trap a second time — `:t::regclass` in a test query silently matched nothing. Same root cause as the D10 `CAST` decision. Joined by name instead.
+  - **Left deliberately unconstrained, and flagged:** `pending_cases.closure_reason` (values are enumerated in Phase 5.3, not 1.1 — a CHECK now would block Phase 5 if the list is refined) and `patients.sex` (still the hospital's data-standards decision, unchanged).
+  - `discharge_overrides` carries both constraints from the plan's 1.3 override spec: `reason_code` CHECK over the five permitted codes, and `char_length(trim(reason_text)) >= 20` — a one-word excuse is not an audit trail.
+- Tests: **102 passing** (25 unit + 77 integration), coverage **86.53%**.

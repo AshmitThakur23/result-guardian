@@ -16,7 +16,7 @@
 
 | § | Node | State | Note |
 |---|---|---|---|
-| 1.1 Core schema (Alembic revision 002) | A | 🔵 **6 of 11 tables done** | ✅ departments, users, patients, encounters, orders, discharge_contracts — migration `0002_core_schema`, applied and round-tripped on NODE A. ⬜ **remaining: discharge_contract_revisions, pending_cases, case_events, discharge_medications, discharge_overrides** |
+| 1.1 Core schema (Alembic revisions 002 + 003) | A | ✅ **done — all 11 tables** | `0002_core_schema` (departments, users, patients, encounters, orders, discharge_contracts) + `0003_core_schema_remaining` (discharge_contract_revisions, pending_cases, case_events, discharge_medications, discharge_overrides). Applied and round-tripped on NODE A; `case_events` append-only **enforced by trigger** and proven to reject UPDATE and DELETE; autogenerate drift = 0 |
 | 1.2 Indexes | A | ⬜ not started |  |
 | 1.3 Discharge readiness API | A | ⬜ not started |  |
 | 1.4 Discharge gate UI | A | ⬜ not started |  |
@@ -46,15 +46,15 @@
 - [x] **`discharge_contracts`** — id, encounter_id, order_id, responsible_doctor_id, expected_by (timestamptz), created_by, created_at, note
   - `UNIQUE (order_id)` — one contract per pending order
   - This row is **immutable**. Changes go to `discharge_contract_revisions`.
-- [ ] **`discharge_contract_revisions`** — id, contract_id, field, old_value, new_value, changed_by, reason, changed_at
-- [ ] **`pending_cases`** — id, order_id (unique), encounter_id, patient_id, contract_id, current_owner_id, state, severity, opened_at, result_received_at, flagged_at, acknowledged_at, closed_at, closure_reason, closure_note, reopened_count
+- [x] **`discharge_contract_revisions`** — id, contract_id, field, old_value, new_value, changed_by, reason, changed_at
+- [x] **`pending_cases`** — id, order_id (unique), encounter_id, patient_id, contract_id, current_owner_id, state, severity, opened_at, result_received_at, flagged_at, acknowledged_at, closed_at, closure_reason, closure_note, reopened_count
   - state: `awaiting_result | result_received | classified | flagged | acknowledged | closed | reopened`
   - severity: `null | normal | follow_up | critical`
-- [ ] **`case_events`** — id, case_id, event_type, actor_user_id (nullable for system), payload JSONB, occurred_at
+- [x] **`case_events`** — id, case_id, event_type, actor_user_id (nullable for system), payload JSONB, occurred_at
   - Append-only. No UPDATE, no DELETE — **enforce with a trigger, not convention.**
-- [ ] **`discharge_medications`** — id, encounter_id, drug_name, drug_code, atc_code, dose, route, frequency, duration_days, is_antibiotic
+- [x] **`discharge_medications`** — id, encounter_id, drug_name, drug_code, atc_code, dose, route, frequency, duration_days, is_antibiotic
   - Needed by Rule B in Phase 3. **Capture it now or Rule B has nothing to compare against.**
-- [ ] **`discharge_overrides`** — id, encounter_id, order_id, reason_code, reason_text, overridden_by, approved_by (nullable), created_at
+- [x] **`discharge_overrides`** — id, encounter_id, order_id, reason_code, reason_text, overridden_by, approved_by (nullable), created_at
 
 ## 1.2 Indexes
 
