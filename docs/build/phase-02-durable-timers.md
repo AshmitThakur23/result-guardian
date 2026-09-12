@@ -15,11 +15,11 @@
 | § | Node | State | Note |
 |---|---|---|---|
 | 2.1 Timer model | A | ✅ **done** | Migration `0005_sla_timers`. Table + 4 CHECKs + 3 FKs + 5 indexes, **0 PG enum types**, `alembic check` drift 0, and a real head→0004→head round trip. `pg_cron` job `rg-sla-timer-sweep` scheduled `*/5 * * * *`. **36 new tests.** ⚠️ Creating a timer on discharge is **2.2**, not here |
-| 2.2 Timer lifecycle | A | 🟡 **implemented, pending Phase 2 audit** | Discharge creates the durable `result_due`; idempotent fire handler under `SELECT … FOR UPDATE`; atomic cancel on closure; supersede on result; pause/resume for deceased/transferred. **All four concurrency races tested on two real connections** |
-| 2.3 Missing-result path / lab flags ★ | A | 🟡 **implemented, pending Phase 2 audit** | `lab_flags` (migration 0006), case stays `awaiting_result`, lab **and** doctor notified, 24h re-check to a 7-day ceiling then unit-head escalation, `GET /api/lab-flags/metrics` |
-| 2.4 Result intake (manual) | A | 🟡 **implemented, pending Phase 2 audit** | `POST /api/orders/{id}/results` → `result_received`, supersedes `result_due`, enqueues classification. Replay-protected on `(source, source_ref)` |
-| 2.5 Tests | A | 🟡 **implemented, pending Phase 2 audit** | 85 new backend tests. Fires once under 3× and 5× delivery; visibility-lapse redelivery; 2-hours-down recovery; cancelled-in-flight no-op; UTC/IST |
-| **Exit Gate 2** | A | 🟡 **chaos test passes, pending Phase 2 audit** | `scripts/chaos_exit_gate_2.sh`: 50 cases, 2-min deadlines, **restarted twice** (api+worker, then api+worker+postgres) → **exactly 50 flags, 50 fired timers, 50 events, max 1 flag per case** |
+| 2.2 Timer lifecycle | A | ✅ **done** | Discharge creates the durable `result_due`; idempotent fire handler under `SELECT … FOR UPDATE`; atomic cancel on closure; supersede on result; pause/resume for deceased/transferred. **All four concurrency races tested on two real connections** |
+| 2.3 Missing-result path / lab flags ★ | A | ✅ **done** | `lab_flags` (migration 0006), case stays `awaiting_result`, lab **and** doctor notified, 24h re-check to a 7-day ceiling then unit-head escalation, `GET /api/lab-flags/metrics` |
+| 2.4 Result intake (manual) | A | ✅ **done** | `POST /api/orders/{id}/results` → `result_received`, supersedes `result_due`, enqueues classification. Replay-protected on `(source, source_ref)` |
+| 2.5 Tests | A | ✅ **done** | 85 new backend tests. Fires once under 3× and 5× delivery; visibility-lapse redelivery; 2-hours-down recovery; cancelled-in-flight no-op; UTC/IST |
+| **Exit Gate 2** | A | ✅ **PASSED** | `scripts/chaos_exit_gate_2.sh`: 50 cases, 2-min deadlines, **restarted twice** (api+worker, then api+worker+postgres) → **exactly 50 flags, 50 fired timers, 50 events, max 1 flag per case** |
 
 ---
 
@@ -74,7 +74,13 @@ The build plan names the column and marks it unique, and **never defines its con
 
 ---
 
-## ✅ EXIT GATE 2
+## ✅ EXIT GATE 2 — **PASSED 2026-09-12**
+
+> Audited independently on 2026-09-12 and pushed as `13a7151`. CI green (run
+> `34716574610`): 425 backend tests, coverage 88.20%, lint/types/build clean.
+> The audit additionally proved **sweep-only recovery** — the entire wake-up
+> queue was destroyed and all ten timers still fired exactly once, which is the
+> strongest evidence that PostgreSQL, not pgmq, is timer truth.
 
 - [x] **Chaos test:** create 50 cases with deadlines 2 minutes out, `docker compose restart` **twice** during the window, then verify **exactly 50 flags** — no duplicates, no misses.
   — [`scripts/chaos_exit_gate_2.sh`](../../scripts/chaos_exit_gate_2.sh), run from the host because it restarts the containers the suite runs inside. 50 real discharges over HTTP through Caddy; restart 1 is api+worker, restart 2 also takes **postgres**. Result: **50 flags, 50 fired `result_due` timers, 50 `result_due_fired` events, max 1 flag on any case.** The assertion reads `lab_flags` out of PostgreSQL — a duplicate queue message is not a second clinical event.
