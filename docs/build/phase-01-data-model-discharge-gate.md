@@ -23,7 +23,7 @@
 | 1.5 Supporting screens | A | ⬜ not started |  |
 | 1.6 Test corpus collection ★ calendar-gated | A | 🔴 **opened 2026-09-12** | 0 of 200+ collected. Manifest + blocker list in [`../test-corpus-manifest.md`](../test-corpus-manifest.md). **All 5 blockers need human action** |
 | 1.7 Vendor conversations ★ calendar-gated | A | 🔴 **opened 2026-09-12** | Discovery questionnaire in [`../integration-spec.md`](../integration-spec.md), every answer still `— UNANSWERED —`. **Needs hospital IT to name the vendor** |
-| 1.8 Tests | A | ⬜ not started |  |
+| 1.8 Tests | A | 🔵 **6 of 7 done** | All five integration tests and the unit-level status matrix pass against real PostgreSQL. ⬜ **E2E Playwright blocked on 1.4** — no UI to drive |
 | — OPD scope decision | A | ✅ **decided** | OUT of scope for v1, schema stays ready ([ADR 0003](../adr/0003-opd-out-of-scope-v1.md)) |
 | **Exit Gate 1** | A | ⬜ **not started** | |
 
@@ -123,13 +123,13 @@
 
 ## 1.8 Tests
 
-- [ ] Unit: readiness logic for every order status combination
-- [ ] Integration: discharge blocked → contracts created → discharge succeeds
-- [ ] Integration: client bypasses UI and POSTs discharge directly → **409**
-- [ ] Integration: two concurrent discharge requests → **exactly one** succeeds (row lock / unique constraint)
-- [ ] Integration: contract creation fails halfway → **nothing persisted**
-- [ ] Integration: override path creates a case flagged to unit head
-- [ ] E2E Playwright: doctor completes the whole gate flow
+- [x] Unit: readiness logic for every order status combination — `test_discharge_readiness.py`, parametrised over every value in `ORDER_STATUSES`
+- [x] Integration: discharge blocked → contracts created → discharge succeeds — `test_readiness_reflects_the_new_contract`, and end-to-end through Caddy
+- [x] Integration: client bypasses UI and POSTs discharge directly → **409** — `test_uncontracted_order_blocks_and_changes_nothing`, `test_body_cannot_assert_readiness`
+- [x] Integration: two concurrent discharge requests → **exactly one** succeeds — `test_concurrent_discharges_produce_exactly_one`, two independent connections
+- [x] Integration: contract creation fails halfway → **nothing persisted** — `test_one_bad_entry_creates_nothing` and the UNIQUE(order_id) IntegrityError path
+- [x] Integration: override path creates a case flagged to unit head — `test_override_still_tracks_the_investigation`
+- [ ] E2E Playwright: doctor completes the whole gate flow — ⬜ **blocked on 1.4**, there is no UI to drive yet
 
 ---
 

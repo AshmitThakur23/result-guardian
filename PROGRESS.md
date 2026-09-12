@@ -37,9 +37,11 @@
 > and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
 > database trigger and proven to reject both UPDATE and DELETE.
 > **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
-> **✅ Phase 1.3 COMPLETE — all 4 endpoints.** Readiness GET, contract creation,
-> the discharge action and the emergency override. **The Exit Gate 1 demo flow runs
-> end to end.** **Next: 1.4 Discharge gate UI** (React, first frontend work).
+> **✅ Phase 1 BACKEND COMPLETE and audited — 1.1, 1.2, 1.3, and 6 of 7 of 1.8.**
+> A full verification pass on 2026-09-12 found **zero current defects**.
+> ⚠️ **Phase 1 as a whole is NOT complete:** 1.4 (gate UI) and 1.5 (supporting
+> screens) are not started, and Exit Gate 1 stays ⬜ until they are.
+> **Next: 1.4 Discharge gate UI** — React 18 + TS + Vite + Tailwind + shadcn/ui.
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -314,3 +316,11 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
   - Same locking and idempotency discipline as the discharge action: encounter `FOR UPDATE` first, repeat request → 409, rollback proven to leave the encounter active with zero overrides and zero cases.
 - 🔶 **Deferred, and stated plainly: no notification is dispatched.** The plan says *"flagged to unit head immediately"*; 1.3 delivers that as **state** (case flagged + owned by the unit head), which is what the Phase 5 dashboard reads. Actual dispatch is Phase 4.3. I deliberately did **not** enqueue to the `notifications` queue — its consumer is still `_todo_handler`, a stub that logs and **deletes**, so a message posted now would be destroyed. Enqueueing would have been worse than not.
 - Tests: **207 passing** (25 unit + 182 integration), coverage **87.50%**, drift 0. Live through Caddy: blocked 409 → short reason 422 → bad code 422 → override 201 → repeat 409, with the case flagged to the unit head. Dev database verified empty afterwards.
+
+- 🔍 **FULL PHASE 0 + PHASE 1 VERIFICATION PASS (2026-09-12).** Not just pytest: infrastructure, migration integrity, schema catalogue, constraints, indexes, immutability, all four endpoints, seven end-to-end scenarios, thirteen bypass attempts, the error contract, worker/pgmq regression and NODE B degradation — driven through the **real API over Caddy on :80** against real PostgreSQL, then cleaned up.
+  - **Result: 63/63 live checks pass. ZERO current defects.** 207 automated tests green, ruff/black/mypy-strict clean, coverage 87.50%, migration round-trip 3↓/3↑ with Phase 0 extensions, queues and the append-only trigger all surviving, autogenerate drift 0.
+  - Bypass testing: `can_discharge:true`, `force:true`, unknown orders, cross-encounter orders, past/31-day deadlines, naive datetimes, extra JSON fields, empty batches, short override reasons, bad reason codes — **every one refused, and none created any state.**
+  - Concurrency: two simultaneous discharges over HTTP → exactly one 200, one 409, one case, one event, one timer.
+  - **One tracking defect found and fixed:** section 1.8's six integration tests were all written and passing but every checkbox was unticked — the exact "unlogged work counts as not done" failure CLAUDE.md warns about. Now ticked with the test name against each. The seventh (Playwright E2E) is genuinely blocked on 1.4.
+  - One apparent failure turned out to be **test-harness**, not product: the audit script read psql's stdout while errors go to stderr, so the append-only checks looked like they passed when they had in fact been correctly refused. Re-verified with stderr captured — UPDATE and DELETE both rejected, row untouched.
+- ⚠️ **Phase 1 is NOT complete.** 1.1/1.2/1.3 are done and audited; **1.4 (gate UI) and 1.5 (supporting screens) have not been started**, and 1.6/1.7 remain human-blocked. Exit Gate 1 cannot close on backend work alone.
