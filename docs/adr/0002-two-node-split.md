@@ -36,13 +36,18 @@ What never crosses: patient name, MRN, phone, address, encounter rows, original 
 
 | Role | Machine | Notes |
 |---|---|---|
-| **NODE A** | **Abhinendra's laptop** — the development machine | Docker present. Holds the database and every safety guarantee. Its RTX 3050 is irrelevant to the design: NODE A never runs inference. |
-| **NODE B** | **Ashmit's machine** | Not yet provisioned. **GPU and VRAM unknown** — the model must be re-derived from it before Phase 8. |
+| **NODE A** | **Abhinendra's laptop** (`LAPTOP-06ER0HBM`) | Docker present. Holds the database and every safety guarantee. **No NVIDIA GPU — Intel UHD only.** It does not need one: NODE A never runs inference. |
+| **NODE B** | **Ashmit's machine** (`LAPTOP-5JCGN9SJ`) | Not yet provisioned. **NVIDIA RTX 3050 Laptop, 4 GB VRAM** — verified with `nvidia-smi` on that machine. |
 
-> ⚠️ An earlier version of this table had these two **backwards**. See
-> [ADR 0006](0006-node-roles-corrected.md), which supersedes
-> [ADR 0005](0005-node-roles-and-model.md). `qwen3:4b` was chosen from NODE A's
-> VRAM by mistake and is a **placeholder, not a decision**.
+> ⚠️ An earlier version of this table had these two **backwards**, and a later
+> revision then attached the GPU to the wrong machine. Both errors came from
+> writing *"this machine"* in files read on two machines. See
+> [ADR 0006](0006-node-roles-corrected.md) and its correction note, which
+> supersede [ADR 0005](0005-node-roles-and-model.md).
+>
+> **`qwen3:4b` is a sound decision, not a placeholder.** It was derived from
+> 4 GB of VRAM belonging to NODE B — the node that actually runs inference —
+> and 8B q4 (~5–6 GB) genuinely does not fit.
 
 The model is an env var (`LLM_MODEL`), so a larger model on a real GPU box is a one-line change. See [0005](0005-node-roles-and-model.md).
 

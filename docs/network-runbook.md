@@ -7,8 +7,8 @@
 
 | Role | Machine | IP | Status |
 |---|---|---|---|
-| **NODE A** — core | Abhinendra's laptop (Windows 11), the development machine | _to be recorded_ | Docker present; stack never run |
-| **NODE B** — inference | Ashmit's machine | _to be recorded_ | **not yet provisioned.** GPU/VRAM unknown |
+| **NODE A** — core | Abhinendra's laptop (`LAPTOP-06ER0HBM`, Windows 11) | _to be recorded_ | Docker present; stack never run |
+| **NODE B** — inference | Ashmit's machine (`LAPTOP-5JCGN9SJ`) | _to be recorded_ | **not yet provisioned.** RTX 3050, 4 GB VRAM — verified with `nvidia-smi` |
 
 Record the real IPs here once both are on the same network.
 
@@ -49,13 +49,16 @@ No reply → switch to a hotspot or a cable. Do not debug the application.
 
 ## Finding each machine's IP
 
+**Both machines are currently Windows 11**, so this is the command on each:
+
 ```powershell
-# Windows (NODE B)
+# NODE A (LAPTOP-06ER0HBM) and NODE B (LAPTOP-5JCGN9SJ)
 ipconfig | Select-String IPv4
 ```
 
+If NODE A is later moved to the hospital's Linux box, as the build plan assumes:
+
 ```bash
-# Linux (NODE A)
 hostname -I | awk '{print $1}'
 ```
 
