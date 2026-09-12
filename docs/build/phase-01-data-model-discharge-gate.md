@@ -16,13 +16,13 @@
 
 | § | Node | State | Note |
 |---|---|---|---|
-| 1.1 Core schema (Alembic revision 002) | A | ⬜ not started |  |
+| 1.1 Core schema (Alembic revision 002) | A | 🔵 **6 of 11 tables done** | ✅ departments, users, patients, encounters, orders, discharge_contracts — migration `0002_core_schema`, applied and round-tripped on NODE A. ⬜ **remaining: discharge_contract_revisions, pending_cases, case_events, discharge_medications, discharge_overrides** |
 | 1.2 Indexes | A | ⬜ not started |  |
 | 1.3 Discharge readiness API | A | ⬜ not started |  |
 | 1.4 Discharge gate UI | A | ⬜ not started |  |
 | 1.5 Supporting screens | A | ⬜ not started |  |
-| 1.6 Test corpus collection ★ calendar-gated | A | 🔴 blocked | permissions take months; start the paperwork NOW |
-| 1.7 Vendor conversations ★ calendar-gated | A | 🔴 blocked | gated by hospital IT / HIS vendor; open the conversation NOW |
+| 1.6 Test corpus collection ★ calendar-gated | A | 🔴 **opened 2026-09-12** | 0 of 200+ collected. Manifest + blocker list in [`../test-corpus-manifest.md`](../test-corpus-manifest.md). **All 5 blockers need human action** |
+| 1.7 Vendor conversations ★ calendar-gated | A | 🔴 **opened 2026-09-12** | Discovery questionnaire in [`../integration-spec.md`](../integration-spec.md), every answer still `— UNANSWERED —`. **Needs hospital IT to name the vendor** |
 | 1.8 Tests | A | ⬜ not started |  |
 | — OPD scope decision | A | ✅ **decided** | OUT of scope for v1, schema stays ready ([ADR 0003](../adr/0003-opd-out-of-scope-v1.md)) |
 | **Exit Gate 1** | A | ⬜ **not started** | |
@@ -31,19 +31,19 @@
 
 ## 1.1 Core schema (Alembic revision 002)
 
-- [ ] **`departments`** — id, code, name, unit_head_user_id, active
-- [ ] **`users`** — id, employee_code (unique), full_name, email, phone_e164, role, department_id, password_hash, is_active, last_login_at, must_change_password
+- [x] **`departments`** — id, code, name, unit_head_user_id, active
+- [x] **`users`** — id, employee_code (unique), full_name, email, phone_e164, role, department_id, password_hash, is_active, last_login_at, must_change_password
   - roles: `doctor`, `unit_head`, `lab_tech`, `admin`, `auditor`
   - Create the table and the role column **now** even though auth lands in Phase 5. Retrofitting ownership onto rows that have no user is painful.
-- [ ] **`patients`** — id, mrn (unique, indexed), name, dob, sex, phone_primary_e164, phone_alt_e164, preferred_language (`en|hi|pa`), address_line, city, pincode, phone_verified_at, sms_consent_at, sms_consent_basis
+- [x] **`patients`** — id, mrn (unique, indexed), name, dob, sex, phone_primary_e164, phone_alt_e164, preferred_language (`en|hi|pa`), address_line, city, pincode, phone_verified_at, sms_consent_at, sms_consent_basis
   - `phone_verified_at` is **not decoration**. The Phase 4 T+24h patient rung silently fails without it.
   - Capture consent at admission, not at notification time.
-- [ ] **`encounters`** — id, patient_id, encounter_no, type (`ipd|opd|emergency|daycare`), admitted_at, discharged_at, ward, bed, attending_doctor_id, department_id, status (`active|discharged|lama|transferred|deceased`)
+- [x] **`encounters`** — id, patient_id, encounter_no, type (`ipd|opd|emergency|daycare`), admitted_at, discharged_at, ward, bed, attending_doctor_id, department_id, status (`active|discharged|lama|transferred|deceased`)
   - `type` includes `opd` deliberately — see the Scope note below.
   - `lama`, `transferred`, `deceased` drive the Phase 4.6 suppression rules.
-- [ ] **`orders`** — id, encounter_id, patient_id, external_order_id (nullable, indexed), test_code, test_name, category (`lab|radiology|pathology|micro`), ordered_by_user_id, ordered_at, sample_collected_at, expected_tat_hours, status
+- [x] **`orders`** — id, encounter_id, patient_id, external_order_id (nullable, indexed), test_code, test_name, category (`lab|radiology|pathology|micro`), ordered_by_user_id, ordered_at, sample_collected_at, expected_tat_hours, status
   - status: `ordered | collected | in_lab | preliminary | final | cancelled | rejected`
-- [ ] **`discharge_contracts`** — id, encounter_id, order_id, responsible_doctor_id, expected_by (timestamptz), created_by, created_at, note
+- [x] **`discharge_contracts`** — id, encounter_id, order_id, responsible_doctor_id, expected_by (timestamptz), created_by, created_at, note
   - `UNIQUE (order_id)` — one contract per pending order
   - This row is **immutable**. Changes go to `discharge_contract_revisions`.
 - [ ] **`discharge_contract_revisions`** — id, contract_id, field, old_value, new_value, changed_by, reason, changed_at

@@ -29,8 +29,19 @@
 > machine, both on one LAN, and `curl http://<NODE_B_IP>:11434/api/tags` from NODE A —
 > plus the power-off-NODE-B degradation check. Open decision #5 (LAN IPs) is undecided.
 >
-> Section-level detail is in the status table in
-> [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md).
+> **▶ NOW IN PHASE 1.** Phase 0 is functionally PASS on NODE A; only 0.3 (NODE B
+> provisioning) and Exit Gate 0's two cross-node clauses remain, and neither blocks
+> Phase 1, which is NODE-A-only.
+>
+> **Phase 1.1 is 6 of 11 tables done** — migration `0002_core_schema` created
+> departments, users, patients, encounters, orders and discharge_contracts.
+> **Next: the remaining five** — `discharge_contract_revisions`, `pending_cases`,
+> `case_events` (append-only, trigger-enforced), `discharge_medications`,
+> `discharge_overrides`.
+>
+> Section-level detail is in the status tables in
+> [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
+> [`docs/build/phase-01-data-model-discharge-gate.md`](docs/build/phase-01-data-model-discharge-gate.md).
 
 ---
 
@@ -54,7 +65,7 @@
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
-| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ⬜ not started | ⬜ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
+| [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | 🔵 **in progress** | ⬜ | 2–3 wks. **This is the product.** Also kicks off 1.6 corpus + 1.7 vendor |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ⬜ not started | ⬜ | 1–1.5 wks |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
@@ -75,8 +86,8 @@ These are not blocked by code. They are blocked by other people, and they take m
 
 | Item | Source | Blocks | Status | Started |
 |---|---|---|---|---|
-| De-identified corpus, 200+ real reports | 1.6 | **Phase 6 cannot start without it** | `not started` | — |
-| HIS/LIS vendor conversation | 1.7 | **Phase 9** | `not started` | — |
+| De-identified corpus, 200+ real reports | 1.6 | **Phase 6 cannot start without it** | 🔴 **opened, 0/200** → [manifest](docs/test-corpus-manifest.md) | 2026-09-12 |
+| HIS/LIS vendor conversation | 1.7 | **Phase 9** | 🔴 **opened, all unanswered** → [spec](docs/integration-spec.md) | 2026-09-12 |
 | Clinician time — gold set, 100+ results | 3.8 | **Exit Gate 3** | `not started` | — |
 | Clinician time — 100-question AI eval set | 8.7 | **Exit Gate 8** | `not started` | — |
 | Medico-legal liability policy, signed | 10.3 | **Go-live** | `not started` | — |
@@ -239,3 +250,11 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
 ✅ **Coverage resolved.** The gate tripped at 50.78% and was closed **with tests** — 19 added, now **79.17%**, 25 passing. The number was not lowered.
 
 **Still cannot close Exit Gate 0** after all of the above: its "fresh machine" clause and the NODE A → NODE B `curl http://<NODE_B_IP>:11434/api/tags` check both need the second machine on one LAN, and open decision #5 below is still undecided.
+
+- **Phase 0 commits D10 + D11 pushed**; CI green on `141c08b` — **32 passed, 0 skipped**, all three jobs ✓.
+- 🟢 **PHASE 1 STARTED — 1.1 core schema, migration `0002_core_schema`.** Six tables: `departments`, `users`, `patients`, `encounters`, `orders`, `discharge_contracts`. Applied on NODE A and **round-tripped** (downgrade to baseline → upgrade), with pgmq/pg_cron/queues intact afterwards. All Phase 0.6 conventions enforced and asserted by tests: UUIDv7 PKs, TIMESTAMPTZ everywhere, audit + soft-delete columns on every table, text+CHECK (zero PG enum types), NUMERIC for `expected_tat_hours`. `UNIQUE (order_id)` on `discharge_contracts` is the database enforcing one-contract-per-order.
+  - ⚠️ **1.1 is NOT complete — 5 of 11 tables remain**: `discharge_contract_revisions`, `pending_cases`, `case_events`, `discharge_medications`, `discharge_overrides`.
+  - **Autogenerate drift check caught three real mismatches** before they shipped, the worst being that `worker_health` had no model — so the next autogenerate run would have emitted `op.drop_table('worker_health')`, silently deleting the worker heartbeat. Added `WorkerHealth`; drift is now zero.
+  - **Open question for the hospital:** `patients.sex` is deliberately left without a CHECK. The build plan specifies value sets for every other enum-like column but not this one, and the coding scheme (M/F/O vs male/female/other) is theirs to decide.
+- **Long-lead items 1.6 and 1.7 opened** (build plan: week one of Phase 1). Both are **human-blocked and honestly recorded as such** — no fabricated progress. 1.6: 0 of 200+ reports, 5 named blockers, manifest headers only, reports stay out of git. 1.7: full discovery questionnaire, every answer `— UNANSWERED —`, 4 blockers starting with "which HIS/LIS is it".
+- Tests: **52 passing** (25 unit + 27 integration), coverage **84.73%**.

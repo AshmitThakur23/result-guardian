@@ -13,9 +13,10 @@ class Base(DeclarativeBase):
     pass
 
 
-# Phase 1 onwards: import model modules here so Alembic autogenerate picks
-# them up, e.g.
-#     from app.db.models import patients, encounters, orders
+# Importing the models package is what registers every model on
+# Base.metadata, which is what Alembic autogenerate compares the database
+# against. The import is "unused" by design -- the import *is* the
+# registration -- hence the pragma.
 #
-# Those imports are intentionally "unused" -- importing is what registers the
-# models on Base -- so each will need an F401 suppression pragma.
+# It sits below the class because the model modules import Base from here.
+from app.db import models  # noqa: E402,F401
