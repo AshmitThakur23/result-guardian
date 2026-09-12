@@ -85,9 +85,13 @@ async def test_handled_message_is_deleted_and_committed() -> None:
     assert await _consumer(_ok_handler)._read_once(session) is True
 
     assert session.ran("pgmq.delete")
-    assert session.commits == 1
     assert session.rollbacks == 0
     assert not session.ran("pgmq.archive")
+    # TWO commits, not one: the claim (pgmq.read's read_ct/vt update) is
+    # committed before the handler runs, then the handler's work and the
+    # delete that acknowledges it commit together. Collapsing these back into
+    # one transaction is what made the retry counter unusable -- D11.
+    assert session.commits == 2
 
 
 async def test_failed_message_is_retried_not_dropped() -> None:

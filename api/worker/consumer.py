@@ -11,6 +11,21 @@ Contract, per the build plan:
 Handlers must be idempotent. pgmq guarantees at-least-once delivery, so a
 timer handler that fires twice must still produce exactly one flag. Phase 2.2
 enforces this with ``SELECT ... FOR UPDATE`` on the timer row.
+
+Transaction model — two transactions per message, deliberately (see D11):
+
+1. **Claim.** ``pgmq.read`` is an UPDATE that sets the visibility timeout and
+   increments ``read_ct``. It is committed immediately, *before* the handler
+   runs, so the retry count survives a handler failure and the row lock is
+   released. Holding this open across the handler is what made the DLQ
+   unreachable.
+2. **Work + acknowledge.** The handler and the ``pgmq.delete`` that
+   acknowledges it share one transaction, so business state and the
+   acknowledgement commit together or not at all.
+
+Committing the claim does not weaken delivery: the message is only made
+invisible, never removed. A crash during the handler lets the visibility
+timeout lapse and the message is redelivered -- at-least-once, unchanged.
 """
 
 from __future__ import annotations
@@ -72,6 +87,7 @@ class QueueConsumer:
             await asyncio.wait_for(self.shutdown.wait(), timeout=seconds)
 
     async def _read_once(self, session: AsyncSession) -> bool:
+        # ── transaction 1: claim the message ──────────────────────
         row = (
             await session.execute(
                 text("SELECT msg_id, read_ct, message FROM pgmq.read(:q, :vt, 1)"),
@@ -80,11 +96,34 @@ class QueueConsumer:
         ).first()
 
         if row is None:
+            await session.rollback()
             return False
 
         msg_id, read_ct, message = row
+
+        # Commit the claim BEFORE the handler runs. pgmq.read() is a plain
+        # UPDATE -- `SET vt = clock_timestamp() + ..., read_ct = read_ct + 1`
+        # -- inside the caller's transaction. The old code kept that
+        # transaction open across the handler and rolled it back on failure,
+        # which discarded the read_ct increment. read_ct never advanced past 1,
+        # so `read_ct >= MAX_ATTEMPTS` was unreachable and the DLQ below was
+        # dead code: a poison message retried forever. That was D11.
+        #
+        # Committing here also releases the FOR UPDATE SKIP LOCKED row lock
+        # that pgmq.read() takes, so a slow handler no longer blocks the other
+        # workers from claiming their own messages.
+        #
+        # At-least-once is preserved: the message is not deleted, only made
+        # invisible for VISIBILITY_TIMEOUT_S. If this process dies mid-handler,
+        # the timeout lapses and the message is delivered again.
+        await session.commit()
+
         entry = self.log.bind(msg_id=msg_id, attempt=read_ct)
 
+        # ── transaction 2: the handler's work and the acknowledgement ──
+        # These two stay in ONE transaction on purpose. The business change and
+        # the delete that acknowledges it must commit together or not at all,
+        # otherwise a crash between them either loses the work or replays it.
         try:
             await self.handler(session, message or {})
             # CAST is load-bearing, not decoration. pgmq overloads delete() as
