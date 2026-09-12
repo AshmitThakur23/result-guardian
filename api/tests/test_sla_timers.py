@@ -467,15 +467,20 @@ async def test_the_sweep_is_scheduled_every_five_minutes(
     row = (
         await session.execute(
             text(
-                "SELECT schedule, command, active, database FROM cron.job "
-                "WHERE jobname = 'rg-sla-timer-sweep'"
+                "SELECT schedule, command, active, database, "
+                "       current_database() AS here "
+                "  FROM cron.job WHERE jobname = 'rg-sla-timer-sweep'"
             )
         )
     ).one()
     assert row.schedule == "*/5 * * * *"
     assert "rg_sweep_overdue_sla_timers" in row.command
     assert row.active is True
-    assert row.database == "result_guardian"
+    # Compared against current_database(), never a hardcoded name: POSTGRES_DB
+    # is configurable (CI runs `result_guardian_test`), and Phase 0's C6 fix
+    # exists precisely so cron.database_name follows it. Asserting the literal
+    # name tested the developer's .env, not the guarantee -- and it broke CI.
+    assert row.database == row.here
 
 
 async def test_the_sweep_re_enqueues_an_overdue_timer_with_no_message(
