@@ -42,6 +42,32 @@ A full read of the scaffold before NODE A pulls it. All eight were in code that 
 | D7 | `.github/workflows/ci.yml` | Test job used stock `pgvector/pgvector:pg16` — no pgmq, no pg_cron, no init scripts. Phase 1.8's integration tests break on contact | Builds and runs the real NODE A image, asserts all six extensions, applies migrations | 🟡 needs Actions |
 | D8 | `api/pyproject.toml` + 7 files | `line-length = 100` but code written at 88 → `black --check` reformats on sight; `E501` at `app/db/session.py:7` | Set 88 (black's default, matching the code); 7 long lines wrapped | ✅ **ran** — ruff, black and mypy `--strict` all clean |
 
+### 🐞 D9 — found by CI, fixed and verified on NODE A
+
+| | |
+|---|---|
+| **Where** | `infra/postgres/Dockerfile` |
+| **Symptom** | `CREATE EXTENSION pgmq` → *"extension pgmq has no installation script nor update path for version 1.4.4"*. Init aborted, container died, **no queues and no timers**. |
+| **Root cause** | pgmq's tarball ships only *upgrade* scripts (`sql/pgmq--X--Y.sql`). The base install script `pgmq--1.4.4.sql` does not exist — upstream's Makefile **generates** it in the `all` target from `sql/pgmq.sql`. Two compounding faults: PGXS's `install` target does not depend on `all`, and `DATA = $(wildcard sql/*--*.sql)` is expanded when make *parses* the Makefile. So `make install` alone neither generates nor installs it. The control file lands, the install script does not, **and the image builds cleanly while being unusable**. |
+| **Fix** | Generate the base script before `make install`; take the version from `pgmq.control` (`default_version`) rather than the git tag, since that is what Postgres actually looks for; then **assert both `pgmq.control` and `pgmq--<version>.sql` exist in `pg_config --sharedir`** — failing the *build* instead of the first boot if upstream's layout changes again. |
+| **Verified** | ✅ **ran on NODE A** — see below. pgmq **1.4.4** preserved; no version change was needed. |
+
+Verification on NODE A, real Docker, fresh container:
+
+```
+extname  | extversion          queues:  dlq, extract, ingest, notifications, sla_timers
+---------+-----------          pgmq round-trip: send -> msg_id=1, read -> case_id=d9
+ pg_cron  | 1.6                cron.database_name = result_guardian_test  (D3 guard OK)
+ pg_trgm  | 1.6                container: ready in ~6s, stays Up after init
+ pgcrypto | 1.3
+ pgmq     | 1.4.4
+ plpgsql  | 1.0
+ unaccent | 1.1
+ vector   | 0.8.6
+```
+
+> **Why CI caught this and nothing else did.** The old CI used stock `pgvector/pgvector:pg16` and died earlier at `pip install`, masking it completely. D7 — building and running the *real* image — is what exposed it. This is the strongest argument in the repo for testing against the actual artefact.
+
 ### Five more defects, found only by running the linters
 
 Reading the code did not surface these; **running it did.** Recorded because it is the clearest evidence in this repo that *written ≠ done*:

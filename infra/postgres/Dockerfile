@@ -22,10 +22,45 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # pgmq is not packaged in Debian; build the extension from source.
-RUN curl -fsSL "https://github.com/pgmq/pgmq/archive/refs/tags/v${PGMQ_VERSION}.tar.gz" -o /tmp/pgmq.tar.gz \
-    && mkdir -p /tmp/pgmq && tar -xzf /tmp/pgmq.tar.gz -C /tmp/pgmq --strip-components=1 \
-    && make -C /tmp/pgmq/pgmq-extension install \
-    && rm -rf /tmp/pgmq /tmp/pgmq.tar.gz
+#
+# ⚠️ D9. `make install` ALONE SILENTLY PRODUCES A BROKEN EXTENSION.
+#
+# pgmq ships only UPGRADE scripts (sql/pgmq--X--Y.sql). The base install
+# script, sql/pgmq--<version>.sql, does not exist in the tarball -- upstream's
+# Makefile GENERATES it in the `all` target by copying sql/pgmq.sql. Two things
+# then go wrong at once:
+#
+#   1. PGXS's `install` target does not depend on `all`, so running
+#      `make install` never generates the base script; and
+#   2. `DATA = $(wildcard sql/*--*.sql)` is expanded when make PARSES the
+#      Makefile, so even if the file appeared later it would not be installed.
+#
+# The result is an image that builds cleanly while shipping pgmq.control with
+# no matching install script. Postgres reads default_version from the control
+# file, finds no pgmq--<version>.sql, and the FIRST BOOT dies with
+# "extension pgmq has no installation script nor update path for version ...".
+# That took down the whole init and with it every queue and timer.
+#
+# So: generate the base script first, then install, then ASSERT the two files
+# Postgres will actually look for are present -- failing the BUILD rather than
+# the first boot if upstream's layout ever changes again.
+RUN set -eux; \
+    curl -fsSL "https://github.com/pgmq/pgmq/archive/refs/tags/v${PGMQ_VERSION}.tar.gz" -o /tmp/pgmq.tar.gz; \
+    mkdir -p /tmp/pgmq; \
+    tar -xzf /tmp/pgmq.tar.gz -C /tmp/pgmq --strip-components=1; \
+    cd /tmp/pgmq/pgmq-extension; \
+    # Take the version from the control file, not the git tag: Postgres looks
+    # for pgmq--<default_version>.sql, and only the control file defines that.
+    extver="$(sed -n "s/^default_version[^']*'\([^']*\)'.*/\1/p" pgmq.control)"; \
+    test -n "$extver"; \
+    cp sql/pgmq.sql "sql/pgmq--$extver.sql"; \
+    make install; \
+    sharedir="$(pg_config --sharedir)"; \
+    test -f "$sharedir/extension/pgmq.control"; \
+    test -f "$sharedir/extension/pgmq--$extver.sql"; \
+    echo "pgmq $extver installed and verified"; \
+    cd /; \
+    rm -rf /tmp/pgmq /tmp/pgmq.tar.gz
 
 # Build tooling is not needed at runtime and is a needless attack surface
 # on a hospital server (Phase 10.1 least-privilege posture).

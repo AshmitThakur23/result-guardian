@@ -87,7 +87,7 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 
 | Role | Whose machine | Identify it by | What runs there |
 |---|---|---|---|
-| **NODE A — core** | **Abhinendra's laptop** | (record hostname when next on it) | Postgres, FastAPI, worker, Caddy, React dashboard. **All patient data, all safety logic.** |
+| **NODE A — core** | **Abhinendra's laptop** | `LAPTOP-06ER0HBM`, user `Abhinendra Singh` | Postgres, FastAPI, worker, Caddy, React dashboard. **All patient data, all safety logic.** |
 | **NODE B — inference** | **Ashmit's machine** — the repo owner's | `LAPTOP-5JCGN9SJ`, user `asus` | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
 
 - Repo: **`AshmitThakur23/result-guardian`** (private) — Ashmit is the repo owner. `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
@@ -129,7 +129,24 @@ Consequences:
 - Ollama `v0.15.2` installed; `OLLAMA_MODELS=D:\Nexus AI\.ollama\models`, holding **`mistral:7b` (4.07 GB)** which the separate `D:\Nexus AI` project depends on.
   **Do not repoint `OLLAMA_MODELS`** without moving the blobs first — `mistral:7b` would vanish from `ollama list`. Let `qwen3:4b` download alongside it.
 
-**NODE A — Abhinendra's machine** — not measured from here. Record its own disk/GPU figures when working on it.
+**NODE A — Abhinendra's machine** (`LAPTOP-06ER0HBM`, user `Abhinendra Singh`) — measured **on NODE A**, 2026-09-11:
+- **Lenovo 83BF · Windows 11 Home Single Language, build 26200**
+- CPU **Intel Core i5-12450H** (12th gen) — 8 physical / 12 logical cores
+- RAM **15.7 GB**
+- `C:` **39.5 GB free of 268 GB** (85% used) · `D:` **682.8 GB free of 683.6 GB** — D: is effectively empty, so it is the right home for Docker images and any corpus
+- GPU: **Intel UHD Graphics only. NO NVIDIA GPU — `nvidia-smi` is not present.**
+  This is the independent confirmation that the RTX 3050 belongs to NODE B: NODE A
+  has no discrete GPU at all, and does not need one (RULE 2 — NODE A never runs inference).
+- ⚠️ **Native `postgresql-x64-18` service is RUNNING and holds port 5432.** This is why
+  `docker-compose.override.yml` maps the dev database to host port **5433**. That deviation
+  is required on **both** machines, not just NODE B.
+- Ollama is also installed here (`%LOCALAPPDATA%\Programs\Ollama`). **Unnecessary on NODE A**
+  and unused — inference belongs to NODE B. Harmless; do not build anything on it.
+
+Toolchain on **NODE A** (differs from NODE B — do not assume either machine's versions):
+Docker **29.5.2** · Compose **5.1.4** · Python **3.11.9** (matches the project pin) ·
+git **2.53.0** · gh **2.87.3** · Node **v24.14.0** · `make` **absent** (use `tasks.ps1`) ·
+ruff **0.16.7** / black **26.5.1** / mypy **2.3.1** installed 2026-09-11.
 
 ---
 
