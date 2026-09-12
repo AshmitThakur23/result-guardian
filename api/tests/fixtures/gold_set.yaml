@@ -1,0 +1,959 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  RESULT GUARDIAN — RULE ENGINE GOLD SET
+# ═══════════════════════════════════════════════════════════════════════
+#
+#  ⚠️  NO CLINICIAN HAS REVIEWED ANY ENTRY IN THIS FILE.  ⚠️
+#
+#  Every case below is SYNTHETIC — written by the engineering team to
+#  exercise the rules. None of it is a real patient result, none of it is
+#  anonymised real data, and the `expected_severity` on each entry is the
+#  engineering team's expectation, NOT a clinician's judgement.
+#
+#  Phase 3.8 asks for something this file is not:
+#
+#      Build a gold set: 100+ real anonymised results spanning all three
+#      rule types. Sit with a clinician, walk every disagreement, tune
+#      thresholds, not code. Record final agreement rate in
+#      docs/clinical-validation.md.
+#
+#  So this file is the HARNESS, populated with placeholder cases. It is a
+#  genuine regression net — it will catch a rule change that alters an
+#  answer — and it is NOT evidence of clinical correctness.
+#
+#  EXIT GATE 3 REQUIRES ≥95% AGREEMENT WITH A CLINICIAN.
+#  THAT NUMBER DOES NOT EXIST YET AND MUST NOT BE INVENTED.
+#  See docs/clinical-validation.md.
+#
+#  ── How a hospital replaces this file ──────────────────────────────
+#
+#  1. Export 100+ real results, anonymised, spanning all three rule types.
+#  2. Write one entry per result, with `provenance: real_anonymised` and
+#     `reviewed_by` naming the clinician who set `expected_severity`.
+#  3. Run `pytest tests/test_gold_set.py`. Every failure is a disagreement.
+#  4. Walk each disagreement with the clinician. **Tune thresholds in the
+#     configuration tables, not the rule code** — a rule changed to satisfy
+#     one case is a rule nobody can predict.
+#  5. Record the final agreement rate in docs/clinical-validation.md.
+#
+# ═══════════════════════════════════════════════════════════════════════
+
+meta:
+  # Read by the test suite, which refuses to report an agreement rate while
+  # this is false. The refusal is the point: a percentage in a report reads
+  # as clinical validation whether or not the surrounding prose says
+  # otherwise.
+  clinician_validated: false
+  reviewed_by: null
+  reviewed_on: null
+  source: >-
+    Synthetic cases written by the engineering team against the Phase 3 build
+    plan. Not real patient data. Not clinically reviewed.
+  # The engine version these expectations were written against. A new major
+  # version is a reason to re-walk the set with a clinician, not to edit the
+  # expectations until they pass.
+  engine_version: "3.0.0"
+  # The thresholds these expectations assume. They are the development
+  # placeholders, not a hospital's critical-value list.
+  rule_config: "scripts/seed_rules_dev.py placeholders"
+
+cases:
+  # ── Rule A — numeric ─────────────────────────────────────────────
+
+  - id: A01
+    provenance: synthetic
+    rule: A
+    description: Potassium well inside the reference range.
+    order: { category: lab, test_code: ELEC, test_name: Electrolytes }
+    content:
+      analytes:
+        - test_name: POTASSIUM
+          value_numeric: "4.1"
+          unit: mmol/L
+          ref_low: "3.5"
+          ref_high: "5.1"
+    expected_severity: normal
+    expected_reason_codes: [NUM_WITHIN_REFERENCE_RANGE]
+
+  - id: A02
+    provenance: synthetic
+    rule: A
+    description: Potassium above the placeholder panic high.
+    order: { category: lab, test_code: ELEC, test_name: Electrolytes }
+    content:
+      analytes:
+        - test_name: POTASSIUM
+          value_numeric: "7.4"
+          unit: mmol/L
+          ref_low: "3.5"
+          ref_high: "5.1"
+    expected_severity: critical
+    expected_reason_codes: [NUM_ABOVE_CRITICAL_HIGH]
+
+  - id: A03
+    provenance: synthetic
+    rule: A
+    description: Potassium below the placeholder panic low.
+    order: { category: lab, test_code: ELEC, test_name: Electrolytes }
+    content:
+      analytes:
+        - test_name: POTASSIUM
+          value_numeric: "2.2"
+          unit: mmol/L
+          ref_low: "3.5"
+          ref_high: "5.1"
+    expected_severity: critical
+    expected_reason_codes: [NUM_BELOW_CRITICAL_LOW]
+
+  - id: A04
+    provenance: synthetic
+    rule: A
+    description: Sodium mildly above range, nowhere near a panic bound.
+    order: { category: lab, test_code: ELEC, test_name: Electrolytes }
+    content:
+      analytes:
+        - test_name: SODIUM
+          value_numeric: "148"
+          unit: mmol/L
+          ref_low: "135"
+          ref_high: "145"
+    expected_severity: follow_up
+    expected_reason_codes: [NUM_ABOVE_REFERENCE_RANGE]
+
+  - id: A05
+    provenance: synthetic
+    rule: A
+    description: Sodium below the placeholder panic low.
+    order: { category: lab, test_code: ELEC, test_name: Electrolytes }
+    content:
+      analytes:
+        - test_name: SODIUM
+          value_numeric: "118"
+          unit: mmol/L
+          ref_low: "135"
+          ref_high: "145"
+    expected_severity: critical
+    expected_reason_codes: [NUM_BELOW_CRITICAL_LOW]
+
+  - id: A06
+    provenance: synthetic
+    rule: A
+    description: >-
+      A value with no reference range at all. Unclassifiable, and
+      unclassifiable is never normal.
+    order: { category: lab, test_code: MISC, test_name: Miscellaneous }
+    content:
+      analytes:
+        - test_name: SOME_UNCOMMON_ASSAY
+          value_numeric: "42"
+          unit: U/L
+    expected_severity: follow_up
+    expected_reason_codes: [NUM_NO_REFERENCE_RANGE]
+
+  - id: A07
+    provenance: synthetic
+    rule: A
+    description: A non-numeric value Rule A cannot speak to.
+    order: { category: lab, test_code: MISC, test_name: Miscellaneous }
+    content:
+      analytes:
+        - test_name: RHEUMATOID_FACTOR
+          value_raw: "NEGATIVE"
+    expected_severity: follow_up
+    expected_reason_codes: [NUM_NO_NUMERIC_VALUE]
+
+  - id: A08
+    provenance: synthetic
+    rule: A
+    description: >-
+      A censored troponin. ">1000" is not a missing value; it is the worst
+      one on the report.
+    order: { category: lab, test_code: TROP, test_name: Troponin I }
+    content:
+      analytes:
+        - test_name: TROPONIN
+          value_raw: ">1000"
+          unit: ng/mL
+          ref_low: "0"
+          ref_high: "0.04"
+    expected_severity: critical
+    expected_reason_codes: [NUM_ABOVE_CRITICAL_HIGH]
+
+  - id: A09
+    provenance: synthetic
+    rule: A
+    description: >-
+      A censored value that cannot prove it is inside the range. "<0.5"
+      with a low bound of 0.2 might be anywhere below 0.5.
+    order: { category: lab, test_code: MISC, test_name: Miscellaneous }
+    content:
+      analytes:
+        - test_name: SOME_ASSAY
+          value_raw: "<0.5"
+          ref_low: "0.2"
+          ref_high: "1.0"
+    expected_severity: follow_up
+    expected_reason_codes: [NUM_CENSORED_NOT_COMPARABLE]
+
+  - id: A10
+    provenance: synthetic
+    rule: A
+    description: An ALT ten times the upper limit, with no configured panic bound.
+    order: { category: lab, test_code: LFT, test_name: Liver Function }
+    content:
+      analytes:
+        - test_name: ALT
+          value_numeric: "400"
+          unit: U/L
+          ref_low: "10"
+          ref_high: "40"
+    expected_severity: critical
+    expected_reason_codes: [NUM_FAR_ABOVE_REFERENCE_RANGE]
+
+  - id: A11
+    provenance: synthetic
+    rule: A
+    description: The same ALT only slightly raised.
+    order: { category: lab, test_code: LFT, test_name: Liver Function }
+    content:
+      analytes:
+        - test_name: ALT
+          value_numeric: "48"
+          unit: U/L
+          ref_low: "10"
+          ref_high: "40"
+    expected_severity: follow_up
+    expected_reason_codes: [NUM_ABOVE_REFERENCE_RANGE]
+
+  - id: A12
+    provenance: synthetic
+    rule: A
+    description: >-
+      A panel where one value is critical and the rest are normal. The
+      report is critical — a max, never an average.
+    order: { category: lab, test_code: RFT, test_name: Renal Function }
+    content:
+      analytes:
+        - test_name: SODIUM
+          value_numeric: "140"
+          unit: mmol/L
+          ref_low: "135"
+          ref_high: "145"
+        - test_name: POTASSIUM
+          value_numeric: "4.0"
+          unit: mmol/L
+          ref_low: "3.5"
+          ref_high: "5.1"
+        - test_name: CREATININE
+          value_numeric: "6.2"
+          unit: mg/dL
+          ref_low: "0.6"
+          ref_high: "1.2"
+    expected_severity: critical
+
+  - id: A13
+    provenance: synthetic
+    rule: A
+    description: A haemoglobin below the placeholder panic low.
+    order: { category: lab, test_code: CBC, test_name: Complete Blood Count }
+    content:
+      analytes:
+        - test_name: HAEMOGLOBIN
+          value_numeric: "6.2"
+          unit: g/dL
+          ref_low: "12"
+          ref_high: "15"
+    expected_severity: critical
+    expected_reason_codes: [NUM_BELOW_CRITICAL_LOW]
+
+  - id: A14
+    provenance: synthetic
+    rule: A
+    description: A platelet count below the placeholder panic low.
+    order: { category: lab, test_code: CBC, test_name: Complete Blood Count }
+    content:
+      analytes:
+        - test_name: PLATELET
+          value_numeric: "14000"
+          unit: /uL
+          ref_low: "150000"
+          ref_high: "410000"
+    expected_severity: critical
+    expected_reason_codes: [NUM_BELOW_CRITICAL_LOW]
+
+  - id: A15
+    provenance: synthetic
+    rule: A
+    description: A glucose above the placeholder panic high.
+    order: { category: lab, test_code: GLU, test_name: Blood Glucose }
+    content:
+      analytes:
+        - test_name: GLUCOSE
+          value_numeric: "540"
+          unit: mg/dL
+          ref_low: "70"
+          ref_high: "110"
+    expected_severity: critical
+    expected_reason_codes: [NUM_ABOVE_CRITICAL_HIGH]
+
+  - id: A16
+    provenance: synthetic
+    rule: A
+    description: A calcium below the placeholder panic low.
+    order: { category: lab, test_code: CA, test_name: Serum Calcium }
+    content:
+      analytes:
+        - test_name: CALCIUM
+          value_numeric: "5.4"
+          unit: mg/dL
+          ref_low: "8.5"
+          ref_high: "10.5"
+    expected_severity: critical
+    expected_reason_codes: [NUM_BELOW_CRITICAL_LOW]
+
+  # ── Rule B — culture and sensitivity ─────────────────────────────
+
+  - id: B01
+    provenance: synthetic
+    rule: B
+    description: >-
+      ★ EXIT GATE 3. E. coli resistant to ceftriaxone, patient discharged on
+      Monocef. The case the product exists for.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ceftriaxone, interpretation: R }
+            - { antibiotic_name: Nitrofurantoin, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+    expected_auto_close: false
+
+  - id: B02
+    provenance: synthetic
+    rule: B
+    description: The same organism, susceptible to what the patient is taking.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ceftriaxone, interpretation: S }
+            - { antibiotic_name: Nitrofurantoin, interpretation: S }
+    expected_severity: normal
+    expected_reason_codes: [CULT_COVERED_BY_DISCHARGE_DRUGS]
+    expected_auto_close: true
+
+  - id: B03
+    provenance: synthetic
+    rule: B
+    description: Intermediate to the discharge drug — worth a look, not an alarm.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Levoflox]
+    content:
+      organisms:
+        - organism_name: Klebsiella pneumoniae
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Levofloxacin, interpretation: I }
+            - { antibiotic_name: Meropenem, interpretation: S }
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_INTERMEDIATE_TO_DISCHARGE_DRUG]
+    expected_auto_close: false
+
+  - id: B04
+    provenance: synthetic
+    rule: B
+    description: No growth. The one culture result that may close itself.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: No growth after 48 hours
+          specimen_type: urine
+    expected_severity: normal
+    expected_reason_codes: [CULT_NO_GROWTH]
+    expected_auto_close: true
+
+  - id: B05
+    provenance: synthetic
+    rule: B
+    description: >-
+      ★ EXIT GATE 3. A skin contaminant. FOLLOW_UP, and it must NOT
+      auto-close — a contaminant call is a judgement a human confirms.
+    order: { category: micro, test_code: BLC, test_name: Blood Culture }
+    encounter:
+      discharge_antibiotics: [Augmentin]
+    content:
+      organisms:
+        - organism_name: Coagulase negative Staphylococcus
+          colony_count: "scanty"
+          specimen_type: blood
+          sensitivities:
+            - { antibiotic_name: Vancomycin, interpretation: S }
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_LIKELY_CONTAMINANT]
+    expected_auto_close: false
+
+  - id: B06
+    provenance: synthetic
+    rule: B
+    description: Mixed flora in urine — the classic re-collect.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: []
+    content:
+      organisms:
+        - organism_name: Mixed bacterial flora
+          colony_count: "20,000 CFU/mL"
+          specimen_type: urine
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_LIKELY_CONTAMINANT]
+    expected_auto_close: false
+
+  - id: B07
+    provenance: synthetic
+    rule: B
+    description: A low urine colony count, below the configured threshold.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: "4,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ceftriaxone, interpretation: R }
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_LIKELY_CONTAMINANT]
+    expected_auto_close: false
+
+  - id: B08
+    provenance: synthetic
+    rule: B
+    description: >-
+      A heavy growth written in scientific notation. Regression guard: this
+      once parsed as 1.5 and was dismissed as a contaminant.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Ciplox]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: "1.5 x 10^5 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ciprofloxacin, interpretation: R }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+
+  - id: B09
+    provenance: synthetic
+    rule: B
+    description: >-
+      A low count from a sterile site. The colony-count threshold means
+      nothing outside urine.
+    order: { category: micro, test_code: BLC, test_name: Blood Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: "200 CFU/mL"
+          specimen_type: blood
+          sensitivities:
+            - { antibiotic_name: Ceftriaxone, interpretation: R }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+
+  - id: B10
+    provenance: synthetic
+    rule: B
+    description: MRSA named in the report. Critical regardless of the prescription.
+    order: { category: micro, test_code: WSC, test_name: Wound Swab Culture }
+    encounter:
+      discharge_antibiotics: []
+    content:
+      organisms:
+        - organism_name: MRSA (methicillin-resistant Staphylococcus aureus)
+          colony_count: "moderate growth"
+          specimen_type: wound swab
+          sensitivities:
+            - { antibiotic_name: Vancomycin, interpretation: S }
+            - { antibiotic_name: Linezolid, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_MULTI_DRUG_RESISTANT_ORGANISM]
+    expected_auto_close: false
+
+  - id: B11
+    provenance: synthetic
+    rule: B
+    description: >-
+      S. aureus with an oxacillin R. Nobody typed "MRSA" anywhere — the
+      rule reads the panel.
+    order: { category: micro, test_code: BLC, test_name: Blood Culture }
+    encounter:
+      discharge_antibiotics: [Augmentin]
+    content:
+      organisms:
+        - organism_name: Staphylococcus aureus
+          colony_count: "moderate growth"
+          specimen_type: blood
+          sensitivities:
+            - { antibiotic_name: Oxacillin, interpretation: R }
+            - { antibiotic_name: Vancomycin, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_MULTI_DRUG_RESISTANT_ORGANISM]
+
+  - id: B12
+    provenance: synthetic
+    rule: B
+    description: A carbapenem-resistant Klebsiella.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Klebsiella pneumoniae
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Meropenem, interpretation: R }
+            - { antibiotic_name: Colistin, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_MULTI_DRUG_RESISTANT_ORGANISM]
+
+  - id: B13
+    provenance: synthetic
+    rule: B
+    description: A vancomycin-resistant Enterococcus.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Nitrofurantoin]
+    content:
+      organisms:
+        - organism_name: Enterococcus faecium
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Vancomycin, interpretation: R }
+            - { antibiotic_name: Linezolid, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_MULTI_DRUG_RESISTANT_ORGANISM]
+
+  - id: B14
+    provenance: synthetic
+    rule: B
+    description: >-
+      Growth, and the discharge antibiotic was never tested. Not covered
+      and not checkable — the dangerous silence.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Proteus mirabilis
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Nitrofurantoin, interpretation: S }
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_DISCHARGE_DRUG_NOT_ON_PANEL]
+    expected_auto_close: false
+
+  - id: B15
+    provenance: synthetic
+    rule: B
+    description: Growth, and nothing was tested against it at all.
+    order: { category: micro, test_code: WSC, test_name: Wound Swab Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Pseudomonas aeruginosa
+          colony_count: "moderate growth"
+          specimen_type: wound swab
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_NO_SENSITIVITY_DATA]
+    expected_auto_close: false
+
+  - id: B16
+    provenance: synthetic
+    rule: B
+    description: A significant organism and no antibiotic was prescribed.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: []
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Nitrofurantoin, interpretation: S }
+    expected_severity: follow_up
+    expected_reason_codes: [CULT_NO_DISCHARGE_ANTIBIOTIC]
+    expected_auto_close: false
+
+  - id: B17
+    provenance: synthetic
+    rule: B
+    description: >-
+      Covered by two drugs and resistant to a third. The patient is taking
+      all three, so one R outranks two S.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Nitrofurantoin, Monocef, Ciplox]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Nitrofurantoin, interpretation: S }
+            - { antibiotic_name: Ceftriaxone, interpretation: S }
+            - { antibiotic_name: Ciprofloxacin, interpretation: R }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+
+  - id: B18
+    provenance: synthetic
+    rule: B
+    description: >-
+      The discharge summary says Augmentin, the panel says
+      amoxicillin-clavulanate. Without the synonym table this is missed.
+    order: { category: micro, test_code: WSC, test_name: Wound Swab Culture }
+    encounter:
+      discharge_antibiotics: [Augmentin]
+    content:
+      organisms:
+        - organism_name: Streptococcus pyogenes
+          colony_count: "heavy growth"
+          specimen_type: wound swab
+          sensitivities:
+            - { antibiotic_name: Amoxicillin-clavulanate, interpretation: R }
+            - { antibiotic_name: Linezolid, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+
+  - id: B19
+    provenance: synthetic
+    rule: B
+    description: Sterile body fluid. Nothing grew.
+    order: { category: micro, test_code: CSF, test_name: CSF Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Sterile
+          specimen_type: csf
+    expected_severity: normal
+    expected_reason_codes: [CULT_NO_GROWTH]
+    expected_auto_close: true
+
+  - id: B20
+    provenance: synthetic
+    rule: B
+    description: >-
+      An organism that looks like skin flora but carries a methicillin
+      resistance. MDRO is checked before the contaminant branch.
+    order: { category: micro, test_code: BLC, test_name: Blood Culture }
+    encounter:
+      discharge_antibiotics: []
+    content:
+      organisms:
+        - organism_name: Methicillin-resistant Staphylococcus epidermidis
+          colony_count: "1,200 CFU/mL"
+          specimen_type: blood
+          sensitivities:
+            - { antibiotic_name: Vancomycin, interpretation: S }
+    expected_severity: critical
+    expected_reason_codes: [CULT_MULTI_DRUG_RESISTANT_ORGANISM]
+
+  - id: B21
+    provenance: synthetic
+    rule: B
+    description: >-
+      A heavy growth written as plain e-notation. Regression guard from the
+      Phase 3 audit: "1.5e5" parsed as 1.5 and was dismissed as a contaminant
+      before the resistance comparison ever ran.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: "1.5e5 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ceftriaxone, interpretation: R }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+
+  - id: B22
+    provenance: synthetic
+    rule: B
+    description: >-
+      The same growth printed with a Unicode superscript, as a PDF export
+      keeps it. Read as a plain number it is ten.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Ciplox]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: ">10⁵ CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ciprofloxacin, interpretation: R }
+    expected_severity: critical
+    expected_reason_codes: [CULT_RESISTANT_TO_DISCHARGE_DRUG]
+
+  # ── Rule C — narrative ───────────────────────────────────────────
+
+  - id: C01
+    provenance: synthetic
+    rule: C
+    description: >-
+      ★ EXIT GATE 3. A negated finding. "No evidence of malignancy" must
+      NOT produce a flag.
+    order: { category: radiology, test_code: CXR, test_name: Chest X-Ray }
+    content:
+      narratives:
+        - section: impression
+          text: No evidence of malignancy.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_ALL_HITS_NEGATED]
+    expected_auto_close: false
+
+  - id: C02
+    provenance: synthetic
+    rule: C
+    description: The same finding, not negated.
+    order: { category: radiology, test_code: CT, test_name: CT Abdomen }
+    content:
+      narratives:
+        - section: impression
+          text: Findings are consistent with malignancy in the pancreatic head.
+    expected_severity: critical
+    expected_reason_codes: [NARR_KEYWORD_MATCH]
+    expected_auto_close: false
+
+  - id: C03
+    provenance: synthetic
+    rule: C
+    description: >-
+      A negation in one sentence must not suppress a finding in the next.
+    order: { category: radiology, test_code: CT, test_name: CT Abdomen }
+    content:
+      narratives:
+        - section: impression
+          text: >-
+            No evidence of infection. Findings consistent with malignancy.
+    expected_severity: critical
+    expected_reason_codes: [NARR_KEYWORD_MATCH]
+
+  - id: C04
+    provenance: synthetic
+    rule: C
+    description: >-
+      A long sentence where the negation is nowhere near the finding.
+      Unbounded negation scope would bury the abscess.
+    order: { category: radiology, test_code: USG, test_name: Ultrasound Abdomen }
+    content:
+      narratives:
+        - section: findings
+          text: >-
+            No evidence of fracture in the visualised bony structures of the
+            thorax and upper abdomen, however there is a large abscess in the
+            right lobe of the liver.
+    expected_severity: critical
+    expected_reason_codes: [NARR_KEYWORD_MATCH]
+
+  - id: C05
+    provenance: synthetic
+    rule: C
+    description: >-
+      A hedge is not a denial. "Cannot exclude malignancy" is a finding
+      somebody should look at, downgraded rather than discarded.
+    order: { category: radiology, test_code: MRI, test_name: MRI Brain }
+    content:
+      narratives:
+        - section: impression
+          text: Cannot exclude malignancy.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_HEDGED_FINDING]
+
+  - id: C06
+    provenance: synthetic
+    rule: C
+    description: A radiology report with no finding named at all.
+    order: { category: radiology, test_code: CXR, test_name: Chest X-Ray }
+    content:
+      narratives:
+        - section: impression
+          text: The study is technically adequate. Cardiac silhouette is normal.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_NO_KEYWORD_MATCH]
+    expected_auto_close: false
+
+  - id: C07
+    provenance: synthetic
+    rule: C
+    description: "\"Negative for malignancy\" — a second negation form."
+    order: { category: pathology, test_code: HPE, test_name: Histopathology }
+    content:
+      narratives:
+        - section: conclusion
+          text: Sections examined are negative for malignancy.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_ALL_HITS_NEGATED]
+
+  - id: C08
+    provenance: synthetic
+    rule: C
+    description: "\"Ruled out\" — a negation that follows the finding."
+    order: { category: radiology, test_code: CT, test_name: CT Chest }
+    content:
+      narratives:
+        - section: impression
+          text: Pulmonary embolism has been ruled out.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_ALL_HITS_NEGATED]
+
+  - id: C09
+    provenance: synthetic
+    rule: C
+    description: A pneumothorax named directly.
+    order: { category: radiology, test_code: CXR, test_name: Chest X-Ray }
+    content:
+      narratives:
+        - section: impression
+          text: There is a moderate right-sided pneumothorax.
+    expected_severity: critical
+    expected_reason_codes: [NARR_KEYWORD_MATCH]
+
+  - id: C10
+    provenance: synthetic
+    rule: C
+    description: An incidental nodule — worth following up, not an alarm.
+    order: { category: radiology, test_code: CT, test_name: CT Chest }
+    content:
+      narratives:
+        - section: findings
+          text: >-
+            A 4 mm nodule is noted in the right upper lobe. No evidence of
+            malignancy.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_KEYWORD_MATCH]
+    expected_auto_close: false
+
+  - id: C11
+    provenance: synthetic
+    rule: C
+    description: Histopathology naming a carcinoma.
+    order: { category: pathology, test_code: HPE, test_name: Histopathology }
+    content:
+      narratives:
+        - section: conclusion
+          text: Invasive ductal carcinoma, grade 2.
+    expected_severity: critical
+    expected_reason_codes: [NARR_KEYWORD_MATCH]
+
+  - id: C12
+    provenance: synthetic
+    rule: C
+    description: >-
+      A narrative on a non-radiology report with nothing named. The only
+      path to NORMAL for Rule C — and it still cannot auto-close.
+    order: { category: lab, test_code: URE, test_name: Urine Routine }
+    content:
+      narratives:
+        - section: microscopy
+          text: Occasional epithelial cells seen.
+    expected_severity: normal
+    expected_reason_codes: [NARR_NO_KEYWORD_MATCH]
+    expected_auto_close: false
+
+  - id: C13
+    provenance: synthetic
+    rule: C
+    description: >-
+      A hedge and a denial in scope of the same term. Regression guard from
+      the Phase 3 audit: whichever pattern matched first used to win, so the
+      answer depended on the order the configuration rows came back in — and
+      one of those orders silenced the finding.
+    order: { category: radiology, test_code: CT, test_name: CT Abdomen }
+    content:
+      narratives:
+        - section: impression
+          text: Malignancy is unlikely; ruled out on the prior imaging.
+    expected_severity: follow_up
+    expected_reason_codes: [NARR_HEDGED_FINDING]
+    expected_auto_close: false
+
+  # ── mixed reports ────────────────────────────────────────────────
+
+  - id: M01
+    provenance: synthetic
+    rule: mixed
+    description: >-
+      A urine report carrying both a culture and a microscopy note. The
+      culture is covered and would close on its own; the narrative keeps
+      the case open.
+    order: { category: micro, test_code: URC, test_name: Urine Culture }
+    encounter:
+      discharge_antibiotics: [Monocef]
+    content:
+      organisms:
+        - organism_name: Escherichia coli
+          colony_count: ">100,000 CFU/mL"
+          specimen_type: urine
+          sensitivities:
+            - { antibiotic_name: Ceftriaxone, interpretation: S }
+      narratives:
+        - section: microscopy
+          text: Plenty of pus cells seen.
+    expected_severity: normal
+    expected_auto_close: false
+
+  - id: M02
+    provenance: synthetic
+    rule: mixed
+    description: >-
+      A radiology report that also carries a potassium. Rules are picked by
+      content, not by report type.
+    order: { category: radiology, test_code: CT, test_name: CT Abdomen }
+    content:
+      analytes:
+        - test_name: POTASSIUM
+          value_numeric: "7.6"
+          unit: mmol/L
+          ref_low: "3.5"
+          ref_high: "5.1"
+      narratives:
+        - section: impression
+          text: No evidence of malignancy.
+    expected_severity: critical
+
+  - id: M03
+    provenance: synthetic
+    rule: mixed
+    description: A report with no structured content at all.
+    order: { category: lab, test_code: MISC, test_name: Miscellaneous }
+    content: {}
+    expected_severity: follow_up
+    expected_reason_codes: [ORCH_NO_CLASSIFIABLE_CONTENT]
+    expected_auto_close: false

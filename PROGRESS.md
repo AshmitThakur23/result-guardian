@@ -18,6 +18,12 @@
 > are **verified**, not merely fixed. The NODE A Postgres image builds and runs with
 > pgmq 1.4.4 + pg_cron 1.6 + all six extensions, and migrations apply cleanly.
 >
+> **⚠️ PHASE 3 CODE IS COMPLETE AND NOT PUSHED. EXIT GATE 3 IS 🔴 OPEN.**
+> 3.1–3.7 are built and verified; **3.8 needs a clinician and has not had one.**
+> There is **no agreement rate** and **0 real anonymised results** in the gold set.
+> **Do not start Phase 4 on the strength of the three gate clauses that did pass.**
+> See [docs/clinical-validation.md](docs/clinical-validation.md).
+>
 > **▶ NEXT, on NODE A:** bring up the **full compose stack** — the piece still unproven.
 > `cp .env.example .env` (set `POSTGRES_PASSWORD`, `RG_JWT_SECRET`, `RG_LLM_BASE_URL`) →
 > `docker compose up -d --build` → `docker compose exec api alembic upgrade head` →
@@ -84,16 +90,20 @@
 > ⚠️ **One genuine spec ambiguity, reported not buried:** the plan names
 > `idempotency_key (unique)` and never defines its construction. See the Open
 > decisions table.
-> **🟡 ALL OF PHASE 2 IS IMPLEMENTED (2026-09-12) — NOT YET AUDITED, NOT PUSHED.**
-> 2.2 lifecycle, 2.3 missing-result/lab flags, 2.4 manual intake, 2.5 tests, and
-> the **Exit Gate 2 chaos test passes**: 50 cases, two restarts (the second
-> including Postgres), **exactly 50 flags, no duplicates, no misses**.
-> **415 backend tests** (+85) · 102 frontend · 22 Playwright · coverage 87.94% ·
-> drift 0 at head `0006_phase_2_lifecycle` · health `ok` with
-> `llm.reachable: false`.
-> ⚠️ Status is 🟡 not ✅ **by the tick legend**: a comprehensive Phase 2 audit has
-> not been run, and the work is deliberately **unpushed** pending it.
-> **Next: the comprehensive Phase 2 audit**, then the final push.
+> **✅ PHASE 2 IS COMPLETE — audited, pushed (`13a7151`), CI green.**
+> 2.1 model · 2.2 lifecycle · 2.3 missing-result/lab flags · 2.4 manual intake ·
+> 2.5 tests · **Exit Gate 2 PASSED** (50 cases, two restarts, exactly 50 flags).
+> **425 backend** · 102 frontend · 22 Playwright · coverage 88.20% · drift 0 at head
+> `0006_phase_2_lifecycle` · health `ok` with `llm.reachable: false`.
+> The audit found **no P0/P1/P2 defects**. It did find and fix one test-isolation
+> gap (seed cleanups orphaned Phase 2 rows) and recorded one cross-phase gap as
+> open decision #8 (`orders.status` is advanced by no phase; the gate over-blocks,
+> which fails safe).
+>
+> **▶ NOW IN PHASE 3 — the clinical rule engine.** Deterministic, **no AI**
+> (RULE 1). ⚠️ **3.8 and Exit Gate 3 are clinician-gated**: they need 100+ real
+> anonymised results and a clinician's sign-off at ≥95% agreement, so the gate
+> cannot close from code alone — the same shape as 1.6/1.7.
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -122,8 +132,8 @@
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
-| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | 🟡 **all sections implemented, audit pending** | 🟡 chaos test passes | 2.1–2.5 all built. Exit Gate 2's 50-case double-restart chaos test passes. **Unpushed** pending the Phase 2 audit |
-| [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ⬜ not started | ⬜ | 2–3 wks. **Book clinician time now** |
+| [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ✅ **done** | ✅ **PASSED** | 2.1–2.5 all built, audited and pushed (`13a7151`). Chaos test: 50 cases, 2 restarts, exactly 50 flags. Sweep-only recovery proven |
+| [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ✅ **code done + audited — 3.1–3.7** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
 | [5 · Dashboard, closure, audit](docs/build/phase-05-dashboard-audit-mvp.md) | A | ⬜ not started | ⬜ | 2–3 wks → 🏁 **MVP, pilot ready** |
 | [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🔴 blocked | ⬜ | 2 wks. ⛔ blocked by 1.6 corpus |
@@ -147,7 +157,7 @@ These are not blocked by code. They are blocked by other people, and they take m
 | Clinician time — gold set, 100+ results | 3.8 | **Exit Gate 3** | `not started` | — |
 | Clinician time — 100-question AI eval set | 8.7 | **Exit Gate 8** | `not started` | — |
 | Medico-legal liability policy, signed | 10.3 | **Go-live** | `not started` | — |
-| Hospital's own critical-value list (for `panic_thresholds`) | 3.2 | Phase 3 seeding | `not started` | — |
+| Hospital's own critical-value list (for `panic_thresholds`) | 3.2 | Phase 3 seeding | 🔴 **still outstanding** | Dev placeholders seeded under `source = 'DEVELOPMENT PLACEHOLDER - NOT A CLINICAL SOURCE'`; one `WHERE` finds all 8 |
 
 ---
 
@@ -248,6 +258,41 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-13 — Phase 3 comprehensive audit (6 defects found and fixed, **not pushed**)
+
+- **Audited adversarially, not by re-reading the implementation report.** Every finding below came from probing the running system — driving real sentences through Rule C, fuzzing the colony-count parser, counting pending timers after a result arrives, running four workers on four independent connections.
+- **A1 · P1 — negation resolution depended on PostgreSQL row order.** *"Malignancy is unlikely; ruled out on the prior imaging."* puts a hedge and a denial in scope of the same term; `is_negated` returned on whichever matched first. Measured: stored order gave `ruled out` (**finding discarded**), reversed order gave `unlikely` (**FOLLOW_UP, finding kept**). An unordered `SELECT` is not stable across vacuums or plan changes, so the same report could classify differently on different days — against the architecture doc's *"same input always gives same output"*. Fixed by collecting every in-scope pattern and letting a hedge outrank a denial.
+- **A2 · P1 — two more colony-count under-reads.** `1.5e5` → **1.5** and `>10⁵` → **10**. Same class as the bug fixed during implementation, surviving in different notations, and failing the same way: under the contaminant threshold, and the contaminant branch returns *before* the resistance comparison. Ranges now take the upper bound.
+- **A3 · P1 — a failing rule silenced the case.** Measured directly: after a final result arrives, the case has **0 pending timers** (intake superseded `result_due`). If classification then fails permanently the message reaches the DLQ — safe, but unread — and nothing ever wakes anybody. Each rule now runs behind `_safely()`, degrading to FOLLOW_UP; `DBAPIError` is re-raised so real infrastructure faults still retry.
+- **A4 · P2 — a non-finite value made Rule A raise** rather than answer. Unreachable through the API (Pydantic refuses NaN/Infinity), fixed as the second lock for a row arriving by import or a future feed.
+- **A5 · P2 — two clinical lists were never seeded.** `culture_no_growth_patterns` and `culture_contaminant_organisms` were read from `rule_config` and written nowhere, so the engine always fell through to Python constants. An admin could not change which organisms count as skin flora without editing source — the exact thing §3.2 forbids.
+- **A6 · P3 — the recorded MDRO code was not deterministic.** Two rules match "MRSA (methicillin-resistant Staphylococcus aureus)" with an oxacillin R. Severity was never in doubt; the stored explanation was.
+- **Every fix has a regression test proven to bite.** Each was reverted in turn and the matching test observed to fail, then restored: A1 (2 tests), A2 (8), A3 (2), A4 (3), A5 (4), A6 (1).
+- **Found sound under probing:** idempotency with four concurrent workers on independent connections (1 classification, 1 clinical event) and three concurrent engine versions (3 classifications, as intended); Rule C matching against case, punctuation, newlines, double spaces and multi-word terms; preview writes nothing; no historical migration edited; zero NODE B references in any Phase 3 code path.
+- **Accepted, not a defect:** a low-count urine growth resistant to a discharge antibiotic reports FOLLOW_UP rather than CRITICAL, because the plan orders contaminant detection (step 2) before the drug comparison (step 3). It never auto-closes. Whether that is right for a given hospital is a threshold question for 3.8's clinician walkthrough.
+- **⚠️ Exit Gate 3 remains 🔴 OPEN.** The audit changed nothing about it: **54 synthetic cases, 0 real anonymised results, 0 clinician reviews, no agreement rate.** The two honesty guards still hold and were re-verified.
+- **Verification after the fixes:** 655 backend tests (was 626) · 91% coverage (gate 70) · ruff + black + mypy-strict clean · Phase 2 suite 142 passed · Phase 1 suite 236 passed · 118 vitest · `tsc --noEmit` clean · production build · 30 Playwright against the real stack · migration round trip 28→16→28, drift 0, 0 PG enum types.
+
+### 2026-09-13 — Phase 3.1 → 3.8: the clinical rule engine (implemented, **not pushed**)
+
+- **Migration `0007_rule_engine_schema`** — 3.1's four result-detail tables and 3.2's six configuration tables, plus `unit_conversions` (named by Rule A's algorithm, missing from 3.2's schema list) and 3.6's `classifications`. Applied; autogenerate drift 0; round trip 28 → 16 → 28 tables; 0 PG enum types.
+- **All three rules read their configuration from tables, never from code.** Change `slight_abnormal_factor` in `rule_config` and Rule A's answer changes with no deploy; expire a `panic_thresholds` row and it stops being applied. Both are asserted by tests rather than claimed.
+- **No AI, no NODE B, no network.** Every classification is a table lookup and a comparison. A Playwright test asserts `/api/health` reports the inference node unreachable and then drives the whole flow to a CRITICAL anyway — RULE 1 and RULE 2 in one test.
+- **Five real defects, every one found by running the code, not reading it.**
+  1. `_set_case_severity` used one bind parameter in two differently-typed positions, so asyncpg refused the statement and **every** classification with a case raised. Total breakage, invisible until a test staged a real case.
+  2. `_panic_threshold` raised whenever the patient's age was unknown — `$3 IS NULL` is untypeable — so Rule A failed on exactly the patients whose date of birth the hospital never recorded.
+  3. `1.5 x 10^5` parsed as **1.5**. That put a heavy growth under the contaminant threshold, and the contaminant branch returns *before* the resistance comparison — so a resistant organism would have been reported as likely contamination instead of CRITICAL. The product's central failure, reintroduced by a regex.
+  4. `10^5` parsed as 1,000,000, an order of magnitude out.
+  5. `uq_unit_conversions_triple` constrained nothing for generic rows: `test_code` is null for the common case and PostgreSQL's default `NULLS DISTINCT` lets two identical rows coexist. Now `NULLS NOT DISTINCT`, which also made the seed re-runnable.
+- **Contaminant detection is checked *after* MDRO, and panic bounds *before* the reference range** — both deliberate departures from the printed step order, both recorded in the phase doc's deviations table with the failure each one prevents.
+- **A hedge is not a denial.** *"Cannot exclude malignancy"* downgrades CRITICAL to FOLLOW_UP rather than being suppressed as a negation. Stored as `negation_patterns.is_hedge`.
+- **Narrative reports cannot auto-close, structurally.** `_all_rules_permit_auto_close` takes an AND across rules with a default of *no*, and Rule C emits a literal `False`. A test parses the source and fails if a second `auto_close` value ever appears. One line of prose on a report whose culture is fully covered keeps the case open — asserted in Python and again in a browser.
+- **3.7's preview writes nothing, and that is counted rather than assumed.** A test snapshots nine tables before and after a preview call and asserts equality. A second test previews a payload, saves the same payload, classifies it, and asserts the prediction and the decision agree — the property that makes the panel worth showing.
+- **The E2E cleanup needed extending, and the need was proven.** Phase 3 hangs five child tables off `results`; `session_replication_role = replica` bypasses FK enforcement as well as the append-only trigger, so the old cleanup would have **silently orphaned** a classification per run rather than failing loudly. Demonstrated with a staged delete (`orphan_left=1`) before fixing. Same defect class as the Phase 2 audit's P3.
+- **⚠️ 3.8 IS NOT DONE AND EXIT GATE 3 IS OPEN.** The harness exists and 51 synthetic cases pass; **no clinician has reviewed any of it**, there are **0 real anonymised results**, and there is **no agreement rate**. Two tests exist purely to keep that honest: one fails if `clinician_validated` is flipped without a named reviewer and a date, the other parses this suite's own AST and fails if anything computes a percentage while the set is synthetic. Both were proven to fail when deliberately tripped. See [docs/clinical-validation.md](docs/clinical-validation.md).
+- **A sixth defect, found by running the suites in the wrong order.** `test_migration_round_trip.py` downgrades to base and back, which drops and recreates the Phase 3 configuration tables — so running the Python suite between two Playwright runs emptied them and the second E2E run failed with "element not found". An empty rule configuration does not error; it grades everything as unclassifiable, which looks nothing like the cause. The E2E global setup now seeds the configuration itself. Proven by emptying the tables (`panic_after_roundtrip=0`) and re-running the suite green.
+- **Verification:** 626 backend tests, 90% coverage (gate 70); ruff + black + mypy-strict clean on 67 source files; 118 frontend vitest; `tsc --noEmit` clean; production bundle builds; **30 Playwright tests including 8 new Phase 3 ones**, all against the real stack; runtime Docker image builds and still ships no pytest.
 
 ### 2026-09-12 — Phase 2.2 → 2.5 and Exit Gate 2 (implemented, **not pushed**)
 

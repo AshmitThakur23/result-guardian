@@ -3,9 +3,10 @@
 Runs the pgmq consumers plus a heartbeat. Started as
 ``python -m worker.main`` from the same image as the API.
 
-The ``sla_timers`` queue has a real handler since Phase 2.2. No other queue is
-consumed: a stub that logs and acknowledges would *delete* messages that later
-phases are supposed to process. See the comment in ``main()``.
+``sla_timers`` has had a real handler since Phase 2.2 and ``classify`` since
+Phase 3.6. No other queue is consumed: a stub that logs and acknowledges would
+*delete* messages that later phases are supposed to process. See the comment
+in ``main()``.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from app.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.logging import configure_logging
 from worker.consumer import QueueConsumer
+from worker.consumers.classify import handle_classify
 from worker.consumers.sla_timers import handle_sla_timer
 
 log = structlog.get_logger(__name__)
@@ -92,6 +94,11 @@ async def main() -> None:
         # (SELECT ... FOR UPDATE on the timer row), which is what lets pgmq's
         # at-least-once delivery be safe rather than merely tolerable.
         QueueConsumer("sla_timers", handle_sla_timer, shutdown),
+        # Phase 3.6. Deterministic, no NODE B: a classification is table
+        # lookups and comparisons, and `classifications` being unique on
+        # (result_id, engine_version) is what makes a duplicate delivery
+        # produce one decision rather than two.
+        QueueConsumer("classify", handle_classify, shutdown),
     ]
 
     tasks = [asyncio.create_task(heartbeat(shutdown))]

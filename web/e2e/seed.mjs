@@ -144,6 +144,27 @@ export function seedGatedEncounter() {
   };
 }
 
+/**
+ * Make sure the rule engine has a configuration to read.
+ *
+ * Phase 3 keeps every threshold, keyword, negation pattern and antibiotic
+ * synonym in a table, so a rule engine with empty tables does not error --
+ * it grades everything as unclassifiable and the specs fail for a reason
+ * that looks nothing like the cause.
+ *
+ * Idempotent (every insert is an upsert), so running it before each suite
+ * costs a second and removes a whole class of confusing failure. The values
+ * are the development PLACEHOLDERS, clearly marked as such in the table's
+ * `source` column -- see docs/clinical-validation.md.
+ */
+export function seedRuleConfig() {
+  execFileSync(
+    "docker",
+    ["compose", "exec", "-T", "api", "python", "-m", "scripts.seed_rules_dev"],
+    { cwd: REPO_ROOT, encoding: "utf8" },
+  );
+}
+
 /** Read a row back, to assert against the database rather than the screen. */
 export function query(sql) {
   return psql(sql);
@@ -180,6 +201,31 @@ export function cleanupE2EData() {
     DELETE FROM lab_flags WHERE case_id IN
       (SELECT id FROM pending_cases WHERE encounter_id IN
         (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    -- Phase 3 hangs the report's content and the engine's decision off the
+    -- RESULT, and every one of those FKs is ON DELETE RESTRICT. Deleting a
+    -- result while a classification still points at it fails outright, so
+    -- these go first -- children before parents, deepest first.
+    DELETE FROM result_sensitivities WHERE organism_id IN
+      (SELECT o.id FROM result_organisms o JOIN results r ON r.id = o.result_id
+        WHERE r.case_id IN
+          (SELECT id FROM pending_cases WHERE encounter_id IN
+            (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%')));
+    DELETE FROM result_organisms WHERE result_id IN
+      (SELECT id FROM results WHERE case_id IN
+        (SELECT id FROM pending_cases WHERE encounter_id IN
+          (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%')));
+    DELETE FROM result_analytes WHERE result_id IN
+      (SELECT id FROM results WHERE case_id IN
+        (SELECT id FROM pending_cases WHERE encounter_id IN
+          (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%')));
+    DELETE FROM result_narratives WHERE result_id IN
+      (SELECT id FROM results WHERE case_id IN
+        (SELECT id FROM pending_cases WHERE encounter_id IN
+          (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%')));
+    DELETE FROM classifications WHERE result_id IN
+      (SELECT id FROM results WHERE case_id IN
+        (SELECT id FROM pending_cases WHERE encounter_id IN
+          (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%')));
     DELETE FROM results WHERE case_id IN
       (SELECT id FROM pending_cases WHERE encounter_id IN
         (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
@@ -202,6 +248,13 @@ export function cleanupE2EData() {
     -- exist.
     DELETE FROM pgmq.q_sla_timers
      WHERE message->>'encounter_id' NOT IN (SELECT id::text FROM encounters);
+    -- Phase 3's classify queue, for the same reason: a wake-up naming a
+    -- result that no longer exists is a warning in the worker log on every
+    -- subsequent run.
+    DELETE FROM pgmq.q_classify
+     WHERE message->>'result_id' NOT IN (SELECT id::text FROM results);
+    DELETE FROM pgmq.q_notifications
+     WHERE message->>'case_id' NOT IN (SELECT id::text FROM pending_cases);
 
     SET session_replication_role = origin;
   `);

@@ -53,6 +53,16 @@ This directory is the **source of truth**. It was extracted at full fidelity fro
 
 ---
 
+## Standalone records
+
+| File | Covers |
+|---|---|
+| [clinical-validation.md](clinical-validation.md) | **Has a clinician checked the rule engine? No.** Phase 3.8's status, why Exit Gate 3 is open, and what a hospital must do to close it |
+| [clinical-validation-protocol.md](clinical-validation-protocol.md) | **How Exit Gate 3 gets closed.** Import schema for real results, de-identification, reviewer identity, disagreement handling, and the agreement arithmetic — fixed in advance |
+| [network-runbook.md](network-runbook.md) | Getting NODE A and NODE B talking |
+
+---
+
 ## Conventions in these files
 
 - `- [ ]` checkboxes are the **live backlog**. Tick them as work completes — the doc *is* the task list.

@@ -16,6 +16,10 @@ import type {
   DischargeReadiness,
   DischargeResult,
   EncounterDetail,
+  ResultContent,
+  ResultCreate,
+  ResultPreview,
+  ResultRecorded,
   UserSummary,
 } from "./types";
 
@@ -202,6 +206,60 @@ export function useAddMedication(encounterId: string) {
       void queryClient.invalidateQueries({
         queryKey: phase15Keys.encounterDetail(encounterId),
       });
+    },
+  });
+}
+
+/* ── Phase 3.7 — manual result entry ──────────────────────────────── */
+
+export const phase37Keys = {
+  preview: (orderId: string, content: string) =>
+    ["orders", orderId, "result-preview", content] as const,
+};
+
+/**
+ * The severity the rule engine *would* assign to content as typed.
+ *
+ * Writes nothing on the server — no result, no classification, no case
+ * transition, no timer, no notification. It is safe to call on every edit,
+ * which is what lets the panel update as the tech types.
+ *
+ * Keyed on the serialised content rather than a counter, so identical content
+ * is answered from cache and an unchanged form does not re-ask.
+ */
+export function useResultPreview(orderId: string, content: ResultContent) {
+  const serialised = JSON.stringify(content);
+  const isEmpty =
+    content.analytes.length === 0 &&
+    content.organisms.length === 0 &&
+    content.narratives.length === 0;
+
+  return useQuery({
+    queryKey: phase37Keys.preview(orderId, serialised),
+    queryFn: () =>
+      api.post<ResultPreview>(`/orders/${orderId}/results/preview`, content),
+    // An empty form has nothing to grade. Asking would return FOLLOW_UP for
+    // "no content", which reads as a verdict on a report nobody has typed yet.
+    enabled: !isEmpty,
+    // The prediction is a pure function of the content and the rule tables.
+    staleTime: 30 * 1000,
+    retry: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useRecordResult(orderId: string, encounterId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ResultCreate) =>
+      api.post<ResultRecorded>(`/orders/${orderId}/results`, payload),
+    onSettled: () => {
+      // A result closes an outstanding investigation, which changes both the
+      // encounter's order list and the gate's answer.
+      void queryClient.invalidateQueries({
+        queryKey: phase15Keys.encounterDetail(encounterId),
+      });
+      void queryClient.invalidateQueries({ queryKey: keys.readiness(encounterId) });
     },
   });
 }

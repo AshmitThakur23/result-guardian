@@ -346,6 +346,27 @@ export interface Phase15Handlers {
   addMedication?: (body: unknown) =>
     | import("../api/types").DischargeMedicationRow
     | Problemish;
+  /* Phase 3.7 */
+  resultPreview?: (body: unknown) =>
+    | import("../api/types").ResultPreview
+    | Problemish;
+  recordResult?: (body: unknown) =>
+    | import("../api/types").ResultRecorded
+    | Problemish;
+}
+
+/** A preview reply, shaped like the real one. */
+export function preview(
+  overrides: Partial<import("../api/types").ResultPreview> = {},
+): import("../api/types").ResultPreview {
+  return {
+    severity: "normal",
+    engine_version: "3.0.0",
+    would_auto_close: true,
+    rules: [],
+    discharge_antibiotics: [],
+    ...overrides,
+  };
 }
 
 /**
@@ -433,6 +454,26 @@ export function installPhase15Server(handlers: Phase15Handlers = {}) {
           encounter_id: ENCOUNTER_ID,
           encounter_can_discharge: false,
           blocking_order_count: 2,
+        },
+        201,
+      );
+    }
+    // Phase 3.7. Checked before "/results" so the longer path wins.
+    if (method === "POST" && path.endsWith("/results/preview")) {
+      return result(handlers.resultPreview?.(body) ?? preview());
+    }
+    if (method === "POST" && path.endsWith("/results")) {
+      const recorded = handlers.recordResult?.(body);
+      if (recorded) return result(recorded, 201);
+      return result(
+        {
+          result_id: "0ccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          order_id: ORDER_A,
+          case_id: null,
+          case_state: "result_received",
+          superseded_timer_ids: [],
+          classification_enqueued: true,
+          late: false,
         },
         201,
       );

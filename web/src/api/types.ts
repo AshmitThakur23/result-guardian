@@ -276,3 +276,98 @@ export interface DischargeMedicationCreate {
   duration_days?: string | null;
   is_antibiotic: boolean;
 }
+
+/* ── Phase 3.7 — manual result entry ──────────────────────────────── */
+
+export const REPORT_STATUSES = [
+  "preliminary",
+  "final",
+  "amended",
+  "corrected",
+] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export const NARRATIVE_SECTIONS = [
+  "impression",
+  "findings",
+  "conclusion",
+  "microscopy",
+] as const;
+export type NarrativeSection = (typeof NARRATIVE_SECTIONS)[number];
+
+/** The whole vocabulary of a sensitivity grid. Anything else is a typo. */
+export const INTERPRETATIONS = ["S", "I", "R"] as const;
+export type Interpretation = (typeof INTERPRETATIONS)[number];
+
+export const SEVERITIES = ["normal", "follow_up", "critical"] as const;
+export type Severity = (typeof SEVERITIES)[number];
+
+export interface AnalyteIn {
+  test_name: string;
+  /** NUMERIC on the wire: sent as a string so no value is rounded in transit. */
+  value_numeric?: string | null;
+  value_raw?: string | null;
+  unit?: string | null;
+  ref_low?: string | null;
+  ref_high?: string | null;
+  ref_text?: string | null;
+}
+
+export interface SensitivityIn {
+  antibiotic_name: string;
+  interpretation: Interpretation;
+  mic_value?: string | null;
+}
+
+export interface OrganismIn {
+  organism_name: string;
+  colony_count?: string | null;
+  specimen_type?: string | null;
+  sensitivities: SensitivityIn[];
+}
+
+export interface NarrativeIn {
+  section: NarrativeSection;
+  text: string;
+}
+
+export interface ResultContent {
+  analytes: AnalyteIn[];
+  organisms: OrganismIn[];
+  narratives: NarrativeIn[];
+}
+
+export interface ResultCreate extends ResultContent {
+  report_status: ReportStatus;
+  source_ref?: string | null;
+  reported_at?: string | null;
+  recorded_by?: string | null;
+}
+
+export interface ResultRecorded {
+  result_id: string;
+  order_id: string;
+  case_id: string | null;
+  case_state: string | null;
+  superseded_timer_ids: string[];
+  classification_enqueued: boolean;
+  late: boolean;
+}
+
+export interface RulePreviewRow {
+  rule_id: string;
+  severity: Severity;
+  reason_code: string;
+  subject: string | null;
+  offending_drug: string | null;
+  alternatives_available: string[];
+}
+
+/** What the engine *would* say. Nothing is written to produce it. */
+export interface ResultPreview {
+  severity: Severity;
+  engine_version: string;
+  would_auto_close: boolean;
+  rules: RulePreviewRow[];
+  discharge_antibiotics: string[];
+}

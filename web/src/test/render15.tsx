@@ -7,6 +7,7 @@ import { DischargeGatePage } from "../pages/DischargeGate";
 import { EncounterDetailPage } from "../pages/EncounterDetail";
 import { PatientDetailPage } from "../pages/PatientDetail";
 import { PatientSearchPage } from "../pages/PatientSearch";
+import { ResultEntryPage } from "../pages/ResultEntry";
 
 /**
  * Mounts the **whole** route table rather than one page, so navigation
@@ -32,6 +33,10 @@ export function renderApp(initialPath: string): RenderResult {
       { path: "/patients/:patientId", element: <PatientDetailPage /> },
       { path: "/encounters/:encounterId", element: <EncounterDetailPage /> },
       { path: "/encounters/:encounterId/discharge", element: <DischargeGatePage /> },
+      {
+        path: "/encounters/:encounterId/orders/:orderId/result",
+        element: <ResultEntryPage />,
+      },
       {
         path: "*",
         element: (

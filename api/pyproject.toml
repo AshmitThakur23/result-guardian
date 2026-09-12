@@ -29,6 +29,12 @@ dev = [
     "ruff>=0.5",
     "black>=24.4",
     "mypy>=1.10",
+    # Phase 3.8's gold set is YAML so a clinician can read and edit it without
+    # a Python editor. It arrives transitively today; declared here because a
+    # test suite that silently depends on somebody else's transitive pin is a
+    # CI failure waiting for an unrelated upgrade.
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
 ]
 
 # api/ is a flat layout holding app/, worker/, tests/ and alembic/. Without an

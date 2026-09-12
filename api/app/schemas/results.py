@@ -1,21 +1,116 @@
-"""Result intake and lab-flag shapes. Phase 2.3 / 2.4.
+"""Result intake and lab-flag shapes. Phase 2.3 / 2.4, extended by 3.7.
 
-Deliberately thin on the clinical side. ``raw_payload`` is accepted as an
-opaque object and stored as given: what is *in* a result is Phase 3's rule
-engine and Phase 7's extraction, and a Phase 2 schema that tried to describe
-analytes would be a second, competing definition to migrate away from later.
+Phase 2 was deliberately thin on the clinical side: ``raw_payload`` was
+accepted as an opaque object and stored as given, because *what is in a
+result* was Phase 3's problem and a Phase 2 schema describing analytes would
+have been a second, competing definition to migrate away from.
+
+Phase 3 is that definition. ``analytes``, ``organisms`` and ``narratives`` are
+the structured content the rule engine reads, and they are **optional** on
+intake — a Phase 2 caller that sends only ``raw_payload`` behaves exactly as
+it did before, which is what keeps the earlier phase intact.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 
 
-class ResultCreate(BaseModel):
+class AnalyteIn(BaseModel):
+    """One row of a numeric panel. Phase 3.7's numeric form."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    test_name: str = Field(min_length=1, max_length=300)
+    # Both are optional and at least one is expected: a lab reports "<0.01" as
+    # text with no number, and discarding that would throw away the most
+    # extreme results on the report.
+    value_numeric: Decimal | None = None
+    value_raw: str | None = Field(default=None, max_length=120)
+    unit: str | None = Field(default=None, max_length=64)
+    ref_low: Decimal | None = None
+    ref_high: Decimal | None = None
+    ref_text: str | None = Field(default=None, max_length=200)
+    loinc_code: str | None = Field(default=None, max_length=32)
+
+    @model_validator(mode="after")
+    def _needs_a_value(self) -> AnalyteIn:
+        if self.value_numeric is None and not (self.value_raw or "").strip():
+            raise ValueError("an analyte needs either value_numeric or value_raw")
+        return self
+
+    @model_validator(mode="after")
+    def _range_is_ordered(self) -> AnalyteIn:
+        if (
+            self.ref_low is not None
+            and self.ref_high is not None
+            and self.ref_low > self.ref_high
+        ):
+            # A transposed range silently inverts every comparison Rule A
+            # makes, so it is rejected at the door rather than classified.
+            raise ValueError("ref_low must not be greater than ref_high")
+        return self
+
+
+class SensitivityIn(BaseModel):
+    """One cell of the antibiotic x S/I/R grid."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    antibiotic_name: str = Field(min_length=1, max_length=200)
+    interpretation: Literal["S", "I", "R"]
+    mic_value: str | None = Field(default=None, max_length=32)
+
+
+class OrganismIn(BaseModel):
+    """One organism and its panel. Phase 3.7's culture form."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    organism_name: str = Field(min_length=1, max_length=200)
+    colony_count: str | None = Field(
+        default=None,
+        max_length=64,
+        description='As the lab wrote it — ">100,000 CFU/mL", "1.5 x 10^5".',
+    )
+    specimen_type: str | None = Field(default=None, max_length=64)
+    sensitivities: list[SensitivityIn] = Field(default_factory=list)
+
+
+class NarrativeIn(BaseModel):
+    """One prose section. Phase 3.7's narrative form."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    section: Literal["impression", "findings", "conclusion", "microscopy"]
+    text: str = Field(min_length=1)
+
+
+class ResultContent(BaseModel):
+    """The structured content of a report, independent of intake.
+
+    Shared by ``ResultCreate`` and the preview endpoint so the preview grades
+    exactly what the save will store — a preview that read a different shape
+    would be a prediction of a different report.
+    """
+
+    analytes: list[AnalyteIn] = Field(default_factory=list)
+    organisms: list[OrganismIn] = Field(default_factory=list)
+    narratives: list[NarrativeIn] = Field(default_factory=list)
+
+
+class ResultCreate(ResultContent):
     """One incoming report for one order.
 
     ``source_ref`` is the lab's own reference for the report — an accession
@@ -64,6 +159,49 @@ class ResultRecorded(BaseModel):
     )
     late: bool = Field(
         description="The case had already closed when this result arrived."
+    )
+
+
+class RulePreviewRow(BaseModel):
+    """What one rule said about one piece of content."""
+
+    rule_id: str
+    severity: str
+    reason_code: str
+    subject: str | None = Field(
+        default=None,
+        description="The analyte, organism or section this line is about.",
+    )
+    offending_drug: str | None = None
+    alternatives_available: list[str] = Field(default_factory=list)
+
+
+class ResultPreview(BaseModel):
+    """Phase 3.7: *"preview panel showing predicted severity before save"*.
+
+    **Predicted, and nothing more.** Nothing is written, no case moves, no
+    timer is set and no notification is queued. The severity here is what the
+    engine *would* decide on this content as typed; the decision of record is
+    made when the result is saved and is written to ``classifications`` with
+    its engine version.
+    """
+
+    severity: str
+    engine_version: str
+    would_auto_close: bool = Field(
+        description=(
+            "Every rule permits closing. A narrative section always makes this "
+            "false — narrative reports never auto-close."
+        )
+    )
+    rules: list[RulePreviewRow] = Field(default_factory=list)
+    discharge_antibiotics: list[str] = Field(
+        default_factory=list,
+        description=(
+            "The drugs this patient actually went home on, which Rule B "
+            "compared the culture against. Empty means none were recorded — "
+            "which is itself why a culture may come back FOLLOW_UP."
+        ),
     )
 
 

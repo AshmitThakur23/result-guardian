@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.results import NON_FINAL_REPORT_STATUSES
 from app.db.types import uuid7
+from app.schemas.results import ResultContent
 from app.services.lab_flags import record_event
 from app.services.timers import create_timer, supersede_result_due
 
@@ -86,6 +87,7 @@ async def record_result(
     source_ref: str | None = None,
     reported_at: dt.datetime | None = None,
     raw_payload: dict[str, object] | None = None,
+    content: ResultContent | None = None,
     actor_user_id: uuid.UUID | None = None,
     now: dt.datetime | None = None,
 ) -> ResultIntake:
@@ -102,10 +104,15 @@ async def record_result(
     1. Lock the case, so a concurrent fire handler either finishes first or
        waits. This is the same lock the worker takes, which is what makes
        "result arrives while the timer is firing" safe in both directions.
-    2. Insert the result.
+    2. Insert the result and its structured content.
     3. Supersede ``result_due``.
     4. Transition the case.
     5. Enqueue classification.
+
+    ``content`` (Phase 3.7) is optional. A caller that sends only
+    ``raw_payload`` gets exactly the Phase 2 behaviour it got before — the
+    rule engine then finds nothing to read and says FOLLOW_UP, which is the
+    honest answer for a report nobody has structured.
     """
     moment = now or dt.datetime.now(dt.UTC)
 
@@ -177,6 +184,11 @@ async def record_result(
             "a": str(actor_user_id) if actor_user_id else None,
         },
     )
+
+    # Content is written before the case moves on, so a result that reaches
+    # `result_received` is always a result the rule engine can actually read.
+    if content is not None:
+        await _store_content(session, result_id, content, actor_user_id)
 
     if case is None:
         return ResultIntake(
@@ -285,3 +297,102 @@ async def record_result(
         classification_msg_id=int(msg_id or 0),
         late=late,
     )
+
+
+async def _store_content(
+    session: AsyncSession,
+    result_id: uuid.UUID,
+    content: ResultContent,
+    actor_user_id: uuid.UUID | None,
+) -> None:
+    """Write the structured content of a report. Phase 3.7.
+
+    Stored as typed rows rather than inside ``raw_payload`` because the rule
+    engine reads them and because a sensitivity grid buried in JSON cannot be
+    queried, corrected or audited. ``raw_payload`` still holds whatever the
+    sender gave; these rows are the interpretation of it.
+    """
+    actor = str(actor_user_id) if actor_user_id else None
+
+    for seq, analyte in enumerate(content.analytes, start=1):
+        await session.execute(
+            text(
+                "INSERT INTO result_analytes "
+                "(id, result_id, seq, test_name_raw, loinc_code, value_raw, "
+                " value_numeric, unit_raw, unit_normalized, ref_low, ref_high, "
+                " ref_text, created_by, updated_by) "
+                "VALUES (:i, :r, :seq, :name, :loinc, :vraw, "
+                "        CAST(:vnum AS numeric), :unit, :unit, "
+                "        CAST(:lo AS numeric), CAST(:hi AS numeric), :rt, :a, :a)"
+            ),
+            {
+                "i": str(uuid7()),
+                "r": str(result_id),
+                "seq": seq,
+                "name": analyte.test_name,
+                "loinc": analyte.loinc_code,
+                "vraw": analyte.value_raw,
+                "vnum": (
+                    str(analyte.value_numeric)
+                    if analyte.value_numeric is not None
+                    else None
+                ),
+                "unit": analyte.unit,
+                "lo": str(analyte.ref_low) if analyte.ref_low is not None else None,
+                "hi": str(analyte.ref_high) if analyte.ref_high is not None else None,
+                "rt": analyte.ref_text,
+                "a": actor,
+            },
+        )
+
+    for organism in content.organisms:
+        organism_id = uuid7()
+        await session.execute(
+            text(
+                "INSERT INTO result_organisms "
+                "(id, result_id, organism_name, colony_count, specimen_type, "
+                " created_by, updated_by) "
+                "VALUES (:i, :r, :n, :c, :s, :a, :a)"
+            ),
+            {
+                "i": str(organism_id),
+                "r": str(result_id),
+                "n": organism.organism_name,
+                "c": organism.colony_count,
+                "s": organism.specimen_type,
+                "a": actor,
+            },
+        )
+        for sensitivity in organism.sensitivities:
+            await session.execute(
+                text(
+                    "INSERT INTO result_sensitivities "
+                    "(id, organism_id, antibiotic_name, interpretation, mic_value, "
+                    " created_by, updated_by) "
+                    "VALUES (:i, :o, :ab, :v, :mic, :a, :a)"
+                ),
+                {
+                    "i": str(uuid7()),
+                    "o": str(organism_id),
+                    "ab": sensitivity.antibiotic_name,
+                    "v": sensitivity.interpretation,
+                    "mic": sensitivity.mic_value,
+                    "a": actor,
+                },
+            )
+
+    for narrative in content.narratives:
+        await session.execute(
+            text(
+                "INSERT INTO result_narratives "
+                "(id, result_id, section, text, created_by, updated_by) "
+                "VALUES (:i, :r, :s, :t, :a, :a)"
+            ),
+            {
+                "i": str(uuid7()),
+                "r": str(result_id),
+                "s": narrative.section,
+                "t": narrative.text,
+                "a": actor,
+            },
+        )

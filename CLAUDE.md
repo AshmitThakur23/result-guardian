@@ -234,6 +234,7 @@ Full stack in [`docs/build/01-tech-stack-and-repo-layout.md`](docs/build/01-tech
 | What happens at runtime | `docs/architecture/00`–`05` |
 | Two-node topology, LAN, env vars | [`docs/architecture/00-two-node-topology.md`](docs/architecture/00-two-node-topology.md) |
 | Connecting the machines | [`docs/network-runbook.md`](docs/network-runbook.md) |
+| **Has a clinician checked the rule engine?** (no) | [`docs/clinical-validation.md`](docs/clinical-validation.md) |
 | Locked stack + repo layout | [`docs/build/01-tech-stack-and-repo-layout.md`](docs/build/01-tech-stack-and-repo-layout.md) |
 | Degradation ladder | [`docs/build/99-gaps-timeline-degradation.md`](docs/build/99-gaps-timeline-degradation.md) |
 

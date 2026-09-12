@@ -7,6 +7,7 @@ import { DischargeGatePage } from "./pages/DischargeGate";
 import { EncounterDetailPage } from "./pages/EncounterDetail";
 import { PatientDetailPage } from "./pages/PatientDetail";
 import { PatientSearchPage } from "./pages/PatientSearch";
+import { ResultEntryPage } from "./pages/ResultEntry";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -34,6 +35,12 @@ const router = createBrowserRouter(
     { path: "/patients/:patientId", element: <PatientDetailPage /> },
     { path: "/encounters/:encounterId", element: <EncounterDetailPage /> },
     { path: "/encounters/:encounterId/discharge", element: <DischargeGatePage /> },
+    // Phase 3.7. Scoped under the encounter so the screen can show whose
+    // result this is without a second endpoint to fetch an order on its own.
+    {
+      path: "/encounters/:encounterId/orders/:orderId/result",
+      element: <ResultEntryPage />,
+    },
     { path: "*", element: <NotFound /> },
   ],
   // Opt in now rather than discovering the behaviour change at the v7 upgrade.

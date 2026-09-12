@@ -177,8 +177,14 @@ function Detail({ encounterId }: { encounterId: string }) {
               title="Outstanding"
               rows={outstanding}
               emptyLabel="Nothing is awaiting a result."
+              encounterId={encounterId}
             />
-            <OrderTable title="Resulted or closed" rows={resulted} emptyLabel={null} />
+            <OrderTable
+              title="Resulted or closed"
+              rows={resulted}
+              emptyLabel={null}
+              encounterId={encounterId}
+            />
           </>
         )}
       </section>
@@ -276,10 +282,12 @@ function OrderTable({
   title,
   rows,
   emptyLabel,
+  encounterId,
 }: {
   title: string;
   rows: OrderRow[];
   emptyLabel: string | null;
+  encounterId: string;
 }) {
   if (rows.length === 0) {
     return emptyLabel ? (
@@ -311,6 +319,9 @@ function OrderTable({
               </th>
               <th scope="col" className="px-4 py-2">
                 Responsible
+              </th>
+              <th scope="col" className="px-4 py-2">
+                <span className="sr-only">Result</span>
               </th>
             </tr>
           </thead>
@@ -358,6 +369,19 @@ function OrderTable({
                   ) : (
                     <span className="text-slate-400">—</span>
                   )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {/* Phase 3.7. Offered on every order, not only outstanding
+                      ones: an amended report arrives after the original has
+                      already closed the case, and that is exactly the report
+                      that must not be turned away. */}
+                  <Link
+                    to={`/encounters/${encounterId}/orders/${order.id}/result`}
+                    className="text-blue-700 underline"
+                  >
+                    {order.is_outstanding ? "Enter result" : "Enter an amendment"}
+                    <span className="sr-only"> for {order.test_name}</span>
+                  </Link>
                 </td>
               </tr>
             ))}

@@ -111,7 +111,7 @@ def test_only_queues_with_a_real_handler_are_consumed() -> None:
     source = inspect.getsource(worker_main.main)
     consumed = re.findall(r'QueueConsumer\(\s*"([a-z_]+)"', source)
 
-    assert consumed == ["sla_timers"], (
+    assert consumed == ["sla_timers", "classify"], (
         "a queue without a real handler is being consumed, which deletes "
         f"messages a later phase needs: {consumed}"
     )
