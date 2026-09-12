@@ -172,6 +172,17 @@ export function cleanupE2EData() {
     DELETE FROM case_events WHERE case_id IN
       (SELECT id FROM pending_cases WHERE encounter_id IN
         (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    -- Phase 2 hangs timers, lab flags and results off the case; they must go
+    -- before it, or the delete below orphans them.
+    DELETE FROM sla_timers WHERE case_id IN
+      (SELECT id FROM pending_cases WHERE encounter_id IN
+        (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    DELETE FROM lab_flags WHERE case_id IN
+      (SELECT id FROM pending_cases WHERE encounter_id IN
+        (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    DELETE FROM results WHERE case_id IN
+      (SELECT id FROM pending_cases WHERE encounter_id IN
+        (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
     DELETE FROM pending_cases WHERE encounter_id IN
       (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%');
     DELETE FROM discharge_contracts WHERE encounter_id IN

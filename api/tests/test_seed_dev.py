@@ -98,6 +98,19 @@ async def _cleanup(session: AsyncSession) -> None:
         "DELETE FROM case_events WHERE case_id IN (SELECT id FROM pending_cases "
         "WHERE encounter_id IN (SELECT id FROM encounters "
         "WHERE encounter_no LIKE :enc))",
+        # Phase 2 hangs timers, lab flags and results off the case. They must
+        # go first, or deleting the case orphans them -- and it would not even
+        # fail, because session_replication_role = replica disables the FK
+        # trigger along with the append-only one.
+        "DELETE FROM sla_timers WHERE case_id IN (SELECT id FROM pending_cases "
+        "WHERE encounter_id IN (SELECT id FROM encounters "
+        "WHERE encounter_no LIKE :enc))",
+        "DELETE FROM lab_flags WHERE case_id IN (SELECT id FROM pending_cases "
+        "WHERE encounter_id IN (SELECT id FROM encounters "
+        "WHERE encounter_no LIKE :enc))",
+        "DELETE FROM results WHERE case_id IN (SELECT id FROM pending_cases "
+        "WHERE encounter_id IN (SELECT id FROM encounters "
+        "WHERE encounter_no LIKE :enc))",
         "DELETE FROM pending_cases WHERE encounter_id IN "
         "(SELECT id FROM encounters WHERE encounter_no LIKE :enc)",
         "DELETE FROM discharge_contracts WHERE encounter_id IN "
@@ -351,3 +364,85 @@ async def test_every_seeded_doctor_is_active(
             assert inactive == 0
         finally:
             await _cleanup(session)
+
+
+async def test_cleanup_leaves_no_phase_2_orphans(
+    maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Regression, found by the Phase 2 audit.
+
+    `_cleanup` deletes `pending_cases` with ``session_replication_role =
+    replica``, which disables the foreign-key trigger along with the
+    append-only one. So a child row Phase 2 added -- a timer, a lab flag, a
+    result -- was silently orphaned rather than refused, and eighteen of them
+    had accumulated in the development database before anyone noticed.
+
+    This discharges a seeded encounter so a real timer exists, then cleans up
+    and checks that nothing is left pointing at a case that no longer exists.
+    """
+    from app.schemas.discharge import DischargeContractRequest
+    from app.services.discharge_action import discharge_encounter
+    from app.services.discharge_contracts import create_discharge_contracts
+
+    async with maker() as session:
+        await _cleanup(session)
+        try:
+            await _seed(session, dt.datetime.now(dt.UTC))
+            await session.commit()
+
+            # Give one seeded encounter a contract and discharge it, so a
+            # durable timer and a case genuinely exist.
+            encounter_id = seed_id("encounter", 0)
+            readiness = await session.execute(
+                text(
+                    "SELECT o.id FROM orders o "
+                    "  LEFT JOIN discharge_contracts c ON c.order_id = o.id "
+                    " WHERE o.encounter_id = :e AND o.deleted_at IS NULL "
+                    "   AND o.status NOT IN ('final','cancelled','rejected') "
+                    "   AND c.id IS NULL"
+                ),
+                {"e": str(encounter_id)},
+            )
+            order_ids = list(readiness.scalars().all())
+            if order_ids:
+                await create_discharge_contracts(
+                    session,
+                    encounter_id,
+                    [
+                        DischargeContractRequest(
+                            order_id=order_id,
+                            responsible_doctor_id=seed_id("doctor", 1),
+                            expected_by=dt.datetime.now(dt.UTC) + dt.timedelta(days=2),
+                        )
+                        for order_id in order_ids
+                    ],
+                )
+                await discharge_encounter(session, encounter_id)
+
+            timers = (
+                await session.execute(
+                    text(
+                        "SELECT count(*) FROM sla_timers s "
+                        "  JOIN pending_cases pc ON pc.id = s.case_id "
+                        " WHERE pc.encounter_id = :e"
+                    ),
+                    {"e": str(encounter_id)},
+                )
+            ).scalar_one()
+            assert timers > 0, "the fixture did not actually create a timer"
+        finally:
+            await _cleanup(session)
+
+        # Nothing may be left pointing at a case that no longer exists.
+        for table in ("sla_timers", "lab_flags", "results"):
+            orphans = (
+                await session.execute(
+                    text(
+                        f"SELECT count(*) FROM {table} t "
+                        " WHERE t.case_id IS NOT NULL "
+                        "   AND NOT EXISTS (SELECT 1 FROM pending_cases pc "
+                        "                    WHERE pc.id = t.case_id)"
+                    )
+                )
+            ).scalar_one()
+            assert orphans == 0, f"cleanup orphaned {orphans} row(s) in {table}"
