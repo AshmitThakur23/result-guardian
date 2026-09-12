@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import CheckConstraint, Date, DateTime, String
+from sqlalchemy import CheckConstraint, Date, DateTime, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -65,5 +65,14 @@ class Patient(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
         CheckConstraint(
             text_enum("preferred_language", PREFERRED_LANGUAGES),
             name="ck_patients_preferred_language",
+        ),
+        # Phase 1.2. Fuzzy name search for the Phase 1.5 patient lookup, and
+        # the trigram similarity Phase 7.4 scores candidate matches with.
+        # Needs pg_trgm, installed by the Phase 0 init scripts.
+        Index(
+            "ix_patients_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
         ),
     )

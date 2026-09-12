@@ -131,8 +131,21 @@ class PendingCase(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin
         CheckConstraint(
             "reopened_count >= 0", name="ck_pending_cases_reopened_count_non_negative"
         ),
-        # Phase 4 lists a doctor's open cases by owner.
-        Index("ix_pending_cases_current_owner_id", "current_owner_id"),
+        # Phase 1.2. The dashboard's default view: worst first, then oldest.
+        Index(
+            "ix_pending_cases_state_severity_opened_at",
+            "state",
+            "severity",
+            "opened_at",
+        ),
+        # Partial, per Phase 1.2: "my open flags" is the query that matters,
+        # and a closed case never appears in it. Replaces the plain
+        # owner index added in 0003, which the plan does not ask for.
+        Index(
+            "ix_pending_cases_current_owner_id",
+            "current_owner_id",
+            postgresql_where=text("state IN ('flagged', 'result_received')"),
+        ),
     )
 
 

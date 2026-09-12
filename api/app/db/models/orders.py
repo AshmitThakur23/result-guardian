@@ -12,7 +12,15 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -56,9 +64,9 @@ class Order(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
         ForeignKey("patients.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    external_order_id: Mapped[str | None] = mapped_column(
-        String(128), nullable=True, index=True
-    )
+    # No index=True here: Phase 1.2 specifies a PARTIAL index on this column,
+    # declared in __table_args__ below.
+    external_order_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     test_code: Mapped[str] = mapped_column(String(64), nullable=False)
     test_name: Mapped[str] = mapped_column(String(300), nullable=False)
@@ -90,5 +98,16 @@ class Order(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
         CheckConstraint(
             "expected_tat_hours IS NULL OR expected_tat_hours > 0",
             name="ck_orders_expected_tat_hours_positive",
+        ),
+        # Phase 1.2. The discharge gate asks "which orders on this encounter
+        # are still outstanding?" -- encounter first, then status.
+        Index("ix_orders_encounter_id_status", "encounter_id", "status"),
+        # Partial: most orders have no external id until the lab returns one,
+        # and Phase 7.5 only ever looks this column up by value. Indexing the
+        # NULLs would cost writes and buy nothing.
+        Index(
+            "ix_orders_external_order_id",
+            "external_order_id",
+            postgresql_where=text("external_order_id IS NOT NULL"),
         ),
     )

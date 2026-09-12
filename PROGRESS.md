@@ -36,7 +36,8 @@
 > **✅ Phase 1.1 is COMPLETE — all 11 tables**, across migrations `0002_core_schema`
 > and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
 > database trigger and proven to reject both UPDATE and DELETE.
-> **Next: 1.2 Indexes.**
+> **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
+> **Next: 1.3 Discharge readiness API.**
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -266,3 +267,11 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
   - **Left deliberately unconstrained, and flagged:** `pending_cases.closure_reason` (values are enumerated in Phase 5.3, not 1.1 — a CHECK now would block Phase 5 if the list is refined) and `patients.sex` (still the hospital's data-standards decision, unchanged).
   - `discharge_overrides` carries both constraints from the plan's 1.3 override spec: `reason_code` CHECK over the five permitted codes, and `char_length(trim(reason_text)) >= 20` — a one-word excuse is not an audit trail.
 - Tests: **102 passing** (25 unit + 77 integration), coverage **86.53%**.
+
+- ✅ **PHASE 1.2 COMPLETE — migration `0004_phase_1_2_indexes`.** All six of the plan's indexes verified against **PostgreSQL's own catalogue** (`pg_indexes.indexdef`, `pg_opclass`), not merely SQLAlchemy metadata — 1.1 already produced one case where the two disagreed.
+  - **Three new:** `orders(encounter_id, status)`, `pending_cases(state, severity, opened_at)`, `patients USING gin (name gin_trgm_ops)`.
+  - **Two plain indexes replaced by their partial forms**, rather than added beside: `ix_orders_external_order_id` (now `WHERE external_order_id IS NOT NULL`) and `ix_pending_cases_current_owner_id` (now `WHERE state IN ('flagged','result_received')`). A partial index still serves every equality lookup, so keeping both would cost writes for no extra reads. The second of those plain indexes was my own speculative addition in 0003, which the plan never asked for.
+  - ⚠️ **Narrower than what they replaced:** "all cases for a doctor regardless of state" and `external_order_id IS NULL` are no longer index-assisted. Neither is a query the plan describes — add one back with evidence if a later phase needs it.
+  - **`case_events(case_id, occurred_at)` reused from 0003, not duplicated.** A test asserts exactly one index exists on that column pair.
+  - Round-trip passes (0004→0003→baseline→head, 3 upgrades / 2 downgrades); downgrade correctly restores the two plain indexes. Drift = 0. pg_trgm similarity proven live, not just parsed.
+- Tests: **118 passing** (25 unit + 93 integration), coverage **85.86%**.

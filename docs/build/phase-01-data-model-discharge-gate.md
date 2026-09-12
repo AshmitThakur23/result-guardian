@@ -17,7 +17,7 @@
 | § | Node | State | Note |
 |---|---|---|---|
 | 1.1 Core schema (Alembic revisions 002 + 003) | A | ✅ **done — all 11 tables** | `0002_core_schema` (departments, users, patients, encounters, orders, discharge_contracts) + `0003_core_schema_remaining` (discharge_contract_revisions, pending_cases, case_events, discharge_medications, discharge_overrides). Applied and round-tripped on NODE A; `case_events` append-only **enforced by trigger** and proven to reject UPDATE and DELETE; autogenerate drift = 0 |
-| 1.2 Indexes | A | ⬜ not started |  |
+| 1.2 Indexes | A | ✅ **done** | `0004_phase_1_2_indexes`. All 6 verified against PostgreSQL's catalogue, not just metadata: 2 composites, 2 partials, 1 GIN `gin_trgm_ops`, and `case_events(case_id, occurred_at)` reused from 0003 rather than duplicated. Two plain indexes replaced by their partial forms |
 | 1.3 Discharge readiness API | A | ⬜ not started |  |
 | 1.4 Discharge gate UI | A | ⬜ not started |  |
 | 1.5 Supporting screens | A | ⬜ not started |  |
@@ -58,12 +58,12 @@
 
 ## 1.2 Indexes
 
-- [ ] `orders(encounter_id, status)`
-- [ ] `orders(external_order_id) WHERE external_order_id IS NOT NULL`
-- [ ] `pending_cases(state, severity, opened_at)`
-- [ ] `pending_cases(current_owner_id) WHERE state IN ('flagged','result_received')`
-- [ ] `patients USING gin (name gin_trgm_ops)` for fuzzy search
-- [ ] `case_events(case_id, occurred_at)`
+- [x] `orders(encounter_id, status)`
+- [x] `orders(external_order_id) WHERE external_order_id IS NOT NULL`
+- [x] `pending_cases(state, severity, opened_at)`
+- [x] `pending_cases(current_owner_id) WHERE state IN ('flagged','result_received')`
+- [x] `patients USING gin (name gin_trgm_ops)` for fuzzy search
+- [x] `case_events(case_id, occurred_at)`
 
 ## 1.3 Discharge readiness API
 
