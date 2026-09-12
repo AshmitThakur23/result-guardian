@@ -3,7 +3,7 @@
 > **Read this first, every session.** It is the resume point.
 > Updating it after every unit of work is mandatory — see the protocol in [`CLAUDE.md`](CLAUDE.md).
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
 > ## ▶ RESUME HERE
 >
@@ -18,11 +18,13 @@
 > are **verified**, not merely fixed. The NODE A Postgres image builds and runs with
 > pgmq 1.4.4 + pg_cron 1.6 + all six extensions, and migrations apply cleanly.
 >
-> **⚠️ PHASE 3 CODE IS COMPLETE AND NOT PUSHED. EXIT GATE 3 IS 🔴 OPEN.**
-> 3.1–3.7 are built and verified; **3.8 needs a clinician and has not had one.**
-> There is **no agreement rate** and **0 real anonymised results** in the gold set.
-> **Do not start Phase 4 on the strength of the three gate clauses that did pass.**
-> See [docs/clinical-validation.md](docs/clinical-validation.md).
+> **🛑 PHASE 3 IS ON HOLD FOR CLINICAL VALIDATION. EXIT GATE 3 IS 🔴 OPEN.**
+> 3.1–3.7 are built, audited and **committed locally (not pushed)**; **3.8 needs a
+> clinician and has not had one.** There is **no agreement rate** and **0 real
+> anonymised results** in the gold set — it is 54 synthetic cases.
+> **Phase 3 is deferred until after all planned phases**, then returned to.
+> ▶ See **[🛑 PHASE 3 CLINICAL VALIDATION — RETURN AFTER ALL PHASES](#-phase-3-clinical-validation--return-after-all-phases)**
+> below, and [docs/clinical-validation.md](docs/clinical-validation.md).
 >
 > **▶ NEXT, on NODE A:** bring up the **full compose stack** — the piece still unproven.
 > `cp .env.example .env` (set `POSTGRES_PASSWORD`, `RG_JWT_SECRET`, `RG_LLM_BASE_URL`) →
@@ -133,7 +135,7 @@
 | [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 all verified.** Full compose stack still unrun; NODE B unprovisioned. [Status table](docs/build/phase-00-foundation.md) |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ✅ **done** | ✅ **PASSED** | 2.1–2.5 all built, audited and pushed (`13a7151`). Chaos test: 50 cases, 2 restarts, exactly 50 flags. Sweep-only recovery proven |
-| [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | ✅ **code done + audited — 3.1–3.7** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
+| [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | 🛑 **ON HOLD — code done + audited (3.1–3.7)** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
 | [5 · Dashboard, closure, audit](docs/build/phase-05-dashboard-audit-mvp.md) | A | ⬜ not started | ⬜ | 2–3 wks → 🏁 **MVP, pilot ready** |
 | [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🔴 blocked | ⬜ | 2 wks. ⛔ blocked by 1.6 corpus |
@@ -146,6 +148,63 @@
 
 ---
 
+# 🛑 PHASE 3 CLINICAL VALIDATION — RETURN AFTER ALL PHASES
+
+> **This is a DEFERRED task. It is not permission to start clinical validation now.**
+> Read this before declaring the project validated, and before anyone quotes a
+> number about the rule engine's clinical accuracy.
+
+**Deferred on:** 2026-09-13 · **Return when:** all planned implementation phases are complete · **Owner:** project owner (needs external people, not code)
+
+## Where Phase 3 actually stands
+
+| | |
+|---|---|
+| **Technical implementation** | ✅ **Complete.** 3.1–3.7 built, audited, committed locally. 658 backend tests, 91% coverage, 30 Playwright against the real stack. |
+| **Clinical validation (3.8)** | 🛑 **INTENTIONALLY ON HOLD.** Not failed, not skipped — deferred, deliberately. |
+| **Exit Gate 3** | 🔴 **OPEN.** Three of four clauses are proven; the fourth needs a clinician. |
+
+## ⛔ Do not
+
+- **Do NOT consider Phase 3 clinically validated.** It is not, and no amount of green tests makes it so.
+- **Do NOT present the current gold set as clinical validation.** It holds **54 synthetic cases and 0 real anonymised results**. Every expectation in it was written by the same people who wrote the rules — which is exactly the circularity a clinician exists to break.
+- **Do NOT invent** reviewer names, review dates, clinical threshold sources, or an agreement percentage.
+- **Do NOT weaken or bypass the honesty guards.** Two tests in `api/tests/test_gold_set.py` enforce this: one fails if `clinician_validated` is flipped without a named reviewer and a date, the other parses the harness's own AST and fails if any code computes a proportion while the set is synthetic. Both were deliberately tripped and observed to fire. **They are load-bearing, not decoration.**
+- **Do NOT declare the project fully validated** until this section is closed out.
+
+## When you return — what has to happen
+
+**[`docs/clinical-validation-protocol.md`](docs/clinical-validation-protocol.md) is the source of truth for the process.** It settles the schema, the identity rules, the reviewer fields and the arithmetic *in advance*, so nobody designs them under time pressure in a room with a consultant. Follow it; do not improvise a second process.
+
+1. **Obtain 100+ real anonymised results** meeting the protocol's distribution — Rule A ≥30, Rule B ≥40 (over-sample: highest clinical value), Rule C ≥25, mixed ≥5.
+2. **Obtain the hospital-approved critical/panic-value source.** All 8 `panic_thresholds` rows are still development placeholders, findable with one query:
+   `WHERE source = 'DEVELOPMENT PLACEHOLDER - NOT A CLINICAL SOURCE'`
+3. **Obtain written permission and a named de-identifier.** This shares its blocker with the [Phase 1.6 corpus](docs/test-corpus-manifest.md) — one approval unblocks both.
+4. **Arrange qualified clinician review**, blinded: the clinician's severity is recorded *before* they see the engine's.
+5. **Keep clinician judgement and engine output in separate fields.** ⚠️ The current fixture has a single `expected_severity`. If the clinician's answer and the pass/fail expectation are the same field, "fixing" a failing case makes the agreement rate **100% by construction** — arithmetically correct and meaningless. Protocol §1 defines the split.
+6. **Resolve disagreements using the protocol's closed vocabulary** — `threshold_tuned` · `clinician_revised` · `accepted_gap` · `rule_defect`. **Tune thresholds in tables, never rule code.**
+7. **Re-run the validation harness** (`pytest tests/test_gold_set.py`) on the full set.
+8. **Only then calculate and report agreement.** Never before real clinician validation exists.
+9. **Only if Exit Gate 3 passes**, prepare the final Phase 3 audit and push.
+
+## The intended project flow — do not reorder
+
+```
+Phase 3 technical work
+   └─> HOLD  ◀── we are here
+        └─> continue implementing later phases
+             └─> finish all planned phases
+                  └─> RETURN TO PHASE 3 CLINICAL VALIDATION   ◀── this section
+                       └─> complete real clinician validation
+                            └─> final project validation
+```
+
+**Why deferring is safe:** Phases 0–2 guarantee no result is *lost*; Phase 3 only decides how loudly to say so. A wrong severity still leaves the case tracked, recorded, visible and overrulable. That is why an unvalidated rule engine may ship *behind* the tracking, and may never ship *instead of* it. See the reasoning in [`docs/clinical-validation.md`](docs/clinical-validation.md).
+
+**Status record:** [`docs/clinical-validation.md`](docs/clinical-validation.md) — what is and is not validated, kept honest.
+
+---
+
 ## ⏳ Long-lead items — calendar-gated, start regardless of phase
 
 These are not blocked by code. They are blocked by other people, and they take months. **The build plan says to start the top two in week one of Phase 1.**
@@ -154,7 +213,7 @@ These are not blocked by code. They are blocked by other people, and they take m
 |---|---|---|---|---|
 | De-identified corpus, 200+ real reports | 1.6 | **Phase 6 cannot start without it** | 🔴 **opened, 0/200** → [manifest](docs/test-corpus-manifest.md) | 2026-09-12 |
 | HIS/LIS vendor conversation | 1.7 | **Phase 9** | 🔴 **opened, all unanswered** → [spec](docs/integration-spec.md) | 2026-09-12 |
-| Clinician time — gold set, 100+ results | 3.8 | **Exit Gate 3** | `not started` | — |
+| Clinician time — gold set, 100+ results | 3.8 | **Exit Gate 3** | 🛑 **deferred by decision** → [return-after-all-phases](#-phase-3-clinical-validation--return-after-all-phases) | — |
 | Clinician time — 100-question AI eval set | 8.7 | **Exit Gate 8** | `not started` | — |
 | Medico-legal liability policy, signed | 10.3 | **Go-live** | `not started` | — |
 | Hospital's own critical-value list (for `panic_thresholds`) | 3.2 | Phase 3 seeding | 🔴 **still outstanding** | Dev placeholders seeded under `source = 'DEVELOPMENT PLACEHOLDER - NOT A CLINICAL SOURCE'`; one `WHERE` finds all 8 |
