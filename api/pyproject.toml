@@ -73,6 +73,11 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+markers = [
+    # Talks to a real Postgres with pgmq. Skips itself when none is reachable,
+    # so the suite still runs with nothing else up. Deselect with -m "not integration".
+    "integration: requires a live Postgres with the pgmq extension",
+]
 
 [tool.coverage.report]
 fail_under = 70

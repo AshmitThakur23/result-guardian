@@ -1,0 +1,249 @@
+"""Phase 0.7 — the consumer against a REAL pgmq, not a fake session.
+
+D10 is the reason this file exists. The unit tests in
+``test_worker_consumer.py`` assert which SQL *strings* the consumer issues,
+which is useful for branching logic and useless for proving the SQL runs.
+Both of pgmq's overloaded functions -- ``delete()`` and ``archive()`` -- were
+being called in a way Postgres rejects, and the DLQ hop additionally passed a
+Python dict where asyncpg needs a JSON string. Every one of those passed the
+unit tests and failed on first contact with a real database.
+
+So these tests talk to actual Postgres. They **skip** when no database is
+reachable, so ``pytest`` stays runnable with nothing else running.
+
+Safety: every test uses its own randomly-named queue and drops it afterwards.
+The only shared object touched is the project's ``dlq`` queue, which the DLQ
+design requires -- the test records its depth first and removes exactly the
+message it added.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import uuid
+from collections.abc import AsyncIterator
+from typing import Any
+
+import pytest
+import pytest_asyncio
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.config import get_settings
+from worker.consumer import MAX_ATTEMPTS, QueueConsumer
+
+pytestmark = pytest.mark.integration
+
+
+@pytest_asyncio.fixture
+async def session() -> AsyncIterator[AsyncSession]:
+    """A real session, or a clean skip when no database is reachable."""
+    engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+    try:
+        async with engine.connect() as conn:
+            has_pgmq = (
+                await conn.execute(
+                    text("SELECT count(*) FROM pg_extension WHERE extname = 'pgmq'")
+                )
+            ).scalar()
+    except Exception as exc:
+        await engine.dispose()
+        pytest.skip(f"no Postgres reachable ({type(exc).__name__}) — skipped")
+
+    if not has_pgmq:
+        await engine.dispose()
+        pytest.skip("Postgres reachable but pgmq is not installed — skipped")
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    try:
+        async with maker() as s:
+            yield s
+    finally:
+        await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def queue(session: AsyncSession) -> AsyncIterator[str]:
+    """A disposable queue, so no project queue is ever disturbed."""
+    name = f"t_{uuid.uuid4().hex[:12]}"
+    await session.execute(text("SELECT pgmq.create(:q)"), {"q": name})
+    await session.commit()
+    try:
+        yield name
+    finally:
+        await session.rollback()
+        await session.execute(text("SELECT pgmq.drop_queue(:q)"), {"q": name})
+        await session.commit()
+
+
+async def _depth(session: AsyncSession, queue: str) -> int:
+    row = await session.execute(
+        text("SELECT count(*) FROM pgmq.q_" + queue)  # queue name is generated
+    )
+    return int(row.scalar() or 0)
+
+
+async def _send(session: AsyncSession, queue: str, body: str) -> int:
+    row = await session.execute(
+        text("SELECT pgmq.send(:q, CAST(:m AS jsonb))"),
+        {"q": queue, "m": f'{{"probe": "{body}"}}'},
+    )
+    await session.commit()
+    return int(row.scalar())
+
+
+async def _make_visible(session: AsyncSession, queue: str, msg_id: int) -> None:
+    """Undo the consumer's backoff so the next read sees the message again."""
+    await session.execute(
+        text("SELECT pgmq.set_vt(:q, CAST(:id AS bigint), 0)"),
+        {"q": queue, "id": msg_id},
+    )
+    await session.commit()
+
+
+async def _ok_handler(session: Any, message: dict[str, Any]) -> None:
+    return None
+
+
+async def _boom_handler(session: Any, message: dict[str, Any]) -> None:
+    raise RuntimeError("terminal failure for the DLQ test")
+
+
+# ── SUCCESS PATH ──────────────────────────────────────────────────────
+
+
+async def test_success_path_deletes_the_message(
+    session: AsyncSession, queue: str
+) -> None:
+    """send -> read -> handle -> delete. The queue must end up empty.
+
+    This is the exact scenario D10 broke: the handler succeeded, the delete
+    raised AmbiguousFunctionError, and the message was redelivered forever.
+    """
+    await _send(session, queue, "success")
+    assert await _depth(session, queue) == 1
+
+    consumer = QueueConsumer(queue, _ok_handler, asyncio.Event())
+    assert await consumer._read_once(session) is True
+
+    # The message is gone, not merely invisible.
+    assert await _depth(session, queue) == 0
+
+
+async def test_queue_does_not_get_stuck_after_successful_processing(
+    session: AsyncSession, queue: str
+) -> None:
+    """The regression guard for D10's actual symptom.
+
+    Before the fix this looped: every read returned the same message, read_ct
+    stayed 0 because each transaction rolled back, and depth never moved.
+    """
+    await _send(session, queue, "no-redelivery")
+    consumer = QueueConsumer(queue, _ok_handler, asyncio.Event())
+
+    assert await consumer._read_once(session) is True
+    # A second pass must find nothing at all -- no redelivery.
+    assert await consumer._read_once(session) is False
+    assert await _depth(session, queue) == 0
+
+
+async def test_empty_queue_is_a_no_op(session: AsyncSession, queue: str) -> None:
+    consumer = QueueConsumer(queue, _ok_handler, asyncio.Event())
+    assert await consumer._read_once(session) is False
+
+
+# ── FAILURE / DLQ PATH ────────────────────────────────────────────────
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "D11, not yet fixed: pgmq.read() increments read_ct inside the "
+        "transaction and the consumer's rollback on handler failure discards "
+        "it, so read_ct never advances past 1 and this DLQ branch is "
+        "unreachable. strict=True so it fails loudly once D11 is fixed."
+    ),
+)
+async def test_failure_path_archives_to_dlq(session: AsyncSession, queue: str) -> None:
+    """A message that keeps failing is archived and copied to the DLQ.
+
+    Exercises the real branch rather than calling _to_dlq directly: the
+    consumer is run until pgmq's own read_ct reaches MAX_ATTEMPTS.
+
+    This path had **never executed** before D10 was found, and contained two
+    separate faults -- the archive() overload ambiguity and a Python dict
+    passed where asyncpg needs a JSON string.
+    """
+    dlq_before = await _depth(session, "dlq")
+    msg_id = await _send(session, queue, "dlq-bound")
+
+    consumer = QueueConsumer(queue, _boom_handler, asyncio.Event())
+    for _ in range(MAX_ATTEMPTS + 1):
+        if await _depth(session, queue) == 0:
+            break
+        await consumer._read_once(session)
+        await _make_visible(session, queue, msg_id)
+
+    # Gone from the live queue...
+    assert await _depth(session, queue) == 0
+
+    # ...but retained in the archive, because Phase 6.5 needs the payload for
+    # an admin retry. A dropped clinical message is a lost patient event.
+    archived = (
+        await session.execute(
+            text("SELECT count(*) FROM pgmq.a_" + queue)  # queue name is generated
+        )
+    ).scalar()
+    assert archived == 1
+
+    # ...and copied to the DLQ with enough context to find it again.
+    assert await _depth(session, "dlq") == dlq_before + 1
+    row = (
+        await session.execute(
+            text(
+                "SELECT msg_id, message FROM pgmq.q_dlq " "ORDER BY msg_id DESC LIMIT 1"
+            )
+        )
+    ).first()
+    assert row is not None
+    dlq_msg_id, body = row
+    assert body["queue"] == queue
+    assert body["msg_id"] == msg_id
+    assert body["message"]["probe"] == "dlq-bound"
+
+    # Leave the shared dlq exactly as we found it.
+    await session.execute(
+        text("SELECT pgmq.delete('dlq', CAST(:id AS bigint))"), {"id": dlq_msg_id}
+    )
+    await session.commit()
+    assert await _depth(session, "dlq") == dlq_before
+
+
+# ── the overload trap itself ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("fn", ["delete", "archive"])
+async def test_overloaded_pgmq_functions_need_an_explicit_cast(
+    session: AsyncSession, queue: str, fn: str
+) -> None:
+    """Pin the root cause, so a future refactor cannot quietly reintroduce it.
+
+    pgmq overloads delete() and archive() as (text, bigint) and
+    (text, bigint[]). Uncast parameters arrive as `unknown` and Postgres
+    refuses to choose.
+    """
+    msg_id = await _send(session, queue, "cast-check")
+
+    with pytest.raises(Exception, match=r"(?i)not unique|ambiguous"):
+        await session.execute(
+            text(f"SELECT pgmq.{fn}(:q, :id)"), {"q": queue, "id": msg_id}
+        )
+    await session.rollback()
+
+    # The cast the consumer actually uses resolves it.
+    await session.execute(
+        text(f"SELECT pgmq.{fn}(:q, CAST(:id AS bigint))"),
+        {"q": queue, "id": msg_id},
+    )
+    await session.commit()
+    assert await _depth(session, queue) == 0

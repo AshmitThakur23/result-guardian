@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -86,8 +87,14 @@ class QueueConsumer:
 
         try:
             await self.handler(session, message or {})
+            # CAST is load-bearing, not decoration. pgmq overloads delete() as
+            # (text, bigint) and (text, bigint[]); asyncpg sends parameters
+            # untyped, so Postgres sees delete(unknown, unknown), cannot pick an
+            # overload, and raises AmbiguousFunctionError. The message is then
+            # never deleted and is redelivered forever. See D10.
             await session.execute(
-                text("SELECT pgmq.delete(:q, :id)"), {"q": self.queue, "id": msg_id}
+                text("SELECT pgmq.delete(:q, CAST(:id AS bigint))"),
+                {"q": self.queue, "id": msg_id},
             )
             await session.commit()
             entry.info("message_handled")
@@ -112,12 +119,22 @@ class QueueConsumer:
         Archive rather than delete: Phase 6.5 gives admins a retry button, and
         that needs the payload to still exist.
         """
-        await session.execute(
-            text("SELECT pgmq.send('dlq', :payload)"),
-            {"payload": {"queue": self.queue, "msg_id": msg_id, "message": message}},
+        # pgmq.send takes jsonb, and asyncpg cannot encode a Python dict as a
+        # query argument -- it needs a JSON string plus an explicit cast.
+        # Passing the dict raised DataError, so the DLQ hop failed silently
+        # alongside the archive() ambiguity. Both are D10.
+        payload = json.dumps(
+            {"queue": self.queue, "msg_id": msg_id, "message": message}
         )
         await session.execute(
-            text("SELECT pgmq.archive(:q, :id)"), {"q": self.queue, "id": msg_id}
+            text("SELECT pgmq.send('dlq', CAST(:payload AS jsonb))"),
+            {"payload": payload},
+        )
+        # Same overload ambiguity as delete() above -- archive() is the other
+        # pgmq function with a (text, bigint) / (text, bigint[]) pair. D10.
+        await session.execute(
+            text("SELECT pgmq.archive(:q, CAST(:id AS bigint))"),
+            {"q": self.queue, "id": msg_id},
         )
         await session.commit()
         self.log.error("message_dead_lettered", msg_id=msg_id)
