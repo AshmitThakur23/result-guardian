@@ -37,8 +37,10 @@
 > and `0003_core_schema_remaining`. `case_events` is append-only, enforced by a
 > database trigger and proven to reject both UPDATE and DELETE.
 > **✅ Phase 1.2 is COMPLETE** — migration `0004_phase_1_2_indexes`.
-> **🔵 Phase 1.3 in progress — 1 of 4 endpoints.** `GET .../discharge-readiness` done.
-> **Next: `POST /api/encounters/{id}/discharge-contracts`** (bulk, atomic, all-or-nothing).
+> **🔵 Phase 1.3 in progress — 2 of 4 endpoints.** Readiness GET and contract creation done.
+> **Next: `POST /api/encounters/{id}/discharge`** (the discharge action: 409 when
+> unsatisfied; one transaction sets discharged_at, creates pending_cases, enqueues
+> SLA timers and writes case_events).
 >
 > Section-level detail is in the status tables in
 > [`docs/build/phase-00-foundation.md`](docs/build/phase-00-foundation.md) and
@@ -284,3 +286,12 @@ Eight defects were fixed by inspection on 2026-09-11 and **none has run**. Work 
   - Response carries three extra fields beyond the plan's `{can_discharge, blocking_orders, already_contracted}`: `encounter_id`, `encounter_type`, `gate_applies`. A superset, not a change — the three specified keys are present and correct.
   - Soft-deleted orders and contracts are excluded. Orders on other encounters cannot influence the result — tested.
 - Tests: **144 passing** (25 unit + 119 integration), coverage **86.98%**. 26 new, covering every order status the schema defines, both directions of the contract transition, cross-encounter isolation, 404/422 handling, and an explicit no-side-effects check (no contract, no pending case, no order or encounter mutated across repeated calls).
+
+- ✅ **PHASE 1.3, second endpoint — `POST /api/encounters/{id}/discharge-contracts`.** Bulk, atomic, all-or-nothing. Every requested contract is validated before anything is written, and the 422 lists **all** violations rather than only the first — a doctor fixing the gate screen should see every problem at once.
+  - **Duplicate protection is two-layered, deliberately.** A pre-flight SELECT gives a clean 409 for the ordinary case; `UNIQUE (order_id)` is what actually holds when two requests race, and an `IntegrityError` rolls the whole batch back to zero rows. A check-then-insert cannot be safe alone, and there is a test that inserts a contract behind the service's back to exercise exactly that path.
+  - **Validations are only the three the plan names** — doctor active, `expected_by` future, `expected_by` ≤ 30 days (inclusive boundary) — plus structural checks: the order exists, is on this encounter, and is still outstanding. ⚠️ **The plan does not require a role check, so there is none: a `lab_tech` or `auditor` can currently be named responsible doctor.** Flagged rather than invented.
+  - `expected_by` must be timezone-aware; a naive value is rejected. It becomes the Phase 2 SLA deadline, and a silent locale shift there is a deadline that fires at the wrong hour.
+  - **No pending_case, no revision row, no order-status change.** The plan creates pending cases in the *discharge action* (line 79), and `discharge_contract_revisions` records *changes* to a contract — a creation is not a change. All three asserted by test.
+  - ADR 0003: contracting an **OPD** encounter is refused (`encounter_not_gated`) — it would be an accountability record nothing ever acts on.
+  - `app/errors.py` extended so a dict `detail` becomes RFC 7807 extension members instead of being stringified into the title. Without it the violation list arrived as a Python repr.
+- Tests: **167 passing** (25 unit + 142 integration), coverage **86.41%**. 23 new. The concurrency test commits for real against two connections and cleans up after itself; the rest run inside a savepoint-scoped transaction. Dev database verified empty afterwards (0 rows in every clinical table).

@@ -11,7 +11,7 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class BlockingOrder(BaseModel):
@@ -75,3 +75,48 @@ class DischargeReadiness(BaseModel):
     can_discharge: bool
     blocking_orders: list[BlockingOrder]
     already_contracted: list[ContractedOrder]
+
+
+# Build plan 1.3: "expected_by <= 30 days". The boundary is inclusive.
+MAX_CONTRACT_HORIZON_DAYS = 30
+
+
+class DischargeContractRequest(BaseModel):
+    """One contract to create: an order, an owner, and a deadline.
+
+    ``expected_by`` is an aware datetime by requirement. A naive value would be
+    interpreted against whatever the server's locale happens to be, and this
+    field becomes the Phase 2 SLA deadline -- a silent timezone shift there is
+    a deadline that fires at the wrong hour.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: uuid.UUID
+    responsible_doctor_id: uuid.UUID
+    expected_by: AwareDatetime
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class DischargeContractsCreate(BaseModel):
+    """A bulk request. All of it is created, or none of it is."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    contracts: list[DischargeContractRequest] = Field(min_length=1)
+
+
+class CreatedContract(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    contract_id: uuid.UUID
+    order_id: uuid.UUID
+    encounter_id: uuid.UUID
+    responsible_doctor_id: uuid.UUID
+    expected_by: dt.datetime
+    note: str | None = None
+
+
+class DischargeContractsCreated(BaseModel):
+    encounter_id: uuid.UUID
+    created: list[CreatedContract]

@@ -33,6 +33,17 @@ def _problem(
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def _http_exception(request: Request, exc: HTTPException) -> JSONResponse:
+        # A dict detail becomes RFC 7807 extension members rather than being
+        # stringified into the title. Phase 1.3's contract endpoint uses this
+        # to return every validation violation at once; stringifying would
+        # hand the caller a Python repr to parse.
+        # Widened to object first: starlette types `detail` as str, so mypy
+        # otherwise calls this branch unreachable. FastAPI does allow a dict.
+        detail: object = exc.detail
+        if isinstance(detail, dict):
+            extra = dict(detail)
+            title = str(extra.pop("title", "Request failed"))
+            return _problem(exc.status_code, title=title, **extra)
         return _problem(exc.status_code, title=str(exc.detail))
 
     @app.exception_handler(RequestValidationError)

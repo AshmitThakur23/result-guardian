@@ -13,7 +13,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.schemas.discharge import DischargeReadiness
+from app.schemas.discharge import (
+    DischargeContractsCreate,
+    DischargeContractsCreated,
+    DischargeReadiness,
+)
+from app.services.discharge_contracts import (
+    ContractConflictError,
+    ContractValidationError,
+    create_discharge_contracts,
+)
 from app.services.discharge_readiness import (
     EncounterNotFoundError,
     get_discharge_readiness,
@@ -49,4 +58,58 @@ async def discharge_readiness(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Encounter {encounter_id} not found",
+        ) from exc
+
+
+@router.post(
+    "/{encounter_id}/discharge-contracts",
+    response_model=DischargeContractsCreated,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create discharge contracts in bulk — all-or-nothing",
+)
+async def create_contracts(
+    encounter_id: uuid.UUID,
+    payload: DischargeContractsCreate,
+    session: AsyncSession = Depends(get_session),
+) -> DischargeContractsCreated:
+    """Give every named outstanding order an owner and a deadline.
+
+    Atomic: the whole batch commits or none of it does. Validation runs over
+    the entire request before anything is written, so the response lists every
+    problem rather than only the first.
+
+    * **404** encounter not found
+    * **409** an order already has a contract -- including the case where a
+      concurrent request won the race and ``UNIQUE (order_id)`` refused ours
+    * **422** any validation failure, with the full list of violations
+    """
+    try:
+        return await create_discharge_contracts(
+            session, encounter_id, payload.contracts
+        )
+    except EncounterNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Encounter {encounter_id} not found",
+        ) from exc
+    except ContractConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+    except ContractValidationError as exc:
+        # RFC 7807 with a machine-readable violation list, mirroring the shape
+        # the global validation handler already produces.
+        raise HTTPException(
+            status_code=422,  # constant name differs across starlette versions
+            detail={
+                "title": "Discharge contracts were not created",
+                "violations": [
+                    {
+                        "order_id": str(v.order_id) if v.order_id else None,
+                        "code": v.code,
+                        "detail": v.detail,
+                    }
+                    for v in exc.violations
+                ],
+            },
         ) from exc
