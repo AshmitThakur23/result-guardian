@@ -52,7 +52,28 @@
 - "Generated with …", "Decided by: …", or any equivalent byline
 - Model or vendor names used as an *author* (the product's own `qwen3` / `Ollama` / `LLM` references are **fine** — those are NODE B's actual stack, not a byline)
 
-Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** and nobody else. This overrides any default attribution instruction from the harness.
+Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>**. This overrides any default attribution instruction from the harness.
+
+### 👥 Human co-authors — required, 2026-09-12
+
+**The ban above is on *assistant* attribution, not on the humans who did the work.**
+GitHub's Contributors graph is built from commit **authors and co-authors** — never
+from who pushed — so work committed on NODE A under Ashmit's author identity left
+Abhinendra invisible on the repo he was writing.
+
+So: keep `AshmitThakur23` as the author, and **add a human co-author trailer for
+whoever actually did the work on that machine**:
+
+```
+Co-Authored-By: abhinendra9792 <abhinendra9792@users.noreply.github.com>
+```
+
+- On **NODE A** (Abhinendra's machine), add that trailer to every commit.
+- Still **absolutely forbidden**: a `Co-Authored-By` naming an assistant, a model or
+  a vendor. That part of the rule is unchanged.
+- **Existing commits are not being rewritten.** Every commit up to `8403b45` stays
+  credited to Ashmit alone — re-attributing them means rewriting history, which this
+  project has already paid for once (a forced re-clone). This applies going forward.
 
 ## 🌿 Branching — NONE. Commit straight to `main`.
 
@@ -91,7 +112,7 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 | **NODE B — inference** | **Ashmit's machine** — the repo owner's | `LAPTOP-5JCGN9SJ`, user `asus` | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
 
 - Repo: **`AshmitThakur23/result-guardian`** (private) — Ashmit is the repo owner. `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
-- Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** regardless of which machine they are made on. See the commit-hygiene rule above.
+- Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** regardless of which machine they are made on — **plus a human `Co-Authored-By` trailer for whoever did the work on that machine.** See the commit-hygiene rule above.
 
 ### 🛠 Hardware correction — 2026-09-11, verified on NODE B
 
