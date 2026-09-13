@@ -28,6 +28,11 @@
 > ▶ See **[🛑 PHASE 3 CLINICAL VALIDATION — RETURN AFTER ALL PHASES](#-phase-3-clinical-validation--return-after-all-phases)**
 > below, and [docs/clinical-validation.md](docs/clinical-validation.md).
 >
+> **🛑 PHASE 6 IS ON HOLD AND HAS NOT STARTED.** Two independent blockers:
+> Exit Gate 5 is open, and the Phase 1.6 corpus is at **0 of 200+** real PDFs.
+> Synthetic PDFs must never be presented as Exit Gate 6 evidence.
+> ▶ See **[🛑 PHASE 6 DOCUMENT INGESTION — ON HOLD, NOT STARTED](#-phase-6-document-ingestion--on-hold-not-started)**.
+>
 > **▶ NEXT, on NODE A:** bring up the **full compose stack** — the piece still unproven.
 > `cp .env.example .env` (set `POSTGRES_PASSWORD`, `RG_JWT_SECRET`, `RG_LLM_BASE_URL`) →
 > `docker compose up -d --build` → `docker compose exec api alembic upgrade head` →
@@ -150,7 +155,7 @@
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | 🛑 **ON HOLD — code done + audited (3.1–3.7)** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ✅ **done + audited** | ✅ **PASSED** | 4.1–4.7 built; 6 defects found and fixed. ⚠️ Started with Exit Gate 3 open — a knowing exception, see above. Not pushed |
 | [5 · Dashboard, closure, audit ★](docs/build/phase-05-dashboard-audit-mvp.md) | A | ✅ **done + audited (5.1–5.7)** | 🔴 **OPEN** | 🏁 **MVP code complete.** Audit found 31 unauthenticated endpoints and a chain-forking concurrency bug; both fixed with regression tests. Gate needs 2 weeks of ward shadow-running and a clinician sign-off — neither can be produced by code. Not pushed |
-| [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🔴 blocked | ⬜ | 2 wks. ⛔ blocked by 1.6 corpus |
+| [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🛑 **ON HOLD — not started** | ⬜ | 2 wks. **Two independent blockers:** Exit Gate 5 open, and 1.6 corpus at 0/200. ▶ [hold record](#-phase-6-document-ingestion--on-hold-not-started) |
 | [7 · Extraction + matching](docs/build/phase-07-extraction-matching.md) | A (+B) | ⬜ not started | ⬜ | 3 wks |
 | [8 · RAG explanation](docs/build/phase-08-rag-explanation.md) | A + B | ⬜ not started | ⬜ | 3 wks. First phase that uses NODE B |
 | [9 · Hospital integration](docs/build/phase-09-hospital-integration.md) | A | 🔴 blocked | ⬜ | 3–5 wks. ⛔ gated by hospital IT / HIS vendor |
@@ -235,6 +240,86 @@ Phase 3 technical work
 **Why deferring is safe:** Phases 0–2 guarantee no result is *lost*; Phase 3 only decides how loudly to say so. A wrong severity still leaves the case tracked, recorded, visible and overrulable. That is why an unvalidated rule engine may ship *behind* the tracking, and may never ship *instead of* it. See the reasoning in [`docs/clinical-validation.md`](docs/clinical-validation.md).
 
 **Status record:** [`docs/clinical-validation.md`](docs/clinical-validation.md) — what is and is not validated, kept honest.
+
+---
+
+# 🛑 PHASE 6 DOCUMENT INGESTION — ON HOLD, NOT STARTED
+
+> **This is a DEFERRED phase. It is not a to-do list to pick up.**
+> Read this before anyone opens `POST /api/reports/upload`, adds a PDF
+> dependency, or reports a Phase 6 result.
+
+**Deferred on:** 2026-09-14 · **Return when:** *both* blockers below clear · **Owner:** project owner (one blocker needs external people, not code)
+
+**Source of truth:** [`docs/build/phase-06-document-ingestion.md`](docs/build/phase-06-document-ingestion.md). Follow it. Do not work from this summary — it exists to stop the phase being started, not to specify it.
+
+## Status
+
+| | |
+|---|---|
+| **Phase 6 implementation** | ⬜ **NOT STARTED.** No application code exists. No `documents`, `document_pages` or `document_spans` table. No `ingest` consumer. No PDF/OCR dependency declared. |
+| **Exit Gate 6** | ⬜ not started |
+
+The `ingest` pgmq queue **does** already exist and is deliberately unconsumed —
+see the comment in [`api/worker/main.py`](api/worker/main.py). An unconsumed
+queue is the correct state for a phase that has not been built; it is not
+evidence that Phase 6 has begun.
+
+## Two independent blockers — either one is sufficient to stop the phase
+
+**1 · Exit Gate 5 is OPEN.**
+
+The governing rule in
+[`docs/build/00-governing-rules-and-topology.md`](docs/build/00-governing-rules-and-topology.md):
+
+> *"Do not start a phase until the previous exit gate passes."*
+
+and Phase 6's own status summary repeats it:
+
+> *"⚠️ **Do not start this phase until Exit Gate 5 passes.**"*
+
+Exit Gate 5 has three unticked clauses — two weeks of ward shadow-running,
+zero missed cases, and clinician sign-off on flag quality. **None of them can
+be produced by writing code.**
+
+**2 · The Phase 1.6 real corpus does not exist.**
+
+**0 of 200+** real anonymised PDFs collected —
+[`docs/test-corpus-manifest.md`](docs/test-corpus-manifest.md). Phase 6 names
+this as a blocking prerequisite in its own first lines:
+
+> *"⛔ **BLOCKING PREREQUISITE:** the de-identified test corpus from **Phase
+> 1.6**. If it is not ready, this phase cannot start — **do not fake it with
+> synthetic PDFs, they will not surface the failure modes real labs produce.**"*
+
+This blocker stands **on its own**. Even if Exit Gate 5 closed tomorrow, Phase
+6 would still be blocked until the corpus exists.
+
+## ⛔ Do not
+
+- **Do NOT start Phase 6 implementation** until Exit Gate 5 passes *and* the corpus exists.
+- **Do NOT create Phase 6 application code** — no upload endpoint, no `documents`/`document_pages`/`document_spans` migration, no `ingest` consumer, no OCR or PDF dependency.
+- **Do NOT present synthetic PDFs as evidence for Exit Gate 6.** Synthetic files are acceptable as fixtures for unit-testing plumbing where that is genuinely useful; they are **not** gate evidence. Exit Gate 6 is measured against real documents, and the phase doc says why: generated PDFs do not reproduce the skew, stamps, bleed-through, bilingual headers or broken table borders that real labs emit.
+- **Do NOT invent** documents, permissions, de-identification sign-off, clinical validation, or gate results.
+- **Do NOT modify Phase 3's clinical validation status.** It remains 🔴 NOT VALIDATED — see [the Phase 3 hold section](#-phase-3-clinical-validation--return-after-all-phases).
+- **Do NOT change Phase 5's Exit Gate status.** It remains 🔴 OPEN, for the reasons recorded in its own gate block.
+
+## What has to happen before Phase 6 can start
+
+1. **Exit Gate 5 passes** — two weeks of ward shadow-running with manual result entry, zero missed cases, and clinician sign-off on flag quality. See [`docs/build/phase-05-dashboard-audit-mvp.md`](docs/build/phase-05-dashboard-audit-mvp.md#-exit-gate-5).
+2. **Obtain 200+ real anonymised PDFs** under the existing corpus, permission and de-identification requirements in [`docs/test-corpus-manifest.md`](docs/test-corpus-manifest.md) — written permission, a named de-identifier, storage outside git with only the manifest tracked. All five blockers there need human action. ⚠️ This shares its approval with the [Phase 3 gold set](#-phase-3-clinical-validation--return-after-all-phases): **one permission unblocks both.**
+3. **Categorise the corpus as it is collected** — native/scanned, lab/radiology/path/micro, single/multi-page — which is task 6.6 and the manifest's own instruction.
+
+## Exit Gate 6 — what it will require
+
+Verbatim from [`docs/build/phase-06-document-ingestion.md`](docs/build/phase-06-document-ingestion.md):
+
+- [ ] **200 real PDFs** processed: **≥95%** produce usable text
+- [ ] Spans map correctly (spot-check the overlay on **20** documents)
+- [ ] Failures land in the review queue with page images visible
+
+All three are measured against **real** documents. None of the three can be
+satisfied with generated files.
 
 ---
 
