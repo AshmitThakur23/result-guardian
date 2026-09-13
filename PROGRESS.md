@@ -11,7 +11,9 @@
 >
 > **Machines** — never write "this machine"; name the owner.
 > **NODE A = Abhinendra's laptop**, `LAPTOP-06ER0HBM`. Docker present. No NVIDIA GPU.
-> **NODE B = Ashmit's machine**, `LAPTOP-5JCGN9SJ` — **not yet provisioned**. RTX 3050, 4 GB VRAM.
+> **NODE B = Ashmit's machine**, `LAPTOP-5JCGN9SJ`, **192.168.0.168** — ✅ **provisioned 2026-09-14**,
+> RTX 3050 / 4 GB VRAM, Ollama `v0.15.2` serving `qwen3:4b`. On NODE A set
+> `RG_LLM_BASE_URL=http://192.168.0.168:11434`. 🔴 **Its firewall rule still needs NODE A's IP.**
 > See [ADR 0006](docs/adr/0006-node-roles-corrected.md), which supersedes ADR 0005.
 >
 > **🏁 CI is GREEN — all 3 jobs (2026-09-12, run `34670777455`).** All nine defects D1–D9
@@ -348,6 +350,25 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-14 — NODE B provisioned (Phase 0.3), on Ashmit's machine
+
+Ran on `LAPTOP-5JCGN9SJ`. **6 of 8 items in 0.3 ticked; 0.3 stays 🟡** — the firewall rule and the from-NODE-A check both remain, and both block Exit Gate 0.
+
+*State before, kept for rollback:* Ollama `v0.15.2` installed but **not running**; `OLLAMA_MODELS` user=`D:\Nexus AI\.ollama\models`, machine=`D:\nexus ai\.ollama\models`; **`ollama list` empty**; C: 37.7 GB free, D: 177 GB free; no firewall rule on 11434.
+
+- Verified the machine before touching anything: `LAPTOP-5JCGN9SJ` / `asus`, RTX 3050 **4096 MiB**. LAN IP **192.168.0.168** (Wi-Fi, gw 192.168.0.1).
+- **Found a pre-existing break.** `OLLAMA_MODELS` was set at User *and* Machine scope, but the server ignored it — running on the `C:` default with `total blobs: 0`. `server-1.log` shows the same on 2026-09-11, so **`mistral:7b` had been invisible for days** and the separate `D:\Nexus AI` project was silently broken. Cause: `ollama app.exe --hide --fast-startup` hands its child a sanitised environment.
+- Ran `setup-windows.ps1 -ModelsPath "D:\Nexus AI\.ollama\models" -SkipFirewall`. Because it starts `ollama serve` **directly** from a shell carrying the vars, the settings took effect — **and repaired `mistral:7b` as a side effect.** `ollama list` now shows both models.
+- **Verified:** `qwen3:4b` cached to D: (2.33 GB) · `/api/tags` → 200 on `localhost` **and** `192.168.0.168` · `ollama ps` → **`UNTIL: Forever`**, proving `KEEP_ALIVE=-1` propagated · generation answers in 1.7–7 s · blobs on `C:` = **0**, on `D:` = **10**, proof by construction that the server reads D:. After: C: 44.0 GB free, D: 175.1 GB free.
+- **Nothing was installed.** Ollama was already present (check-first rule). `qwen3` turned out to be supported by v0.15.2, so no upgrade was needed — the updater advertises v0.34.0 and it was deliberately **not** taken, since another project depends on this install.
+- Recorded NODE B's IP and the outstanding firewall command in [`docs/network-runbook.md`](docs/network-runbook.md).
+
+⚠️ **Two risks, neither blocking today:**
+1. **Durability untested.** The env fix depends on how `ollama serve` is launched. If Windows relaunches it via the tray app at next login it may revert to the `C:` default and hide `mistral:7b` again. **Re-check `ollama list` after a reboot.**
+2. **`qwen3:4b` is a reasoning model.** `response` is empty by default while it emits `thinking`; it loads 29% CPU / 71% GPU (4.2 GB vs 4 GB VRAM). Phase 8.4's strict-JSON contract needs `think=false` + `format: json` and a token budget for the preamble.
+
+> 📌 **Note on history.** NODE B had been committing on a parallel branch whose root differed from `origin/main`, so its local commits were duplicates under different hashes. It was reset to `origin/main` — NODE A's 41 commits are authoritative and untouched — and only this provisioning record was re-applied on top. **Nothing from NODE A was overwritten or force-pushed.**
 
 ### 2026-09-13 — Phase 5.1 → 5.7 and the MVP (implemented + audited, **not pushed**)
 

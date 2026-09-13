@@ -8,15 +8,30 @@
 | Role | Machine | IP | Status |
 |---|---|---|---|
 | **NODE A** — core | Abhinendra's laptop (`LAPTOP-06ER0HBM`, Windows 11) | _to be recorded_ | Docker present; stack never run |
-| **NODE B** — inference | Ashmit's machine (`LAPTOP-5JCGN9SJ`) | _to be recorded_ | **not yet provisioned.** RTX 3050, 4 GB VRAM — verified with `nvidia-smi` |
+| **NODE B** — inference | Ashmit's machine (`LAPTOP-5JCGN9SJ`) | **192.168.0.168** (Wi-Fi, gw 192.168.0.1) | ✅ **provisioned 2026-09-14.** RTX 3050, 4 GB VRAM — verified with `nvidia-smi`. Ollama `v0.15.2` serving `qwen3:4b`. ⚠️ **firewall rule still outstanding** |
 
-Record the real IPs here once both are on the same network.
+**NODE A's IP is still needed** — it gates NODE B's firewall rule.
 
-> ⚠️ An earlier version of this table had the two roles **backwards**. NODE A is
-> the development laptop. See [ADR 0006](adr/0006-node-roles-corrected.md).
-> Ollama being installed on NODE A is incidental and is **not** NODE B
-> provisioning — `infra/nodeb/setup-windows.ps1` still has to run on NODE B,
-> and its firewall rule must allow TCP 11434 from **NODE A's** IP.
+**Set on NODE A once both machines are on the same network:**
+
+```bash
+RG_LLM_BASE_URL=http://192.168.0.168:11434
+```
+
+> 🔴 **NODE B's firewall rule has NOT been applied.** It needs NODE A's IP, and the
+> script refuses `0.0.0.0/0` by design (Phase 10.1). Until it is added, port 11434 is
+> governed only by the Windows network profile — acceptable on a trusted home network,
+> **not** for the hospital deployment. Run on **NODE B**, elevated:
+>
+> ```powershell
+> netsh advfirewall firewall add rule name="Result Guardian NODE B" `
+>     dir=in action=allow protocol=TCP localport=11434 remoteip=<NODE_A_IP>
+> ```
+
+> ⚠️ An earlier version of this table had the two roles **backwards**, and
+> [ADR 0006](adr/0006-node-roles-corrected.md) — which fixed that — then attached the
+> GPU to the wrong machine. Verified on 2026-09-14: **the RTX 3050 is NODE B's**, so
+> Ollama living on NODE B is correct, and `qwen3:4b` was derived from the right hardware.
 
 ---
 

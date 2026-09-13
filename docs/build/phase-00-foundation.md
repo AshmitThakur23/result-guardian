@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
 | 0.2 Containers — NODE A | A | 🟡 **database ✅, full stack not yet** | **Postgres image builds and runs** — verified on NODE A and in CI (all 6 extensions, pgmq round-trip). `api`/`worker`/`caddy` compose stack still never brought up together |
-| 0.3 NODE B provisioning | **B** | 🔴 **blocked** | Must run on **Ashmit's machine**, which is not in hand. Ollama v0.15.2 is already installed on Ashmit's machine, so provisioning only has to *run*, not install |
+| 0.3 NODE B provisioning | **B** | 🟡 **ran; 2 items open** | ✅ Provisioned on NODE B 2026-09-14 — **192.168.0.168**, `qwen3:4b` cached, keep-alive pinned, LAN-bound. 🔴 Firewall rule + from-NODE-A check outstanding |
 | 0.4 Network runbook | — | ✅ **done** | Real IPs still to be filled in |
 | 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
@@ -122,14 +122,24 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 
 ## 0.3 NODE B provisioning ★ new
 
-- [ ] `infra/nodeb/setup.sh` — installs Ollama, pulls the model, writes the systemd override
-- [ ] `OLLAMA_HOST=0.0.0.0:11434` — bind to LAN, not just localhost
-- [ ] `OLLAMA_KEEP_ALIVE=-1` — pin model in VRAM; without this the first request after ~5 min idle stalls 20+ seconds while the model reloads
-- [ ] `OLLAMA_NUM_PARALLEL=2`, `OLLAMA_MAX_LOADED_MODELS=1`
-- [ ] Firewall: allow inbound TCP 11434 **from NODE A's IP only**, not `0.0.0.0/0`
-- [ ] Model pulled and cached at provisioning time, never at first request
-- [ ] No volumes mounted, no database, no logs containing prompt content
-- [ ] Verify from NODE A: `curl http://192.168.1.50:11434/api/tags`
+> **Ran on NODE B (Ashmit's, `LAPTOP-5JCGN9SJ`) 2026-09-14.** LAN IP **192.168.0.168**.
+> Ollama `v0.15.2` was already installed — configured, **not** reinstalled.
+> Command: `.\infra\nodeb\setup-windows.ps1 -ModelsPath "D:\Nexus AI\.ollama\models" -SkipFirewall`
+
+- [x] `infra/nodeb/setup-windows.ps1` — configures Ollama and pulls the model (the Windows counterpart of `setup.sh`; NODE B is Windows, not Ubuntu)
+- [x] `OLLAMA_HOST=0.0.0.0:11434` — verified: `http://192.168.0.168:11434/api/tags` → HTTP 200
+- [x] `OLLAMA_KEEP_ALIVE=-1` — verified by `ollama ps` reporting **`UNTIL: Forever`**
+- [x] `OLLAMA_NUM_PARALLEL=2`, `OLLAMA_MAX_LOADED_MODELS=1`
+- [ ] 🔴 **Firewall: TCP 11434 from NODE A's IP only** — **NOT DONE.** NODE A's IP is unknown and the script refuses `0.0.0.0/0` by design
+- [x] Model pulled and cached at provisioning time, never at first request — `qwen3:4b` (2.33 GB) cached to `D:`
+- [x] No volumes mounted, no database, no logs containing prompt content — Ollama only
+- [ ] 🔴 **Verify from NODE A:** `curl http://192.168.0.168:11434/api/tags` — needs NODE A
+
+**A pre-existing break was found and repaired.** `OLLAMA_MODELS` was already set to `D:\Nexus AI\.ollama\models` at User *and* Machine scope, but the server never received it — it ran on the `C:` default with `total blobs: 0`, so **`mistral:7b` (used by the separate `D:\Nexus AI` project) had been invisible since at least 2026-09-11.** Cause: `ollama app.exe --hide --fast-startup` hands its child a sanitised environment. `setup-windows.ps1` starts `ollama serve` directly from a shell carrying the vars, which fixed it. `ollama list` now shows **both** models. Proof by construction: `C:` blobs = **0**, `D:` blobs = **10**.
+
+⚠️ **Durability untested.** The fix depends on how `ollama serve` is launched. If Windows relaunches it via the tray app at next login it may revert to the `C:` default and hide `mistral:7b` again. **Re-check `ollama list` after a reboot.**
+
+⚠️ **For Phase 8.4.** `qwen3:4b` is a *reasoning* model: by default `response` is empty while it emits `thinking` (854 chars in testing, hitting the token cap mid-thought). It loads at **29% CPU / 71% GPU** — a 4.2 GB footprint against 4 GB VRAM, so not fully resident. The strict-JSON contract will need `think=false` + `format: json` and a token budget covering the preamble. Generation answered in 1.7–7 s. Re-benchmark before relying on it.
 
 ## 0.4 Network — NODE A ⇄ NODE B ★ new
 
