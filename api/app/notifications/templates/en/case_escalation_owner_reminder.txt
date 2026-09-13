@@ -1,0 +1,5 @@
+Reminder — {{ patient_name }} ({{ mrn }}), {{ test_name }}, flagged
+{{ severity_label }} and still unacknowledged after {{ elapsed_label }}.
+
+If this is not yours, reassign it with a reason rather than leaving it.
+Open: {{ case_url }}

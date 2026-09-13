@@ -1,0 +1,7 @@
+Escalation — a {{ severity_label }} flag in {{ department_name }} has gone
+unacknowledged for {{ elapsed_label }}.
+
+Patient: {{ patient_name }} ({{ mrn }}) · {{ test_name }}
+Assigned to: {{ owner_name }}
+
+Open: {{ case_url }}

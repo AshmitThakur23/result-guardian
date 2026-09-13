@@ -136,7 +136,7 @@
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ✅ **done** | ✅ **PASSED** | 2.1–2.5 all built, audited and pushed (`13a7151`). Chaos test: 50 cases, 2 restarts, exactly 50 flags. Sweep-only recovery proven |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | 🛑 **ON HOLD — code done + audited (3.1–3.7)** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
-| [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ⬜ not started | ⬜ | 2–3 wks. Alert fatigue controls ship in the same sprint |
+| [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ✅ **done + audited** | ✅ **PASSED** | 4.1–4.7 built; 6 defects found and fixed. ⚠️ Started with Exit Gate 3 open — a knowing exception, see above. Not pushed |
 | [5 · Dashboard, closure, audit](docs/build/phase-05-dashboard-audit-mvp.md) | A | ⬜ not started | ⬜ | 2–3 wks → 🏁 **MVP, pilot ready** |
 | [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🔴 blocked | ⬜ | 2 wks. ⛔ blocked by 1.6 corpus |
 | [7 · Extraction + matching](docs/build/phase-07-extraction-matching.md) | A (+B) | ⬜ not started | ⬜ | 3 wks |
@@ -147,6 +147,27 @@
 **Timeline reference:** MVP at 11 weeks (team of 3) / 21 weeks (solo). Production at 25 / 46 weeks.
 
 ---
+
+> ### ⚠️ Knowing exception — Phase 4 started with Exit Gate 3 open
+>
+> **2026-09-13.** `phase-04-ownership-escalation.md` says *"Do not start this
+> phase until Exit Gate 3 passes."* Exit Gate 3 is **open** and can only be
+> closed by a clinician, who is not booked yet. Phase 4 was started anyway, on
+> the project owner's instruction.
+>
+> **This is a knowing exception to the build plan's own ordering rule, not an
+> oversight** — recorded here because [`CLAUDE.md`](CLAUDE.md) requires exactly
+> that when a phase starts on an unclosed gate (the same was done when Phase 1
+> started before Exit Gate 0 closed).
+>
+> **Why it is defensible:** Phase 4 routes and escalates whatever severity
+> Phase 3 produces. It does not depend on those severities being clinically
+> *correct*. A clinician later tuning thresholds changes rows in
+> configuration tables, not Phase 4 code — so the two do not conflict.
+>
+> **What it does not license:** Phase 4 passing its own gate does **not** close
+> Exit Gate 3, and the project is not validated until the section below is
+> worked through.
 
 # 🛑 PHASE 3 CLINICAL VALIDATION — RETURN AFTER ALL PHASES
 
@@ -317,6 +338,24 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-13 — Phase 4.1 → 4.7 and Exit Gate 4 (implemented + audited, **not pushed**)
+
+- **⚠️ Started with Exit Gate 3 open**, on the project owner's instruction. Recorded as a knowing exception above, per CLAUDE.md's rule. Phase 4 routes whatever severity Phase 3 produces and does not depend on those severities being clinically correct — **Exit Gate 4 passing does not close Exit Gate 3.**
+- **Migrations `0008` and `0009`.** 0008: `duty_roster`, `user_absences`, `escalation_chain`, `notifications`, `patient_contacts`, plus `sla_timers.escalation_level` and a sixth `timer_type`. 0009: the two `pg_cron` jobs that make 4.5's digest and ADR 0004's weekly roster reminder actual schedules rather than functions nobody calls. Round trip 33 → 28 → 33, drift 0, 0 PG enum types, no historical migration touched.
+- **The ladder rides on Phase 2's timers rather than a new mechanism.** Every rung is scheduled up front at `flagged_at + delay`, so a worker that dies at rung 1 still has rungs 2–4 as durable rows and the Phase 2.1 sweep re-enqueues them. **PostgreSQL is the truth; pgmq is only a doorbell** — proven again by destroying every wake-up and finding all five rungs intact.
+- **`case_escalation` is a new timer type, deliberately.** Phase 2.3 already uses `owner_reminder` and `unit_head_escalation` for the *lab* re-check chain. Sharing them would have left the fire handler running the wrong chain.
+- **Six defects, every one found by running the code.**
+  1. **P1 — a deadlock.** The fire path locked `sla_timers` → `pending_cases`; `acknowledge_case` locked them the other way. `DeadlockDetectedError`, measured on two real connections. The rest of the codebase locks the case first; the escalation fire path now joins that order.
+  2. **P1 — two rungs at the same instant collapsed into one timer.** The idempotency key had no rung in it, so the ladder silently lost its upper rungs. A hospital can configure two rungs together, and a compressed clock guarantees it.
+  3. **P1 — the ladder ignored a manual reassignment.** Measured: after `POST /reassign`, rung 1 notified the *contract doctor*, not the new owner. That made the endpoint cosmetic for the one thing it exists to do.
+  4. **P2 — patient SMS bypassed the fatigue controls.** A FOLLOW_UP patient text went out at 03:00 IST. Worse for a patient than a doctor: they can neither act on it nor tell whether it is urgent. CRITICAL still bypasses; 4.6's absolute rules still run first.
+  5. **P2 — the Phase 3 → Phase 4 seam was untested.** Every ladder test started the ladder by hand; nothing proved classification actually starts one.
+  6. **P3 — the E2E cleanup orphaned Phase 4 rows.** Measured 8 orphaned notifications per suite run. `session_replication_role = replica` bypasses FK enforcement as well as the append-only trigger, so it failed silently rather than loudly. Same defect class the Phase 3 audit found.
+- **Every fix has a regression test proven to fail when reverted** — each was reverted in turn and the matching test observed to fail, then restored.
+- **🏁 Exit Gate 4 PASSED.** A critical flag left untouched walks all five rungs and produces a patient SMS through the adapter, with five `escalation_rung_fired` events carrying target and channel. Acknowledging at rung 0, 1, 2 *or* 3 cancels every remaining rung, and a rung firing afterwards is a no-op.
+- **Found sound under probing:** owner resolution is deterministic across repeated calls; a roster row for an absent doctor is never honoured (ADR 0004's named failure); four workers racing one rung produce one effect; three concurrent ladder starts produce five timers, not fifteen; reassignment leaves every timer's `fire_at` byte-identical.
+- **Verification:** 778 backend tests (was 658) · 89% coverage (gate 70) · ruff + black + mypy-strict clean on 79 source files · Phase 1/2/3 suites all green · 118 vitest · `tsc` clean · production build · 30 Playwright against the real stack · runtime Docker image builds and still ships no pytest · NODE B unreachable throughout.
 
 ### 2026-09-13 — Phase 3 comprehensive audit (6 defects found and fixed, **not pushed**)
 

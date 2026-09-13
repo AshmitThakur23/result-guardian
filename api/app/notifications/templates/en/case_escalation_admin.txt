@@ -1,0 +1,7 @@
+Unresolved after {{ elapsed_label }} — {{ severity_label }} flag, no
+acknowledgement through the full escalation chain.
+
+Patient: {{ patient_name }} ({{ mrn }}) · {{ test_name }}
+Department: {{ department_name }} · Assigned to: {{ owner_name }}
+
+Open: {{ case_url }}

@@ -14,10 +14,12 @@ from app.db.session import dispose_engine
 from app.errors import register_exception_handlers
 from app.logging import RequestIdMiddleware, configure_logging
 from app.routers import (
+    cases,
     encounters,
     health,
     lab_flags,
     orders,
+    ownership,
     patients,
     users,
 )
@@ -72,6 +74,9 @@ def create_app() -> FastAPI:
     app.include_router(encounters.router, prefix="/api")
     app.include_router(lab_flags.router, prefix="/api")
     app.include_router(orders.router, prefix="/api")
+    # Phase 4: ownership, escalation, roster and the notification webhook.
+    app.include_router(cases.router, prefix="/api")
+    app.include_router(ownership.router, prefix="/api")
     app.include_router(patients.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     return app

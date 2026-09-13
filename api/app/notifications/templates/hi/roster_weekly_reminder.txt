@@ -1,0 +1,9 @@
+{{ department_name }} — please confirm next week's duty roster.
+{% if has_upcoming_shift %}
+A roster is already in place for the coming week. If nothing has changed,
+confirming it is one click — no re-entry needed.
+{% else %}
+⚠️ There is no shift covering the coming week. Until one is entered, flags in
+this department that cannot reach the responsible doctor fall through to you.
+{% endif %}
+Open: /departments/{{ department_id }}/roster

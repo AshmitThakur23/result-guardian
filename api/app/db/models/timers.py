@@ -53,13 +53,34 @@ from app.db.types import (
 
 # The build plan's list, exactly. Not one value more: a timer type that nothing
 # creates is a branch nothing tests.
+#
+# ⚠️ ``case_escalation`` is Phase 4's addition, and it is a *sixth* type rather
+# than a reuse of the three that look like they were meant for it. The reason
+# is a collision that would otherwise be silent:
+#
+#   Phase 2.3 already uses ``owner_reminder`` for the 24-hourly **lab** re-check
+#   ("the result has not arrived, chase the lab") and ``unit_head_escalation``
+#   for that chain's 7-day ceiling.
+#
+# Phase 4.4's ladder is a different thing entirely -- the result *has* arrived,
+# it was flagged, and nobody has acknowledged it. Pointing both at one timer
+# type would make the fire handler unable to tell which chain a timer belongs
+# to, and the handler would run the wrong one. One new type keeps Phase 2's
+# behaviour untouched, which is THE ONE RULE.
 TIMER_TYPES = (
     "result_due",
     "owner_reminder",
     "unit_head_escalation",
     "patient_notification",
     "stale_preliminary",
+    "case_escalation",
 )
+
+# Phase 4.4's rungs. The ladder is a sequence of timers on one case, so a rung
+# number is carried on the timer row -- two rungs on the same case differ by
+# `fire_at`, but the handler needs to know *which* rung it is firing without
+# re-deriving it from the clock.
+ESCALATION_LEVELS = (0, 1, 2, 3, 4)
 
 TIMER_STATUSES = ("pending", "fired", "cancelled", "superseded")
 
@@ -76,7 +97,10 @@ SWEEP_FUNCTION = "rg_sweep_overdue_sla_timers"
 
 
 def idempotency_key(
-    case_id: uuid.UUID | str, timer_type: str, fire_at: dt.datetime
+    case_id: uuid.UUID | str,
+    timer_type: str,
+    fire_at: dt.datetime,
+    escalation_level: int | None = None,
 ) -> str:
     """Canonical identity of a timer: *this case, this kind, this instant*.
 
@@ -94,6 +118,15 @@ def idempotency_key(
     The timestamp is normalised to UTC and rendered to microsecond precision so
     that the same instant expressed in two timezones produces one key.
 
+    ⚠️ **Phase 4.4 adds the rung, and it is load-bearing.** The escalation
+    ladder puts several timers on one case at instants a hospital configures,
+    and two rungs may legitimately fall due together -- rung 0 and rung 1 are
+    both immediate if an admin sets them so, and a compressed test clock makes
+    every rung simultaneous. Without the level in the key those rungs collapse
+    onto one timer and the ladder silently loses its upper rungs. The level is
+    appended only when present, so every Phase 2 key is byte-identical to what
+    it was.
+
     Deliberately *not* a second UNIQUE(case_id, timer_type, fire_at) constraint
     on the table: the plan specifies one unique column, and encoding the same
     rule twice means two things to change if 2.2 refines this.
@@ -103,7 +136,10 @@ def idempotency_key(
     if timer_type not in TIMER_TYPES:
         raise ValueError(f"unknown timer_type: {timer_type}")
     stamp = fire_at.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")
-    return f"{case_id}:{timer_type}:{stamp}Z"
+    key = f"{case_id}:{timer_type}:{stamp}Z"
+    if escalation_level is not None:
+        key = f"{key}:rung{escalation_level}"
+    return key
 
 
 class SlaTimer(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
@@ -158,6 +194,11 @@ class SlaTimer(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
         DateTime(timezone=True), nullable=True
     )
     pause_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Phase 4.4. Which rung of the escalation ladder this timer is. Null for
+    # every Phase 2 timer type, which is why it is nullable rather than
+    # defaulted -- a `result_due` with `escalation_level = 0` would read as
+    # rung zero of a ladder it is not part of.
+    escalation_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -198,5 +239,15 @@ class SlaTimer(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
             "ix_sla_timers_pending_fire_at",
             "fire_at",
             postgresql_where=text("status = 'pending' AND paused_at IS NULL"),
+        ),
+        # Phase 4.4. A rung number belongs to a ladder timer and to nothing
+        # else, and the ladder's rungs are the plan's five.
+        CheckConstraint(
+            "(timer_type = 'case_escalation') = (escalation_level IS NOT NULL)",
+            name="ck_sla_timers_escalation_level_matches_type",
+        ),
+        CheckConstraint(
+            "escalation_level IS NULL OR escalation_level BETWEEN 0 AND 4",
+            name="ck_sla_timers_escalation_level_range",
         ),
     )

@@ -1,0 +1,8 @@
+Good morning{% if owner_name %} {{ owner_name }}{% endif %}.
+
+You have {{ case_count }} open follow-up flag{{ 's' if case_count != 1 }}:
+{% for case in cases %}
+  · {{ case.patient_name }} ({{ case.mrn }}) — {{ case.test_name }}, flagged {{ case.flagged_label }}
+{%- endfor %}
+
+Critical flags are not batched here; they are sent as they happen.

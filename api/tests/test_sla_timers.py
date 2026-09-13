@@ -134,14 +134,15 @@ async def _insert_timer(
     fired_at: dt.datetime | None = None,
     pgmq_msg_id: int | None = None,
     key: str | None = None,
+    escalation_level: int | None = None,
 ) -> str:
     timer_id = str(uuid.uuid4())
     when = fire_at or dt.datetime.now(dt.UTC) + dt.timedelta(days=2)
     await session.execute(
         text(
             "INSERT INTO sla_timers (id, case_id, timer_type, fire_at, status, "
-            "pgmq_msg_id, attempts, fired_at, idempotency_key) "
-            "VALUES (:i, :c, :tt, :f, :s, :m, :a, :fa, :k)"
+            "pgmq_msg_id, attempts, fired_at, idempotency_key, escalation_level) "
+            "VALUES (:i, :c, :tt, :f, :s, :m, :a, :fa, :k, :lvl)"
         ),
         {
             "i": timer_id,
@@ -152,7 +153,8 @@ async def _insert_timer(
             "m": pgmq_msg_id,
             "a": attempts,
             "fa": fired_at,
-            "k": key or idempotency_key(case_id, timer_type, when),
+            "k": key or idempotency_key(case_id, timer_type, when, escalation_level),
+            "lvl": escalation_level,
         },
     )
     return timer_id
@@ -213,6 +215,11 @@ async def test_every_declared_status_and_type_is_accepted(
             timer_type=timer_type,
             fire_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30 + index),
             key=f"{ids['case']}:type:{timer_type}",
+            # Phase 4.4 added `case_escalation`, and the database requires a
+            # rung on that type and forbids one on every other. The sweep
+            # still asserts what it always did -- every declared type is
+            # accepted -- it just honours the rule that came with the new one.
+            escalation_level=0 if timer_type == "case_escalation" else None,
         )
 
 

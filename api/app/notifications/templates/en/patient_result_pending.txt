@@ -1,0 +1,1 @@
+Namaste. A test report from your recent visit to {{ hospital_name }} needs discussion. Please call {{ hospital_phone }} or visit OPD. - {{ hospital_name }}

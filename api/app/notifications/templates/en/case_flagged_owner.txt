@@ -1,0 +1,6 @@
+{{ patient_name }} ({{ mrn }}) — {{ test_name }} is flagged {{ severity_label }}.
+{% if reason_summary %}{{ reason_summary }}
+{% endif %}Discharged {{ discharged_on }}. This case is assigned to you and will
+escalate if it is not acknowledged.
+
+Open: {{ case_url }}

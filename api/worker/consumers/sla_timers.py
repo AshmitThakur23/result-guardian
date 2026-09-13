@@ -36,6 +36,7 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.escalation import fire_rung
 from app.services.lab_flags import (
     EVENT_ESCALATED_TO_UNIT_HEAD,
     EVENT_LAB_RECHECK_SCHEDULED,
@@ -72,6 +73,26 @@ async def handle_sla_timer(session: AsyncSession, message: dict[str, Any]) -> No
         log.warning("sla_timer_message_bad_timer_id", timer_id=raw_timer_id)
         return
 
+    # ── lock ordering, before anything else ───────────────────────
+    # The rest of this codebase locks **pending_cases before sla_timers**:
+    # `close_case` and `record_result` both do. Phase 2's fire path never
+    # locked the case at all, so no cycle existed.
+    #
+    # Phase 4.4's rung 0 assigns the case's owner, which UPDATEs
+    # `pending_cases` while this handler holds the timer lock. Against
+    # `acknowledge_case` -- which locks the case and then cancels the case's
+    # timers -- that is the opposite order, and PostgreSQL detects the
+    # deadlock and aborts one of them. Measured, not theorised:
+    #
+    #     DeadlockDetectedError: Process A waits for ShareLock on transaction
+    #     ...; blocked by process B. Process B waits for ... blocked by A.
+    #
+    # So an escalation timer takes the case lock first, joining the order
+    # everything else already uses. Only `case_escalation` does this: adding
+    # the lock to Phase 2's types would serialise handlers that have no reason
+    # to contend, and Phase 2's behaviour must not change.
+    await _lock_case_for_escalation(session, timer_id)
+
     # ── the lock, and the decision, together ──────────────────────
     claim = await claim_timer_for_firing(session, timer_id)
     if claim is None:
@@ -91,6 +112,13 @@ async def handle_sla_timer(session: AsyncSession, message: dict[str, Any]) -> No
         await _fire_lab_recheck(session, claim.case_id, timer_id, now)
     elif claim.timer_type == "unit_head_escalation":
         await _fire_unit_head_escalation(session, claim.case_id, timer_id, now)
+    elif claim.timer_type == "case_escalation":
+        # Phase 4.4's acknowledgement ladder. A separate timer type from the
+        # two above on purpose: those chase a *lab* for a result that has not
+        # arrived, this chases a *clinician* for a result that has.
+        await _fire_case_escalation(
+            session, claim.case_id, timer_id, claim.escalation_level, now
+        )
     else:
         # stale_preliminary and patient_notification have no Phase 2 behaviour
         # to run: the plan assigns their consequences to Phase 3 and Phase 4.
@@ -337,4 +365,56 @@ async def _fire_unit_head_escalation(
             ),
         },
         now=now,
+    )
+
+
+async def _fire_case_escalation(
+    session: AsyncSession,
+    case_id: uuid.UUID,
+    timer_id: uuid.UUID,
+    level: int | None,
+    now: dt.datetime,
+) -> None:
+    """Phase 4.4. One rung of the acknowledgement ladder.
+
+    The rung number rides on the timer row rather than being re-derived from
+    the clock: a rung that fires late after a restart is still *its* rung, and
+    inferring it from elapsed time would silently run the wrong one.
+
+    ``fire_rung`` never raises — a provider outage or a missing recipient comes
+    back as a dispatch outcome — so the remaining rungs keep their timers. The
+    plan: *"failure surfaced, ladder continues."*
+    """
+    if level is None:
+        # The database's CHECK makes this unreachable; if it ever happens the
+        # timer is malformed and guessing a rung would notify the wrong person.
+        log.warning("case_escalation_timer_without_level", timer_id=str(timer_id))
+        return
+    await fire_rung(session, case_id, level, timer_id=timer_id, at=now)
+
+
+async def _lock_case_for_escalation(session: AsyncSession, timer_id: uuid.UUID) -> None:
+    """Take the case row lock before claiming a ``case_escalation`` timer.
+
+    The unlocked read is only used to decide *which* lock to take; the
+    authoritative eligibility check still happens inside
+    ``claim_timer_for_firing`` under the timer's own lock.
+    """
+    row = (
+        await session.execute(
+            text(
+                "SELECT case_id FROM sla_timers "
+                " WHERE id = :i AND timer_type = 'case_escalation'"
+            ),
+            {"i": str(timer_id)},
+        )
+    ).first()
+    if row is None:
+        return
+    await session.execute(
+        text(
+            "SELECT id FROM pending_cases "
+            " WHERE id = :c AND deleted_at IS NULL FOR UPDATE"
+        ),
+        {"c": str(row.case_id)},
     )

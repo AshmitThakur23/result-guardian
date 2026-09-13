@@ -24,6 +24,7 @@ from app.db.session import dispose_engine, get_sessionmaker
 from app.logging import configure_logging
 from worker.consumer import QueueConsumer
 from worker.consumers.classify import handle_classify
+from worker.consumers.notifications import handle_notification
 from worker.consumers.sla_timers import handle_sla_timer
 
 log = structlog.get_logger(__name__)
@@ -87,8 +88,8 @@ async def main() -> None:
     #
     # An unconsumed queue is the correct state for a phase that has not been
     # built. The messages accumulate durably, survive restarts, and are there
-    # for Phase 3 (classify), Phase 4.3 (notifications), Phase 6 (ingest) and
-    # Phase 7 (extract) to consume when those phases add their handlers.
+    # for Phase 6 (ingest) and Phase 7 (extract) to consume when those phases add
+    # their handlers. Phase 3 took `classify`; Phase 4.3 takes `notifications`.
     consumers = [
         # The only real handler in Phase 2. It is idempotent by construction
         # (SELECT ... FOR UPDATE on the timer row), which is what lets pgmq's
@@ -99,6 +100,10 @@ async def main() -> None:
         # (result_id, engine_version) is what makes a duplicate delivery
         # produce one decision rather than two.
         QueueConsumer("classify", handle_classify, shutdown),
+        # Phase 4.3. The intents Phase 2.3 has been enqueueing since lab flags
+        # shipped finally have a consumer. Idempotent on `notifications`
+        # .dedupe_key, so a redelivered intent produces one message.
+        QueueConsumer("notifications", handle_notification, shutdown),
     ]
 
     tasks = [asyncio.create_task(heartbeat(shutdown))]

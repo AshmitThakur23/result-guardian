@@ -294,12 +294,21 @@ async def classify_result(
             session, case_id, result_id, severity, moment, actor_user_id
         )
         # "do not alert unless severity is CRITICAL" -- the severity is
-        # recorded either way; Phase 4 reads `classifications` and this event
-        # to decide whether to dispatch.
+        # recorded either way. Phase 4.4's ladder starts only for a CRITICAL
+        # preliminary, which is exactly what that sentence asks for: a
+        # preliminary follow-up is held, not chased.
         await _set_case_severity(session, case_id, severity, moment)
+        if severity == SEVERITY_CRITICAL:
+            await _start_escalation(session, case_id, moment, actor_user_id)
         return result
 
     await _set_case_severity(session, case_id, severity, moment)
+
+    # ── Phase 4.4: a flagged case gets an escalation ladder ───────
+    # Anything a human must look at starts its rungs here. A `normal` case
+    # gets none -- there is nobody to chase.
+    if severity in (SEVERITY_FOLLOW_UP, SEVERITY_CRITICAL):
+        await _start_escalation(session, case_id, moment, actor_user_id)
 
     # ── auto-close, only when every rule permits it ───────────────
     if severity == SEVERITY_NORMAL and _all_rules_permit_auto_close(outputs):
@@ -706,3 +715,38 @@ __all__ = [
     "ResultNotFoundError",
     "classify_result",
 ]
+
+
+async def _start_escalation(
+    session: AsyncSession,
+    case_id: uuid.UUID,
+    moment: dt.datetime,
+    actor_user_id: uuid.UUID | None,
+) -> None:
+    """Hand a newly flagged case to Phase 4.4's ladder.
+
+    Imported inside the function, like ``close_case`` above, because
+    ``app.services.escalation`` imports the rule severities from ``app.rules``
+    -- a module-level import here would close that cycle.
+
+    A failure to schedule the ladder must not cost the classification: the
+    severity is already written and the case is already flagged, so it is
+    visible on the dashboard either way. Losing the whole classification
+    because a rung could not be booked would be the more expensive failure.
+    """
+    from app.services.escalation import start_ladder
+
+    try:
+        await start_ladder(session, case_id, at=moment, actor_user_id=actor_user_id)
+    except DBAPIError:
+        raise
+    except Exception as exc:
+        log.exception("escalation_ladder_start_failed", case_id=str(case_id))
+        await record_event(
+            session,
+            case_id,
+            "escalation_ladder_start_failed",
+            {"error": str(exc)[:500]},
+            actor_user_id=actor_user_id,
+            now=moment,
+        )

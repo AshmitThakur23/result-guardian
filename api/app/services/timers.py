@@ -78,6 +78,7 @@ async def create_timer(
     contract_id: uuid.UUID | None = None,
     actor_user_id: uuid.UUID | None = None,
     now: dt.datetime | None = None,
+    escalation_level: int | None = None,
 ) -> TimerCreated:
     """Create one timer and its wake-up, idempotently, in the caller's
     transaction.
@@ -102,9 +103,16 @@ async def create_timer(
         raise ValueError(f"unknown timer_type: {timer_type}")
     if fire_at.tzinfo is None:
         raise ValueError("fire_at must be timezone-aware")
+    # Phase 4.4. The database enforces the biconditional too; refusing here
+    # gives the caller a readable error instead of an IntegrityError.
+    if (timer_type == "case_escalation") != (escalation_level is not None):
+        raise ValueError(
+            "escalation_level belongs to case_escalation timers and to no "
+            f"other type (got type={timer_type!r}, level={escalation_level!r})"
+        )
 
     moment = now or dt.datetime.now(dt.UTC)
-    key = idempotency_key(case_id, timer_type, fire_at)
+    key = idempotency_key(case_id, timer_type, fire_at, escalation_level)
     timer_id = uuid7()
 
     inserted = (
@@ -112,8 +120,8 @@ async def create_timer(
             text(
                 "INSERT INTO sla_timers "
                 "(id, case_id, timer_type, fire_at, status, attempts, "
-                " idempotency_key, created_by, updated_by) "
-                "VALUES (:i, :c, :tt, :f, 'pending', 0, :k, :a, :a) "
+                " idempotency_key, escalation_level, created_by, updated_by) "
+                "VALUES (:i, :c, :tt, :f, 'pending', 0, :k, :lvl, :a, :a) "
                 "ON CONFLICT (idempotency_key) DO NOTHING "
                 "RETURNING id"
             ),
@@ -123,6 +131,7 @@ async def create_timer(
                 "tt": timer_type,
                 "f": fire_at,
                 "k": key,
+                "lvl": escalation_level,
                 "a": str(actor_user_id) if actor_user_id else None,
             },
         )
@@ -156,6 +165,7 @@ async def create_timer(
             "encounter_id": str(encounter_id) if encounter_id else None,
             "contract_id": str(contract_id) if contract_id else None,
             "fire_at": fire_at.astimezone(dt.UTC).isoformat(),
+            "escalation_level": escalation_level,
         }
     )
     msg_id = (
@@ -191,6 +201,9 @@ class TimerClaim:
     timer_type: str
     fire_at: dt.datetime
     attempts: int
+    escalation_level: int | None = None
+    """Phase 4.4's rung, for a ``case_escalation`` timer. Null for every
+    Phase 2 type."""
 
 
 async def claim_timer_for_firing(
@@ -216,7 +229,7 @@ async def claim_timer_for_firing(
         await session.execute(
             text(
                 "SELECT id, case_id, timer_type, fire_at, status, attempts, "
-                "       paused_at, deleted_at "
+                "       paused_at, deleted_at, escalation_level "
                 "  FROM sla_timers WHERE id = :i FOR UPDATE"
             ),
             {"i": str(timer_id)},
@@ -249,6 +262,7 @@ async def claim_timer_for_firing(
         timer_type=row.timer_type,
         fire_at=row.fire_at,
         attempts=row.attempts + 1,
+        escalation_level=row.escalation_level,
     )
 
 

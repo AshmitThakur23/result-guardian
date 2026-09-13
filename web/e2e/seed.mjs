@@ -193,6 +193,24 @@ export function cleanupE2EData() {
     DELETE FROM case_events WHERE case_id IN
       (SELECT id FROM pending_cases WHERE encounter_id IN
         (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    -- Phase 4 hangs notifications and patient contacts off the CASE, both
+    -- ON DELETE RESTRICT. session_replication_role = replica bypasses FK
+    -- enforcement as well as the append-only trigger, so deleting the case
+    -- without these does not fail loudly -- it silently orphans them, and
+    -- they accumulate one run at a time. Measured: 8 orphaned notifications
+    -- after a single suite run. Same defect class the Phase 3 audit found.
+    DELETE FROM notifications WHERE case_id IN
+      (SELECT id FROM pending_cases WHERE encounter_id IN
+        (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    DELETE FROM patient_contacts WHERE case_id IN
+      (SELECT id FROM pending_cases WHERE encounter_id IN
+        (SELECT id FROM encounters WHERE encounter_no LIKE 'E2E-ENC-%'));
+    DELETE FROM duty_roster WHERE department_id IN
+      (SELECT id FROM departments WHERE code LIKE 'E2E-%');
+    DELETE FROM escalation_chain WHERE department_id IN
+      (SELECT id FROM departments WHERE code LIKE 'E2E-%');
+    DELETE FROM user_absences WHERE user_id IN
+      (SELECT id FROM users WHERE employee_code LIKE 'E2E%');
     -- Phase 2 hangs timers, lab flags and results off the case; they must go
     -- before it, or the delete below orphans them.
     DELETE FROM sla_timers WHERE case_id IN
