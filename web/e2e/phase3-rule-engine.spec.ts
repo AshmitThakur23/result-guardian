@@ -21,10 +21,13 @@ import type { Page } from "@playwright/test";
 
 // @ts-expect-error -- plain ESM helper, deliberately untyped
 import { query, seedGatedEncounter } from "./seed.mjs";
+import { apiAuth, signInAsDoctor } from "./auth";
 
 interface Seed {
   encounterId: string;
   doctorId: string;
+  /** Phase 5.1: every screen is behind a login. */
+  doctorCode: string;
   patientName: string;
   orderA: string;
   orderB: string;
@@ -40,13 +43,17 @@ async function discharge(
   request: import("@playwright/test").APIRequestContext,
   data: Seed,
 ): Promise<void> {
+  const headers = await apiAuth(request, data.doctorCode);
   const readiness = await (
-    await request.get(`/api/encounters/${data.encounterId}/discharge-readiness`)
+    await request.get(`/api/encounters/${data.encounterId}/discharge-readiness`, {
+      headers,
+    })
   ).json();
   const due = new Date(Date.now() + 48 * 3600_000).toISOString();
   const contracts = await request.post(
     `/api/encounters/${data.encounterId}/discharge-contracts`,
     {
+      headers,
       data: {
         contracts: readiness.blocking_orders.map((order: { order_id: string }) => ({
           order_id: order.order_id,
@@ -59,6 +66,7 @@ async function discharge(
   expect(contracts.status()).toBe(201);
   const discharged = await request.post(
     `/api/encounters/${data.encounterId}/discharge`,
+    { headers },
   );
   expect(discharged.status()).toBe(200);
 }
@@ -71,7 +79,10 @@ async function prescribe(
 ): Promise<void> {
   const response = await request.post(
     `/api/encounters/${data.encounterId}/discharge-medications`,
-    { data: { drug_name: drugName, is_antibiotic: true } },
+    {
+      headers: await apiAuth(request, data.doctorCode),
+      data: { drug_name: drugName, is_antibiotic: true },
+    },
   );
   expect(response.status()).toBe(201);
 }
@@ -97,6 +108,9 @@ function newestResultFor(orderId: string): string {
 }
 
 async function openEntry(page: Page, data: Seed, orderId: string): Promise<void> {
+  // Phase 5.1 put this screen behind a login. Signing in per navigation is
+  // cheap and keeps each test independent.
+  await signInAsDoctor(page, data);
   await page.goto(`/encounters/${data.encounterId}/orders/${orderId}/result`);
   await expect(page.getByRole("heading", { name: /enter a result/i })).toBeVisible();
 }

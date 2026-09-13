@@ -17,10 +17,13 @@ import type { APIRequestContext } from "@playwright/test";
 
 // @ts-expect-error -- plain ESM helper, deliberately untyped
 import { query, seedGatedEncounter } from "./seed.mjs";
+import { apiAuth, signInAsDoctor } from "./auth";
 
 interface Seed {
   encounterId: string;
   doctorId: string;
+  /** Phase 5.1: every screen is behind a login. */
+  doctorCode: string;
   unitHeadId: string;
   attendingName: string;
   otherName: string;
@@ -47,6 +50,7 @@ function inHours(hours: number): string {
 
 /** Drive the gate through to a completed discharge, entirely through the UI. */
 async function dischargeThroughTheUi(page: import("@playwright/test").Page, data: Seed) {
+  await signInAsDoctor(page, data);
   await page.goto(`/encounters/${data.encounterId}/discharge`);
   await page.getByRole("button", { name: "Assign responsibility" }).click();
   await page.locator(`#expected-${data.orderA}`).fill(inHours(30));
@@ -61,13 +65,17 @@ async function contractEverything(
   request: APIRequestContext,
   data: Seed,
 ): Promise<void> {
+  const headers = await apiAuth(request, data.doctorCode);
   const readiness = await (
-    await request.get(`/api/encounters/${data.encounterId}/discharge-readiness`)
+    await request.get(`/api/encounters/${data.encounterId}/discharge-readiness`, {
+      headers,
+    })
   ).json();
   const due = new Date(Date.now() + 48 * 3600_000).toISOString();
   const response = await request.post(
     `/api/encounters/${data.encounterId}/discharge-contracts`,
     {
+      headers,
       data: {
         contracts: readiness.blocking_orders.map((order: { order_id: string }) => ({
           order_id: order.order_id,
@@ -87,6 +95,7 @@ test.describe("a clinician's journey to the gate", () => {
     const data = seed();
 
     // 1. Find the patient by name.
+    await signInAsDoctor(page, data);
     await page.goto("/patients");
     await page.getByLabel(/Search by MRN/).fill(data.patientName);
     const hit = page.getByRole("link", { name: new RegExp(data.mrn) });
@@ -111,6 +120,7 @@ test.describe("a clinician's journey to the gate", () => {
 
   test("finds the patient by MRN as well as by name", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto("/patients");
     await page.getByLabel(/Search by MRN/).fill(data.mrn);
     await expect(page.getByRole("link", { name: new RegExp(data.mrn) })).toBeVisible();
@@ -120,6 +130,7 @@ test.describe("a clinician's journey to the gate", () => {
     const data = seed();
     await contractEverything(page.request, data);
 
+    await signInAsDoctor(page, data);
     await page.goto(`/encounters/${data.encounterId}`);
     await expect(page.getByText("Ready to discharge")).toBeVisible();
 
@@ -242,15 +253,15 @@ test.describe("the backend does not trust the browser", () => {
 
     // The doctor opens the gate while everything is owned. The page now holds
     // a readiness that says "ready".
+    await signInAsDoctor(page, data);
     await page.goto(`/encounters/${data.encounterId}/discharge`);
     await expect(
       page.getByText("Every outstanding investigation has an owner"),
     ).toBeVisible();
 
     // Meanwhile, somewhere else, a new investigation is ordered.
-    const added = await page.request.post(
-      `/api/encounters/${data.encounterId}/orders`,
-      {
+    const added = await page.request.post(`/api/encounters/${data.encounterId}/orders`, {
+        headers: await apiAuth(page.request, data.doctorCode),
         data: {
           test_code: "STALE",
           test_name: "Ordered While The Page Was Open",
@@ -284,6 +295,7 @@ test.describe("the backend does not trust the browser", () => {
     // Same request the button makes, replayed.
     const replay = await page.request.post(
       `/api/encounters/${data.encounterId}/discharge`,
+      { headers: await apiAuth(page.request, data.doctorCode) },
     );
     expect(replay.status()).toBe(409);
 
@@ -305,6 +317,7 @@ test.describe("the backend does not trust the browser", () => {
     const data = seed();
     const response = await page.request.post(
       `/api/encounters/${data.encounterId}/discharge`,
+      { headers: await apiAuth(page.request, data.doctorCode) },
     );
     expect(response.status()).toBe(409);
 
@@ -331,9 +344,12 @@ test.describe("the backend does not trust the browser", () => {
     // Fired together, over real HTTP, against the real stack.
     const [order, discharge] = await Promise.all([
       page.request.post(`/api/encounters/${data.encounterId}/orders`, {
+        headers: await apiAuth(page.request, data.doctorCode),
         data: { test_code: "RACE", test_name: "Race Order", category: "lab" },
       }),
-      page.request.post(`/api/encounters/${data.encounterId}/discharge`),
+      page.request.post(`/api/encounters/${data.encounterId}/discharge`, {
+        headers: await apiAuth(page.request, data.doctorCode),
+      }),
     ]);
 
     // Either ordering is legitimate; both succeeding is not.
@@ -361,11 +377,13 @@ test.describe("the backend does not trust the browser", () => {
     await dischargeThroughTheUi(page, data);
 
     const late = await page.request.post(`/api/encounters/${data.encounterId}/orders`, {
+      headers: await apiAuth(page.request, data.doctorCode),
       data: { test_code: "LATE", test_name: "Late Order", category: "lab" },
     });
     expect(late.status()).toBe(409);
 
     // And the screen agrees: no button to offer it.
+    await signInAsDoctor(page, data);
     await page.goto(`/encounters/${data.encounterId}`);
     await expect(page.getByRole("button", { name: "Add investigation" })).toHaveCount(0);
   });
@@ -410,6 +428,7 @@ test.describe("Exit Gate 1", () => {
     const data = seed();
 
     // 3 tests ordered: 1 resulted, 2 pending.
+    await signInAsDoctor(page, data);
     await page.goto(`/encounters/${data.encounterId}`);
     await expect(page.getByText("Investigations (3)")).toBeVisible();
     await expect(page.getByText("Outstanding (2)")).toBeVisible();

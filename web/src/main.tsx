@@ -3,11 +3,20 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { Link, Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
 
+import { AuthProvider, RequireAuth } from "./auth/AuthProvider";
+import { AppShell } from "./components/AppShell";
+import { AdminPage } from "./pages/Admin";
+import { AuditTrailPage } from "./pages/AuditTrail";
+import { CaseDetailPage } from "./pages/CaseDetail";
+import { ChangePasswordPage } from "./pages/ChangePassword";
 import { DischargeGatePage } from "./pages/DischargeGate";
 import { EncounterDetailPage } from "./pages/EncounterDetail";
+import { LoginPage } from "./pages/Login";
 import { PatientDetailPage } from "./pages/PatientDetail";
 import { PatientSearchPage } from "./pages/PatientSearch";
+import { ReportsPage } from "./pages/Reports";
 import { ResultEntryPage } from "./pages/ResultEntry";
+import { WorklistPage } from "./pages/Worklist";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -26,21 +35,126 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Wrap a page in the signed-in frame and the role gate. Phase 5.1. */
+function Guarded({
+  children,
+  roles,
+}: {
+  children: React.ReactNode;
+  roles?: string[];
+}) {
+  return (
+    <RequireAuth roles={roles}>
+      <AppShell>{children}</AppShell>
+    </RequireAuth>
+  );
+}
+
 const router = createBrowserRouter(
   [
-    // Patient search is the entry point: everything else is reached by first
-    // finding a patient, which is how a ward actually works.
-    { path: "/", element: <Navigate to="/patients" replace /> },
-    { path: "/patients", element: <PatientSearchPage /> },
-    { path: "/patients/:patientId", element: <PatientDetailPage /> },
-    { path: "/encounters/:encounterId", element: <EncounterDetailPage /> },
-    { path: "/encounters/:encounterId/discharge", element: <DischargeGatePage /> },
+    // Unauthenticated. `/change-password` is inside RequireAuth but outside
+    // AppShell: a user who must change their password should not be shown a
+    // navigation bar to pages the server will refuse.
+    { path: "/login", element: <LoginPage /> },
+    {
+      path: "/change-password",
+      element: (
+        <RequireAuth>
+          <ChangePasswordPage />
+        </RequireAuth>
+      ),
+    },
+
+    // The worklist is the landing page in Phase 5: a doctor signs in to see
+    // what is waiting for them, not to search for a patient.
+    { path: "/", element: <Navigate to="/worklist" replace /> },
+    {
+      path: "/worklist",
+      element: (
+        <Guarded roles={["doctor", "unit_head", "admin", "auditor"]}>
+          <WorklistPage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/cases/:caseId",
+      element: (
+        <Guarded roles={["doctor", "unit_head", "admin", "auditor"]}>
+          <CaseDetailPage />
+        </Guarded>
+      ),
+    },
+
+    // Phases 1–3, now behind auth like everything else.
+    {
+      path: "/patients",
+      element: (
+        <Guarded>
+          <PatientSearchPage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/patients/:patientId",
+      element: (
+        <Guarded>
+          <PatientDetailPage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/encounters/:encounterId",
+      element: (
+        <Guarded>
+          <EncounterDetailPage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/encounters/:encounterId/discharge",
+      element: (
+        <Guarded roles={["doctor", "unit_head", "admin"]}>
+          <DischargeGatePage />
+        </Guarded>
+      ),
+    },
     // Phase 3.7. Scoped under the encounter so the screen can show whose
     // result this is without a second endpoint to fetch an order on its own.
     {
       path: "/encounters/:encounterId/orders/:orderId/result",
-      element: <ResultEntryPage />,
+      element: (
+        <Guarded roles={["doctor", "unit_head", "lab_tech", "admin"]}>
+          <ResultEntryPage />
+        </Guarded>
+      ),
     },
+
+    // Phase 5.4 / 5.5 / 5.6.
+    {
+      path: "/reports",
+      element: (
+        <Guarded roles={["unit_head", "admin", "auditor"]}>
+          <ReportsPage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/audit",
+      element: (
+        <Guarded roles={["auditor", "admin"]}>
+          <AuditTrailPage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/admin",
+      element: (
+        <Guarded roles={["admin"]}>
+          <AdminPage />
+        </Guarded>
+      ),
+    },
+
     { path: "*", element: <NotFound /> },
   ],
   // Opt in now rather than discovering the behaviour change at the v7 upgrade.
@@ -52,8 +166,8 @@ function NotFound() {
     <main className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="text-xl font-semibold text-slate-900">Page not found</h1>
       <p className="mt-2 text-sm text-slate-600">
-        <Link to="/patients" className="text-blue-700 underline">
-          Find a patient
+        <Link to="/worklist" className="text-blue-700 underline">
+          Go to your worklist
         </Link>
       </p>
     </main>
@@ -63,7 +177,9 @@ function NotFound() {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      <AuthProvider>
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

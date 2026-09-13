@@ -14,6 +14,7 @@ tables in 0008.
 
 from __future__ import annotations
 
+from app.db.models.audit import AuditAnchor, AuditLog, Session
 from app.db.models.cases import CaseEvent, PendingCase
 from app.db.models.discharge import (
     DischargeContract,
@@ -22,7 +23,7 @@ from app.db.models.discharge import (
     DischargeOverride,
 )
 from app.db.models.encounters import Encounter
-from app.db.models.infra import WorkerHealth
+from app.db.models.infra import SystemSetting, WorkerHealth
 from app.db.models.lab import LabFlag
 from app.db.models.notifications import Notification, PatientContact
 from app.db.models.orders import Order
@@ -50,6 +51,8 @@ from app.db.models.timers import SlaTimer
 
 __all__ = [
     "AntibioticSynonym",
+    "AuditAnchor",
+    "AuditLog",
     "CaseEvent",
     "Classification",
     "ClinicalKeyword",
@@ -76,7 +79,9 @@ __all__ = [
     "ResultOrganism",
     "ResultSensitivity",
     "RuleConfig",
+    "Session",
     "SlaTimer",
+    "SystemSetting",
     "UnitConversion",
     "User",
     "UserAbsence",

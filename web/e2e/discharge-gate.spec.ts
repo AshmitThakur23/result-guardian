@@ -13,10 +13,13 @@ import type { Page } from "@playwright/test";
 
 // @ts-expect-error -- plain ESM helper, deliberately untyped
 import { query, seedGatedEncounter } from "./seed.mjs";
+import { signInAsDoctor } from "./auth";
 
 interface Seed {
   encounterId: string;
   doctorId: string;
+  /** Phase 5.1: every screen is behind a login. */
+  doctorCode: string;
   unitHeadId: string;
   attendingName: string;
   otherName: string;
@@ -53,6 +56,7 @@ async function setExpectedBy(page: Page, orderId: string, value: string) {
 test.describe("the gate blocks", () => {
   test("lists every unowned investigation and offers no way past it", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
 
     await expect(page.getByRole("heading", { name: data.patientName })).toBeVisible();
@@ -77,6 +81,7 @@ test.describe("the gate blocks", () => {
 
   test("refuses to reach step 3 while a row is incomplete", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
     await page.getByRole("button", { name: "Assign responsibility" }).click();
 
@@ -95,6 +100,7 @@ test.describe("the gate lets a prepared discharge through", () => {
     page,
   }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
 
     await page.getByRole("button", { name: "Assign responsibility" }).click();
@@ -143,6 +149,7 @@ test.describe("the gate lets a prepared discharge through", () => {
 
   test("can be completed without ever touching the mouse", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
 
     // Step 1 → step 2 by keyboard.
@@ -199,6 +206,7 @@ test.describe("the gate lets a prepared discharge through", () => {
 test.describe("a draft survives the ward PC", () => {
   test("a real page reload restores the step and the choices", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
     await page.getByRole("button", { name: "Assign responsibility" }).click();
 
@@ -217,6 +225,7 @@ test.describe("a draft survives the ward PC", () => {
 
   test("the draft is gone once the discharge completes", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
     await page.getByRole("button", { name: "Assign responsibility" }).click();
     await setExpectedBy(page, data.orderA, inHours(30));
@@ -236,6 +245,7 @@ test.describe("a draft survives the ward PC", () => {
 test.describe("the override path", () => {
   test("records the reason and still tracks every investigation", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
 
     await page.getByRole("button", { name: "Override the gate" }).click();
@@ -286,6 +296,7 @@ test.describe("the override path", () => {
 
   test("can be abandoned without discharging anything", async ({ page }) => {
     const data = seed();
+    await signInAsDoctor(page, data);
     await page.goto(gateUrl(data.encounterId));
 
     await page.getByRole("button", { name: "Override the gate" }).click();
@@ -303,6 +314,10 @@ test.describe("the override path", () => {
 
 test.describe("degradation", () => {
   test("a missing encounter is reported, not guessed at", async ({ page }) => {
+    // Signed in first: Phase 5.1 puts the gate behind a login, and an
+    // unauthenticated visit would be redirected before the page could report
+    // anything about the encounter.
+    await signInAsDoctor(page, seed());
     await page.goto("/encounters/01900000-0000-7000-8000-000000000000/discharge");
     // The API's title carries the id it could not find
     // ("Encounter <uuid> not found"), so match the shape, not a fixture's
@@ -312,6 +327,7 @@ test.describe("degradation", () => {
   });
 
   test("a malformed encounter id never reaches the server", async ({ page }) => {
+    await signInAsDoctor(page, seed());
     await page.goto("/encounters/not-a-uuid/discharge");
     await expect(page.getByText("That is not a valid encounter reference")).toBeVisible();
   });

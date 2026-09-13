@@ -650,7 +650,7 @@ async def test_closing_a_case_while_its_timer_fires_is_safe(
 
         async def close() -> str:
             async with maker() as s:
-                await close_case(s, uuid.UUID(ids["case"]), reason="test")
+                await close_case(s, uuid.UUID(ids["case"]), reason="auto_closed_normal")
                 await s.commit()
                 return "closed"
 

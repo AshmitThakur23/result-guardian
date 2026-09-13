@@ -16,7 +16,9 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Integer,
     String,
+    text,
     true,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -76,7 +78,23 @@ class User(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=true()
     )
+    # Phase 5.1: "Account lockout after 5 failures for 15 min."
+    # Counted on the user rather than by IP: the thing being protected is the
+    # account, and an attacker who rotates IPs would walk straight past an
+    # IP-keyed counter.
+    failed_login_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    locked_until: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    password_changed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         CheckConstraint(text_enum("role", USER_ROLES), name="ck_users_role"),
+        CheckConstraint(
+            "failed_login_count >= 0", name="ck_users_failed_login_non_negative"
+        ),
     )

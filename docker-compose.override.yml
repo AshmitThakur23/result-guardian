@@ -21,6 +21,15 @@ services:
     environment:
       RG_ENV: dev
       RG_LOG_LEVEL: DEBUG
+      # Phase 5.7's auth rate limit, raised for DEVELOPMENT ONLY.
+      #
+      # The E2E suite signs in before nearly every navigation and every one of
+      # those logins arrives from one browser, so the production default of 20
+      # per minute per address throttles the test run itself. Raising it here
+      # keeps the real limit intact where it matters: this file is the dev
+      # override and is never applied to a hospital deployment, which uses
+      # `docker-compose.yml` alone.
+      RG_AUTH_RATE_LIMIT_PER_MINUTE: "500"
 
   worker:
     build:

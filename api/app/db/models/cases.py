@@ -53,6 +53,39 @@ CASE_STATES = (
 CASE_SEVERITIES = ("normal", "follow_up", "critical")
 
 
+# Phase 5.3's closure vocabulary. The plan names five, each with something
+# the closer must additionally say:
+#
+#   action_taken            (+ required note describing the action)
+#   already_handled         (+ where/when)
+#   not_clinically_relevant (+ justification)
+#   duplicate_report        (+ link to the original case)
+#   patient_uncontactable   (+ attempts made)
+#
+# `not_clinically_relevant` is the one to watch: 5.6 says a spike in it means
+# a threshold problem, not a tidy ward. The metric exists because the reason
+# is legitimate *and* abusable.
+CLINICAL_CLOSURE_REASONS = (
+    "action_taken",
+    "already_handled",
+    "not_clinically_relevant",
+    "duplicate_report",
+    "patient_uncontactable",
+)
+
+# Closures the system performs on its own. Separated from the clinical five so
+# a report can tell "a human decided this" from "the engine did" -- counting
+# an auto-close as a clinician's judgement would flatter every metric in 5.6.
+SYSTEM_CLOSURE_REASONS = ("auto_closed_normal",)
+
+CLOSURE_REASONS = CLINICAL_CLOSURE_REASONS + SYSTEM_CLOSURE_REASONS
+
+# Reasons whose note is mandatory. All five clinical ones: the plan attaches a
+# required addendum to each, and a closure reason with no explanation is the
+# thing an auditor cannot do anything with.
+CLOSURE_REASONS_REQUIRING_NOTE = CLINICAL_CLOSURE_REASONS
+
+
 class PendingCase(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin):
     __tablename__ = "pending_cases"
 
@@ -145,6 +178,12 @@ class PendingCase(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMixin
             "ix_pending_cases_current_owner_id",
             "current_owner_id",
             postgresql_where=text("state IN ('flagged', 'result_received')"),
+        ),
+        # Phase 5.3. Until now this column was deliberately unconstrained --
+        # Phase 2 said so in its own docstring, pending this phase.
+        CheckConstraint(
+            "closure_reason IS NULL OR " + text_enum("closure_reason", CLOSURE_REASONS),
+            name="ck_pending_cases_closure_reason",
         ),
     )
 

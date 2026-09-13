@@ -10,11 +10,18 @@ So they live here, next to the case, rather than being bolted onto the timer
 service. ``app/services/timers.py`` owns the mechanics; this owns when they
 are invoked and what gets written to the case's history.
 
-**Scope.** This is not Phase 5.3's closure workflow. There is no reason-code
-vocabulary, no acknowledgement flow and no reopening — those are Phase 5's,
-and ``pending_cases.closure_reason`` is deliberately still unconstrained
-pending that phase. What is here is only the part Phase 2 owns: when a case
-stops being open, its timers must stop firing, atomically.
+**Scope.** This is not Phase 5.3's closure workflow. There is no
+acknowledgement flow and no reopening — those live in
+``app/services/closure.py``. What is here is only the part Phase 2 owns: when
+a case stops being open, its timers must stop firing, atomically.
+
+*Updated in Phase 5.3:* ``pending_cases.closure_reason`` is no longer
+unconstrained. It now carries a CHECK against the vocabulary in
+``app/db/models/cases.py``, so :func:`close_case` validates its ``reason``
+before writing. The only production caller is Phase 3's auto-close, which
+passes ``auto_closed_normal``; the validation exists so a future caller gets
+a clear error rather than an IntegrityError raised after the timers have
+already been cancelled.
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models.cases import CLOSURE_REASONS
 from app.db.models.timers import PAUSE_REASONS
 from app.services.lab_flags import record_event
 from app.services.timers import (
@@ -47,6 +55,10 @@ PAUSING_ENCOUNTER_STATUSES = PAUSE_REASONS
 
 class CaseNotFoundError(LookupError):
     """No such case. The router turns this into a 404."""
+
+
+class UnknownClosureReasonError(ValueError):
+    """The reason is not in Phase 5.3's vocabulary."""
 
 
 @dataclass
@@ -87,6 +99,17 @@ async def close_case(
     ).first()
     if case is None:
         raise CaseNotFoundError(str(case_id))
+
+    # Phase 5.3 gave `closure_reason` a CHECK constraint. Validating here
+    # turns what would otherwise surface as an IntegrityError from deep inside
+    # a multi-statement transaction -- after the timers were already
+    # cancelled, and rolled back with them -- into a clear failure before
+    # anything is written.
+    if reason is not None and reason not in CLOSURE_REASONS:
+        raise UnknownClosureReasonError(
+            f"'{reason}' is not a closure reason. Expected one of: "
+            f"{', '.join(CLOSURE_REASONS)}."
+        )
 
     if case.state == "closed":
         # Idempotent: a replayed closure must not write a second closed_at or

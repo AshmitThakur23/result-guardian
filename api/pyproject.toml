@@ -21,6 +21,12 @@ dependencies = [
     # Phase 4.3's template store: "Jinja2 files per template_key x locale".
     # A runtime dependency, not a dev one -- templates render at send time.
     "jinja2>=3.1",
+    # Phase 5.1. The plan names Argon2id specifically; argon2-cffi is the
+    # reference implementation and the one OWASP points at.
+    "argon2-cffi>=23.1",
+    # Phase 5.1's JWT. PyJWT rather than python-jose: fewer transitive
+    # dependencies and it is the library FastAPI's own docs use.
+    "pyjwt>=2.8",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +62,18 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "SIM", "RUF"]
-ignore = ["B008"]  # FastAPI Depends() in defaults is the documented idiom
+ignore = [
+  "B008",  # FastAPI Depends() in defaults is the documented idiom
+  # RUF001/RUF002 flag "ambiguous" Unicode -- characters that look like ASCII
+  # but are not. In this codebase they are deliberate typography in text a
+  # clinician reads: an EN DASH in a reference range ("3.5 – 5.1"), a
+  # MULTIPLICATION SIGN in a multiplier ("more than 3x the upper limit"), an
+  # EM DASH in prose. Replacing them with hyphens would make a range read as
+  # a subtraction. The homoglyph risk these rules guard against is real in
+  # identifiers, which RUF003 still covers -- not in display strings.
+  "RUF001",
+  "RUF002",
+]
 
 [tool.ruff.lint.isort]
 # `api/alembic/` is the migrations directory, not a package, so ruff otherwise

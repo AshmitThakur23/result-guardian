@@ -20,6 +20,24 @@ import { fileURLToPath } from "node:url";
 // the tests do not depend on the directory Playwright happened to start in.
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
+/**
+ * Phase 5.1 put every screen behind a login, so the seeded users need a real
+ * password. This is a **fixed Argon2id hash of `E2E_PASSWORD`**, generated
+ * once with the application's own `hash_password()` so the test suite does
+ * not need an Argon2 implementation in Node:
+ *
+ *     docker compose exec api python -c \
+ *       "from app.services.auth import hash_password;
+ *        print(hash_password('E2E-Guardian-Pass-1'))"
+ *
+ * It is a test credential for throwaway `E2E*` accounts that the teardown
+ * deletes. It is not, and must never become, a default for a real user.
+ */
+export const E2E_PASSWORD = "E2E-Guardian-Pass-1";
+const E2E_PASSWORD_HASH =
+  "$argon2id$v=19$m=65536,t=3,p=4$X0KQi7OMtDDup3Sz5fy++Q$" +
+  "A9ew0QC6VoNJzPFzOf5BhPYTlvU1XT7+szc63wTfzis";
+
 /** UUIDv7, matching the project's PK convention (time-sortable). */
 export function uuidv7() {
   const bytes = randomBytes(16);
@@ -72,6 +90,8 @@ export function seedGatedEncounter() {
     unitHead: uuidv7(),
     doctor: uuidv7(),
     other: uuidv7(),
+    admin: uuidv7(),
+    auditor: uuidv7(),
     patient: uuidv7(),
     encounter: uuidv7(),
     orderA: uuidv7(),
@@ -80,6 +100,8 @@ export function seedGatedEncounter() {
   };
 
   const attendingName = `Asha Menon ${tag}`;
+  const adminName = `Priya Nair ${tag}`;
+  const auditorName = `Vikram Shah ${tag}`;
   const otherName = `Ravi Kulkarni ${tag}`;
   const unitHeadName = `Meera Iyer ${tag}`;
   const patientName = `Sunita Rao ${tag}`;
@@ -88,10 +110,20 @@ export function seedGatedEncounter() {
   // One statement, one transaction: a half-seeded encounter would fail the
   // test for the wrong reason.
   psql(`
-    INSERT INTO users (id, employee_code, full_name, role, is_active) VALUES
-      ('${ids.unitHead}', 'E2EH-${tag}', '${unitHeadName}', 'unit_head', true),
-      ('${ids.doctor}',   'E2ED-${tag}', '${attendingName}', 'doctor', true),
-      ('${ids.other}',    'E2EO-${tag}', '${otherName}', 'doctor', true);
+    INSERT INTO users
+      (id, employee_code, full_name, role, is_active, password_hash,
+       must_change_password)
+    VALUES
+      ('${ids.unitHead}', 'E2EH-${tag}', '${unitHeadName}', 'unit_head', true,
+       '${E2E_PASSWORD_HASH}', false),
+      ('${ids.doctor}',   'E2ED-${tag}', '${attendingName}', 'doctor', true,
+       '${E2E_PASSWORD_HASH}', false),
+      ('${ids.other}',    'E2EO-${tag}', '${otherName}', 'doctor', true,
+       '${E2E_PASSWORD_HASH}', false),
+      ('${ids.admin}',    'E2EA-${tag}', '${adminName}', 'admin', true,
+       '${E2E_PASSWORD_HASH}', false),
+      ('${ids.auditor}',  'E2EU-${tag}', '${auditorName}', 'auditor', true,
+       '${E2E_PASSWORD_HASH}', false);
 
     INSERT INTO departments (id, code, name, unit_head_user_id)
     VALUES ('${ids.department}', 'E2E-${tag}', 'E2E Medicine ${tag}', '${ids.unitHead}');
@@ -133,6 +165,15 @@ export function seedGatedEncounter() {
     encounterId: ids.encounter,
     doctorId: ids.doctor,
     unitHeadId: ids.unitHead,
+    adminId: ids.admin,
+    auditorId: ids.auditor,
+    patientId: ids.patient,
+    tag,
+    // Phase 5.1: every screen is behind a login, so the specs need codes.
+    doctorCode: `E2ED-${tag}`,
+    unitHeadCode: `E2EH-${tag}`,
+    adminCode: `E2EA-${tag}`,
+    auditorCode: `E2EU-${tag}`,
     attendingName,
     otherName,
     unitHeadName,
@@ -259,7 +300,18 @@ export function cleanupE2EData() {
     DELETE FROM patients WHERE mrn LIKE 'E2E-%';
     UPDATE users SET department_id = NULL WHERE employee_code LIKE 'E2E%';
     DELETE FROM departments WHERE code LIKE 'E2E-%';
+    -- Phase 5.1 sessions. The FK is ON DELETE CASCADE so the user delete
+    -- below would take them anyway; doing it explicitly keeps the intent
+    -- visible next to everything else this suite creates.
+    DELETE FROM sessions WHERE user_id IN
+      (SELECT id FROM users WHERE employee_code LIKE 'E2E%');
     DELETE FROM users WHERE employee_code LIKE 'E2E%';
+
+    -- NOTE: audit_log rows are deliberately NOT deleted. The append-only
+    -- trigger refuses, and that refusal is the point -- an audit log a test
+    -- harness can erase is not an audit log. actor_user_id is ON DELETE
+    -- SET NULL, so removing the user does not orphan or block anything; the
+    -- rows stay in the dev database as anonymous history, which is correct.
 
     -- The SLA timers this suite queued. Their cases are gone; leaving the
     -- messages would hand the worker wake-ups for encounters that no longer

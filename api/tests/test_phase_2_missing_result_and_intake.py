@@ -38,6 +38,7 @@ from app.services.lab_flags import (
     resolve_lab_flag,
 )
 from app.services.timers import claim_timer_for_firing, create_timer
+from tests._phase5 import authenticate_as
 from worker.consumers.sla_timers import handle_sla_timer
 
 pytestmark = pytest.mark.integration
@@ -79,6 +80,9 @@ async def client(session: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
         yield session
 
     app.dependency_overrides[get_session] = _override
+    # Phase 5.1 put every endpoint behind RBAC. These tests check
+    # their own behaviour, not authentication -- see the helper.
+    authenticate_as(app)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
         yield c

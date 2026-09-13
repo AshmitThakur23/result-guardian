@@ -15,6 +15,7 @@ was suppressed for any reason still appears.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import uuid
 from collections.abc import AsyncIterator
 
@@ -24,6 +25,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
+from app.db.types import uuid7
 from app.notifications.adapters import NullAdapter
 from app.services import notifications as notify
 from worker.consumers.notifications import handle_notification
@@ -169,9 +171,39 @@ async def test_the_digest_job_enqueues_one_intent_per_doctor(
     assert intents[0].message["case_count"] == 4
 
 
+async def _no_quiet_hours_right_now(session: AsyncSession) -> None:
+    """Push the quiet window away from the current hour.
+
+    The digest and the roster reminder are **deliberately** subject to quiet
+    hours -- *"a digest that woke somebody would defeat its purpose"* -- so a
+    test asserting that one sends passes in the afternoon and fails after
+    22:00 IST. That is a defect in the test, not in the product.
+
+    Quiet hours live in `rule_config` precisely so they can be changed without
+    touching code, so the fix is to set a one-hour window on the far side of
+    the clock from now and let the real policy run unmodified. Nothing is
+    mocked and no behaviour is bypassed.
+    """
+    ist_hour = (dt.datetime.now(dt.UTC) + dt.timedelta(hours=5, minutes=30)).hour
+    start = (ist_hour + 6) % 24
+    await session.execute(
+        text(
+            "INSERT INTO rule_config (id, key, value, description) "
+            "VALUES (CAST(:i AS uuid), 'notification_quiet_hours', "
+            "        CAST(:v AS jsonb), 'quiet-hours override for this test') "
+            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+        ),
+        {
+            "i": str(uuid7()),
+            "v": json.dumps({"start_hour": start, "end_hour": (start + 1) % 24}),
+        },
+    )
+
+
 async def test_the_digest_lists_every_open_follow_up(
     session: AsyncSession, adapters: dict[str, NullAdapter]
 ) -> None:
+    await _no_quiet_hours_right_now(session)
     ids = await _doctor_with_flags(session, count=3)
 
     await handle_notification(
@@ -340,6 +372,7 @@ async def test_the_reminder_knows_a_roster_is_already_in_place(
 async def test_the_roster_reminder_renders_and_sends(
     session: AsyncSession, adapters: dict[str, NullAdapter]
 ) -> None:
+    await _no_quiet_hours_right_now(session)
     ids = await _doctor_with_flags(session, count=1)
 
     await handle_notification(

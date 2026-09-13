@@ -31,6 +31,7 @@ from app.config import get_settings
 from app.rules import SEVERITY_CRITICAL, SEVERITY_FOLLOW_UP, SEVERITY_NORMAL
 from app.rules.orchestrator import classify_result
 from scripts.seed_rules_dev import _seed as seed_rules
+from tests._phase5 import authenticate_as
 
 pytestmark = pytest.mark.integration
 
@@ -72,6 +73,9 @@ async def client(session: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
         yield session
 
     app.dependency_overrides[get_session] = _override
+    # Phase 5.1 put every endpoint behind RBAC. These tests check
+    # their own behaviour, not authentication -- see the helper.
+    authenticate_as(app)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
         yield c

@@ -157,7 +157,7 @@ async def test_closing_a_case_cancels_every_pending_timer(
         await create_timer(session, uuid.UUID(ids["case"]), kind, _in(hours))
 
     closed = await close_case(
-        session, uuid.UUID(ids["case"]), reason="acknowledged", note="seen"
+        session, uuid.UUID(ids["case"]), reason="auto_closed_normal", note="seen"
     )
     assert closed.already_closed is False
     assert len(closed.cancelled_timer_ids) == 2
@@ -190,7 +190,7 @@ async def test_closing_records_the_closure_and_the_cancellation(
 ) -> None:
     ids = await _case(session)
     await create_timer(session, uuid.UUID(ids["case"]), "result_due", _in(1))
-    await close_case(session, uuid.UUID(ids["case"]), reason="acknowledged")
+    await close_case(session, uuid.UUID(ids["case"]), reason="auto_closed_normal")
 
     events = await _events(session, ids["case"])
     assert "case_closed" in events
@@ -201,8 +201,12 @@ async def test_closing_twice_is_idempotent(session: AsyncSession) -> None:
     ids = await _case(session)
     await create_timer(session, uuid.UUID(ids["case"]), "result_due", _in(1))
 
-    first = await close_case(session, uuid.UUID(ids["case"]), reason="acknowledged")
-    second = await close_case(session, uuid.UUID(ids["case"]), reason="acknowledged")
+    first = await close_case(
+        session, uuid.UUID(ids["case"]), reason="auto_closed_normal"
+    )
+    second = await close_case(
+        session, uuid.UUID(ids["case"]), reason="auto_closed_normal"
+    )
 
     assert first.already_closed is False
     assert second.already_closed is True
@@ -218,7 +222,7 @@ async def test_closing_an_unknown_case_is_refused(session: AsyncSession) -> None
 
 async def test_closing_sets_closed_at_once(session: AsyncSession) -> None:
     ids = await _case(session)
-    await close_case(session, uuid.UUID(ids["case"]), reason="acknowledged")
+    await close_case(session, uuid.UUID(ids["case"]), reason="auto_closed_normal")
     first = (
         await session.execute(
             text("SELECT closed_at FROM pending_cases WHERE id = :i"),
@@ -226,7 +230,7 @@ async def test_closing_sets_closed_at_once(session: AsyncSession) -> None:
         )
     ).scalar_one()
 
-    await close_case(session, uuid.UUID(ids["case"]), reason="acknowledged")
+    await close_case(session, uuid.UUID(ids["case"]), reason="auto_closed_normal")
     second = (
         await session.execute(
             text("SELECT closed_at FROM pending_cases WHERE id = :i"),

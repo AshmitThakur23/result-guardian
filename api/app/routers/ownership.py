@@ -25,7 +25,6 @@ from app.db.types import uuid7
 from app.schemas.ownership import (
     AbsenceCreate,
     AbsenceRow,
-    DeliveryReceipt,
     DutyRosterCreate,
     DutyRosterRow,
     FallthroughMetric,
@@ -34,7 +33,6 @@ from app.schemas.ownership import (
     StaleRosterDepartment,
 )
 from app.services.notification_policy import flag_rate_per_100_discharges
-from app.services.notifications import record_delivery_receipt
 from app.services.ownership import departments_with_stale_roster, fallthrough_metrics
 
 router = APIRouter(tags=["ownership"])
@@ -277,34 +275,3 @@ async def failed_notifications(
         )
     ).all()
     return [NotificationRow.model_validate(r) for r in rows]
-
-
-# ── 4.3 · the SMS provider's delivery receipt ─────────────────────────
-
-
-@router.post(
-    "/notifications/delivery-receipt",
-    summary="SMS provider delivery receipt webhook",
-)
-async def delivery_receipt(
-    payload: DeliveryReceipt,
-    session: AsyncSession = Depends(get_session),
-) -> dict[str, object]:
-    """*"Delivery receipt webhook endpoint for SMS provider."*
-
-    ``sent`` means the gateway accepted the message; ``delivered`` means the
-    handset acknowledged it. Only the second is evidence the patient's phone
-    received anything, which is what the patient rung actually cares about.
-
-    Returns 200 with ``matched: false`` for an unknown id rather than 404: a
-    provider retrying a receipt for a message we no longer hold should not be
-    told to keep retrying.
-    """
-    matched = await record_delivery_receipt(
-        session,
-        provider_msg_id=payload.provider_msg_id,
-        delivered=payload.delivered,
-        error=payload.error,
-    )
-    await session.commit()
-    return {"matched": matched, "provider_msg_id": payload.provider_msg_id}

@@ -35,6 +35,21 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me"
     jwt_access_ttl_minutes: int = 15
     jwt_refresh_ttl_hours: int = 12
+    # Phase 5.7: "Rate limiting on auth endpoints." A tuning knob, not a
+    # clinical threshold, so it lives with the other deployment settings
+    # rather than in a table -- but it does NOT live hardcoded in the
+    # limiter, which is what CLAUDE.md's "configuration lives in tables,
+    # never in code" is really guarding against.
+    #
+    # 20/minute/address is far above a human typing a password and far below
+    # what a credential spray needs to be useful. Raise it only where many
+    # real users share one apparent address, and say why.
+    auth_rate_limit_per_minute: int = 20
+    # Shared secret for the SMS provider's delivery-receipt webhook -- the one
+    # endpoint with no user behind it. Empty means the webhook is accepted
+    # unauthenticated and logs a warning on every call; see
+    # `app/routers/webhooks.py` for why it is not simply mandatory.
+    webhook_secret: str = ""
 
     # ── NODE B ────────────────────────────────────────────────────
     # Use the literal LAN IP. Inside the API container, "localhost" and
