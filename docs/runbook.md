@@ -322,9 +322,111 @@ Suppressed is not failed: quiet hours (22:00–07:00 IST) hold non-critical
 patient messages until morning **by design**. A CRITICAL case is never
 suppressed.
 
+If **delivery receipts** specifically are missing, check whether the provider
+is being refused: with `RG_WEBHOOK_SECRET` set, a callback that does not carry
+the matching `X-Webhook-Secret` header gets a 401 and the receipt is never
+recorded. See section 9.
+
+```bash
+docker compose logs api | grep -E "webhook_secret_rejected|webhook_unauthenticated" | tail
+```
+
 ---
 
-## 9. Backups
+## 9. Before a pilot — settings that must be set
+
+Two settings ship with defaults that are right for a development machine and
+**wrong for a ward**. Neither stops the system working, which is exactly why
+they need a checklist entry rather than a runtime error.
+
+Check both, on NODE A, before the first real patient:
+
+```bash
+docker compose exec api python -c "\
+from app.config import get_settings; s = get_settings(); \
+print('webhook_secret set:', bool(s.webhook_secret)); \
+print('auth rate limit  :', s.auth_rate_limit_per_minute)"
+```
+
+### `RG_WEBHOOK_SECRET` — 🔴 must be set
+
+Authenticates the SMS provider's delivery-receipt callback
+(`POST /api/notifications/delivery-receipt`). That endpoint is the **only**
+one with no user behind it — a provider callback cannot hold a bearer token —
+so it sits outside RBAC and this secret is what stands in its place. The
+provider sends the value in an `X-Webhook-Secret` header; a request without
+it, or with the wrong value, is refused with 401.
+
+**Leaving it unset leaves the webhook unauthenticated.** Anyone who can reach
+NODE A's port can then assert that a patient's message was delivered. That is
+not a data leak; it is worse in one specific way — it **falsifies the evidence
+that a patient was reached**, which is the number the patient-contact metric
+and a NABH reviewer both rely on.
+
+**The current default is unset, and that state must not be used for a
+real-patient deployment.** It is unset by default only so that upgrading from
+Phase 4 does not break a working SMS integration on the day of the upgrade.
+While it is unset the endpoint logs a warning on **every** call:
+
+```bash
+docker compose logs api | grep webhook_unauthenticated | tail -5
+```
+
+Setting it:
+
+1. Generate a value — never reuse another secret, and never invent a
+   memorable one:
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+2. Put it in `.env` as `RG_WEBHOOK_SECRET=...` and `docker compose up -d api`.
+3. Give the same value to the SMS provider for the `X-Webhook-Secret` header.
+4. Confirm it is live — an unsigned call must now be refused:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+     localhost/api/notifications/delivery-receipt \
+     -H 'Content-Type: application/json' \
+     -d '{"provider_msg_id":"probe","delivered":true}'
+   # expect 401
+   ```
+
+**Keep it private.** Treat it exactly like `RG_JWT_SECRET`: it lives only in
+`.env` (root-owned, 0600), never in a commit, a URL, a ticket or a chat
+message. Rotate it — new value in `.env`, restart, update the provider — if it
+is ever exposed or if someone who knew it leaves.
+
+### `RG_AUTH_RATE_LIMIT_PER_MINUTE` — check the value
+
+Failed authentication attempts allowed per source address per minute before
+`/api/auth/login` and `/api/auth/refresh` answer **429**. **Default when
+unset: 20** — far above a person typing a password, far below what a
+credential spray needs.
+
+This is **not** the account lockout. That is a separate control: 5 failures
+locks one account for 15 minutes, counted on the account rather than the
+address, and it is not configurable. This limit protects the *server* against
+volume, including spraying across many accounts, which a per-account lockout
+cannot see.
+
+Two things to know before changing it:
+
+* **`docker-compose.override.yml` raises it to 500, and that file is
+  development only.** It exists so the E2E suite — which signs in before
+  nearly every navigation, all from one browser — does not throttle itself. A
+  hospital deployment runs `docker-compose.yml` alone and gets the default.
+  **Confirm the effective value on the machine** with the command above rather
+  than assuming.
+* It is counted **in process, per API container**, and resets on restart. NODE
+  A runs a single API container, so today the limit is the limit. If the API
+  is ever scaled out, each replica gets its own allowance and this moves into
+  Postgres.
+
+Raise it only where many real users share one apparent address — a ward behind
+a single NAT, for instance — and write down why.
+
+---
+
+## 10. Backups
 
 The whole system is one PostgreSQL database. There is nothing else to back up
 except the `.env` file.
@@ -349,7 +451,7 @@ match; that is expected and should be recorded.
 
 ---
 
-## 10. Who to call
+## 11. Who to call
 
 | Symptom | Severity | Who |
 |---|---|---|

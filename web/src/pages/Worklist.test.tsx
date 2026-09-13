@@ -24,8 +24,21 @@ import {
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function rowsInOrder(): Promise<string[]> {
-  const table = await screen.findByRole("table");
+/**
+ * The patient column of every body row, top to bottom.
+ *
+ * **Synchronous on purpose.** This used to `await screen.findByRole("table")`
+ * and be called from inside a `waitFor`, which made the test intermittently
+ * fail: `findBy*` is itself a `waitFor` with its own 1000ms budget, and
+ * nesting the two runs the budgets *concurrently* rather than in series — the
+ * outer one expires while the inner is still waiting for first paint.
+ * Measured: with first paint at 1400ms the nested form failed at 1059ms,
+ * where a single wait succeeded at 1588ms.
+ *
+ * So the waiting is done once, by the caller, and this only reads the DOM.
+ */
+function rowsInOrder(): string[] {
+  const table = screen.getByRole("table");
   const bodyRows = within(table).getAllByRole("row").slice(1);
   return bodyRows.map((row) => within(row).getAllByRole("cell")[1].textContent ?? "");
 }
@@ -43,11 +56,16 @@ describe("the worklist", () => {
     });
     renderApp5("/worklist");
 
-    await waitFor(async () => {
-      const order = await rowsInOrder();
-      expect(order[0]).toContain("Imran Qureshi");
-      expect(order[1]).toContain("Sunita Rao");
-    });
+    // One wait, for the state the assertion needs: both rows rendered. Then
+    // read the order synchronously. Every other test in this file waits with
+    // a single `findBy*` and none of them flake; this one nested two waits
+    // and did.
+    await screen.findByRole("link", { name: "Imran Qureshi" });
+    await screen.findByRole("link", { name: "Sunita Rao" });
+
+    const order = rowsInOrder();
+    expect(order[0]).toContain("Imran Qureshi");
+    expect(order[1]).toContain("Sunita Rao");
   });
 
   it("shows patient, MRN, test, severity, age and the escalation rung", async () => {
