@@ -55,6 +55,65 @@
 
 > **Ollama runs on NODE B, not in the NODE A compose file. It is a deployment target, not a service.**
 
+### 🔴 Measured before starting: `qwen3:4b` leaks its reasoning, and the usual fix does not work
+
+**Measured 2026-09-14 against the live NODE B** (`172.25.54.48:11434`), once the
+link was up. Recorded here rather than discovered halfway through 8.4.
+
+`qwen3` is a **reasoning model**, and it emits its internal monologue into the
+ordinary content field. Three things that look like they should stop it:
+
+| Attempt | Result |
+|---|---|
+| `think: false` on `/api/generate` | ❌ still reasons |
+| `think: false` on `/api/chat` | ❌ still reasons |
+| `/no_think` prefix in the prompt | ❌ **returns empty content** — worse than leaking |
+
+**And the trap: the model closes the block without opening it.** A real response
+ends `…matches what they asked for.\n</think>\n\nOK` — there is a `</think>` and
+**no `<think>`**. So the strip every tutorial reaches for:
+
+```python
+re.sub(r"<think>.*?</think>", "", content, flags=re.S)   # ❌ matches nothing
+```
+
+silently does nothing, and the model's entire monologue lands in the UI. Measured:
+
+```
+naive regex : 'Hmm, the user just asked me to reply with only the word "OK". That's s…'
+rsplit      : 'OK'
+```
+
+**What works — take everything after the LAST closing tag:**
+
+```python
+def visible(content: str) -> str:
+    if "</think>" in content:
+        return content.rsplit("</think>", 1)[1].strip()
+    return content.strip()
+```
+
+Consequences for 8.4, all of which affect the task list below:
+
+- [ ] **Budget tokens for reasoning, not just for the answer.** A one-word reply
+      cost **107 eval tokens** and 4.1 s. A `num_predict` sized for the answer
+      alone truncates mid-thought and returns **nothing usable** — that is what
+      the 16- and 64-token runs produced.
+- [ ] **Strip with `rsplit`, never with a paired-tag regex**, and unit-test it
+      against a response that has a closing tag and no opening one.
+- [ ] **Treat a response containing no `</think>` as suspicious**, not as clean —
+      it may equally mean the budget ran out mid-monologue.
+- [ ] **Re-benchmark `format: json` with reasoning on.** The JSON-schema
+      requirement below and a model that thinks in prose are in tension, and it
+      is untested which wins.
+
+⚠️ **And a reminder of why the span verifier (8.5) is not optional.** Asked *"what
+is a critical potassium level?"* the model answered **"6.0 mEq/L or higher"** —
+fluent, plausible, and **not from any source this system holds**. Exactly the
+kind of unverified clinical claim [`CLAUDE.md`](../../CLAUDE.md) forbids reaching
+a clinician. The model is a phrasing engine over retrieved text, never an
+authority.
+
 - [ ] Model pulled at provisioning, `OLLAMA_KEEP_ALIVE=-1` so it stays in VRAM
 - [ ] GPU optional — 8B runs on CPU slowly. **Benchmark before promising anything.**
 - [ ] Strict JSON schema output, **temperature 0**, `format: json`, max tokens capped:
