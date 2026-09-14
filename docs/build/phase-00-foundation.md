@@ -14,12 +14,12 @@
 | 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
 | 0.2 Containers — NODE A | A | 🟡 **database ✅, full stack not yet** | **Postgres image builds and runs** — verified on NODE A and in CI (all 6 extensions, pgmq round-trip). `api`/`worker`/`caddy` compose stack still never brought up together |
 | 0.3 NODE B provisioning | **B** | 🟡 **ran; 2 items open** | ✅ Provisioned on NODE B 2026-09-14 — **192.168.0.168**, `qwen3:4b` cached, keep-alive pinned, LAN-bound. 🔴 Firewall rule + from-NODE-A check outstanding |
-| 0.4 Network runbook | — | ✅ **done** | Real IPs still to be filled in |
+| 0.4 Network runbook | — | ✅ **done** | NODE B = **192.168.0.168** recorded. **NODE A's IP still needed** — it gates NODE B's firewall rule |
 | 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
 | 0.7 Worker skeleton | A | 🟡 **partly verified** | Retry/backoff/DLQ and heartbeat now covered by tests (were **0%**). Handlers stay stubs until Phase 2. Never run against real pgmq |
 | 0.8 CI | — | ✅ **done — fully green** | **All 3 jobs pass on GitHub Actions** (run `34670777455`, 2026-09-12): `lint` ✅ `build` ✅ `test` ✅. The test job builds the real NODE A image, asserts all 6 extensions, applies migrations, runs 25 tests and clears the 70% coverage gate. **Every prior run had failed.** Deviation: uses a real container rather than `testcontainers` |
-| **Exit Gate 0** | A + B | 🔴 **OPEN** | Cannot close until NODE A exists |
+| **Exit Gate 0** | A + B | 🔴 **OPEN** | Both nodes now exist and are provisioned. Remaining: bring the full stack up on NODE A, then the 3 cross-node checks (firewall rule, `curl` from NODE A, NODE-B-off degradation test) |
 
 **🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**
 
