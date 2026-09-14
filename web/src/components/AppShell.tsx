@@ -47,24 +47,36 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+      {/* ⚠️ Opaque, not translucent. A `bg-surface/85 backdrop-blur` header
+          looked good on a wide screen and was a genuine legibility bug at
+          ~950px: the header wraps to two rows there, and the page heading
+          scrolled underneath it showed through as a ghost. Frosted glass is a
+          decoration; reading the page is the job. */}
+      <header className="sticky top-0 z-40 border-b border-line bg-surface shadow-sm">
+        <div className="mx-auto flex max-w-7xl items-center gap-x-3 px-4 py-2.5">
           <Link
             to="/worklist"
-            className="flex items-center gap-2 text-sm font-semibold text-ink"
+            className="flex shrink-0 items-center gap-2 text-sm font-semibold text-ink"
           >
             <ShieldMark />
-            Result Guardian
+            <span className="hidden sm:inline">Result Guardian</span>
           </Link>
 
-          <nav aria-label="Main" className="flex flex-wrap items-center gap-0.5">
+          {/* Scrolls rather than wraps. A header that grows a second row on a
+              narrow window pushes the page content down unpredictably and,
+              being sticky, eats a third of a laptop screen. */}
+          <nav
+            aria-label="Main"
+            className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto
+                       [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {NAV.map((item) => (
               <IfRole key={item.to} roles={item.roles}>
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      "rounded px-2.5 py-1.5 text-sm font-medium transition-colors",
+                      "shrink-0 whitespace-nowrap rounded px-2.5 py-1.5 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-brand-subtle text-brand-text"
                         : "text-ink-body hover:bg-surface-hover hover:text-ink",
@@ -77,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <SystemStatusPill />
             {user ? (
               <span className="hidden text-sm text-ink-body sm:inline">
