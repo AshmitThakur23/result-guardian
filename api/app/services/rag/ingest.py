@@ -39,7 +39,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-#: 8.1's window, in approximate tokens. Counted as words × 1.3, which is close
+#: 8.1's window, in approximate tokens. Counted as words x 1.3, which is close
 #: enough for chunking and needs no tokeniser — a dependency this module would
 #: otherwise pull in for a rounding decision.
 TARGET_TOKENS = 500
@@ -50,8 +50,8 @@ OVERLAP_RATIO = 0.15
 #: Headings a guideline actually uses, plus numbered sections.
 _HEADING = re.compile(
     r"^\s*(?:"
-    r"(?:\d+(?:\.\d+)*\.?\s+[A-Z][^\n]{3,80})"          # 4.2 Empirical therapy
-    r"|(?:[A-Z][A-Z \-]{4,60})"                          # EMPIRICAL THERAPY
+    r"(?:\d+(?:\.\d+)*\.?\s+[A-Z][^\n]{3,80})"  # 4.2 Empirical therapy
+    r"|(?:[A-Z][A-Z \-]{4,60})"  # EMPIRICAL THERAPY
     r"|(?:(?:Section|Chapter|Appendix)\s+[\dIVX]+[^\n]{0,60})"
     r")\s*$",
     re.M,
@@ -89,7 +89,7 @@ class IdentifierHit:
 
 
 def approx_tokens(value: str) -> int:
-    """Words × 1.3. Close enough to choose a boundary, and needs no tokeniser."""
+    """Words x 1.3. Close enough to choose a boundary, and needs no tokeniser."""
     return int(len(value.split()) * 1.3)
 
 
@@ -152,7 +152,12 @@ def chunk_document(document_text: str) -> list[Chunk]:
         buffer_tokens = 0
         offset = section_start
 
-        def flush(force: bool = False) -> None:
+        # `section` is bound as a default rather than closed over. The closure
+        # is only ever called inside this iteration today, so the difference is
+        # invisible -- but a later refactor that deferred the call would label
+        # a chunk with whichever section the loop had reached, and a citation
+        # naming the wrong part of a guideline is worse than no citation.
+        def flush(force: bool = False, section: str | None = section_path) -> None:
             nonlocal buffer, buffer_tokens, offset
             if not buffer:
                 return
@@ -164,7 +169,7 @@ def chunk_document(document_text: str) -> list[Chunk]:
                 chunks.append(
                     Chunk(
                         text=stripped,
-                        section_path=section_path,
+                        section_path=section,
                         char_start=offset,
                         char_end=offset + len(joined),
                         token_count=approx_tokens(stripped),
