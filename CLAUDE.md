@@ -129,8 +129,7 @@ actually read it.**
   doc.** A runbook that says "already set" is a claim, not a measurement.
 - **Scope is not the mechanism.** On NODE B, `OLLAMA_MODELS` sat at **Machine
   scope for four days** while the server went on reading `C:\Users\asus\.ollama`
-  — `server-1.log`, 2026-09-11, `total blobs: 0`. `ollama app.exe --hide
-  --fast-startup` hands its child a sanitised environment. **Setting a variable
+  — `server-1.log`, 2026-09-11, `total blobs: 0`. **Setting a variable
   somewhere more authoritative does not make a process read it**, and
   recommending a higher scope after that failure would be repeating a fix this
   repository had already disproven. (I made exactly that mistake on 2026-09-15;
@@ -141,6 +140,35 @@ actually read it.**
   and **Ollama was in none of them**. It was a manual `ollama serve`. So the
   failure after a reboot was not "the config reverted" but **connection
   refused** — a different and worse problem than the one being investigated.
+- ⛔ **"The tray app sanitises its child's environment" is WRONG. Corrected
+  2026-09-15 by the real reboot.** The claim was written from one symptom
+  (`OLLAMA_MODELS` not arriving) and generalised without evidence. The reboot
+  produced the server's own config dump, and **four of the five variables had
+  arrived intact**:
+
+  | Variable | Reached the server? |
+  |---|---|
+  | `OLLAMA_HOST` `0.0.0.0:11434` | ✅ |
+  | `OLLAMA_KEEP_ALIVE` `2562047h47m` (= `-1`) | ✅ |
+  | `OLLAMA_NUM_PARALLEL` `2` | ✅ |
+  | `OLLAMA_MAX_LOADED_MODELS` `1` | ✅ |
+  | **`OLLAMA_MODELS`** | ❌ **replaced with `C:\Users\asus\.ollama\models`** |
+
+  An environment that delivers four of five variables is not sanitised. **What
+  is measured is that `ollama app.exe` overrides `OLLAMA_MODELS` specifically**;
+  *why* it does is not known and must not be asserted. The practical rule is
+  unchanged and now rests on evidence rather than a story: **never let the tray
+  app spawn the server** — start `ollama serve` directly, which is what
+  [`infra/nodeb/start-ollama.bat`](infra/nodeb/start-ollama.bat) does.
+- **A startup mechanism is not verified until it has survived a real login.**
+  The `shell:startup` shortcut was verified on 2026-09-15 by stopping Ollama and
+  relaunching it through the shortcut — which proved the *script*, and nothing
+  about the *trigger*. At the real reboot the shortcut lost the race: this
+  machine starts OneDrive, Docker, Chrome, Edge, Epic and Adobe at login, and
+  before the Startup folder was serviced the `ollama` CLI found no server and
+  spawned **the tray app** — the one launcher that breaks `OLLAMA_MODELS`. A
+  **logon scheduled task** now runs the same script and is not queued behind
+  that backlog. Simulating a trigger tests the payload, not the trigger.
 
 ## 🔁 End-of-phase sweep — MANDATORY before calling any phase complete
 
