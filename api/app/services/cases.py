@@ -42,6 +42,11 @@ from app.services.timers import (
     resume_case_timers,
 )
 
+# The row-lock `close_case` takes on the parent case. Named, and exported, so
+# the deadlock regression test locks the row exactly the way production does --
+# a test that hardcodes its own lock clause cannot detect this changing back.
+CASE_ROW_LOCK = "FOR NO KEY UPDATE"
+
 EVENT_CASE_CLOSED = "case_closed"
 EVENT_TIMERS_CANCELLED = "timers_cancelled"
 EVENT_TIMERS_PAUSED = "timers_paused"
@@ -88,11 +93,22 @@ async def close_case(
     """
     moment = now or dt.datetime.now(dt.UTC)
 
+    # `FOR NO KEY UPDATE`, not `FOR UPDATE`. This transaction never changes
+    # `pending_cases.id`, so the weaker lock is the correct one: it still blocks
+    # concurrent UPDATE, DELETE and `FOR UPDATE`, while not conflicting with the
+    # `FOR KEY SHARE` that Postgres takes on this row for every INSERT into a
+    # table referencing it.
+    #
+    # ⚠️ Chosen while investigating the CI deadlock recorded in PROGRESS.md
+    # (2026-09-14). It reduces this row's lock footprint, which is a real
+    # improvement, but **it is NOT a proven fix for that deadlock** -- a test
+    # written to catch the defect passed with this reverted, so the cycle lies
+    # elsewhere and is still open. Do not treat this comment as a resolution.
     case = (
         await session.execute(
             text(
                 "SELECT id, state FROM pending_cases "
-                " WHERE id = :i AND deleted_at IS NULL FOR UPDATE"
+                f" WHERE id = :i AND deleted_at IS NULL {CASE_ROW_LOCK}"
             ),
             {"i": str(case_id)},
         )

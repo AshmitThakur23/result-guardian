@@ -7,7 +7,8 @@ only in chat -- which CLAUDE.md warns is a decision that gets re-litigated next
 session. So it lives here instead.
 
     docker compose exec -T api python scripts/reset_dev_passwords.py
-    docker compose exec -T api python scripts/reset_dev_passwords.py --password 'something-else'
+    RG_DEV_PASSWORD='something-else' docker compose exec -T api \
+        python scripts/reset_dev_passwords.py
 
 ⛔ **Never run this against anything but a local development database.** It
 refuses to run unless ``RG_ENV`` is unset or ``dev``/``local``/``test``, because
@@ -85,7 +86,10 @@ def main() -> int:
     parser.add_argument(
         "--password",
         default=os.getenv("RG_DEV_PASSWORD", DEFAULT_PASSWORD),
-        help="password to set (default: RG_DEV_PASSWORD env var, else a built-in dev value)",
+        help=(
+            "password to set (default: the RG_DEV_PASSWORD env var, "
+            "else a built-in dev value)"
+        ),
     )
     args = parser.parse_args()
     _guard()

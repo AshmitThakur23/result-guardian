@@ -522,6 +522,16 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-14 — 🔴 OPEN DEFECT: a deadlock in the timer/closure race, found by CI
+
+- 🔴 **CI has been red since `687bd98`, and I did not check it for eight commits.** Two separate causes, one fixed and one still open. **Everything passed locally throughout** — which is exactly why local green is not evidence.
+- ✅ **Cause 1, fixed: `ruff` E501 in `api/scripts/`.** I had been running `ruff check app worker tests`; **CI runs `ruff check .` over the whole of `api/`**, which includes `scripts/`. My verification was narrower than the gate's. Now linted the way CI does — ruff, black and mypy strict all clean.
+- 🔴 **Cause 2, STILL OPEN: `DeadlockDetectedError` in `test_closing_a_case_while_its_timer_fires_is_safe`.** 1 failed, 1048 passed. The failing statement is `mark_fired`'s `UPDATE sla_timers SET status='fired'`. This is the Phase 2 path that races a case closure against its own SLA timer firing — an ordinary production event, not a test-only situation.
+- ❌ **My first diagnosis was wrong, and I am recording that rather than hiding it.** I theorised an FK-induced cycle: `sla_timers.case_id` references `pending_cases(id)`, so `close_case`'s `SELECT … FOR UPDATE` on the parent would conflict with the `FOR KEY SHARE` a child write needs. **Disproven by my own test** — it passed with the fix reverted, because **Postgres skips the parent FK check when the referencing column is not modified**, and `mark_fired` never touches `case_id`. The test was deleted rather than kept, since a test that cannot detect the defect is worse than none.
+- **What has been ruled out so far:** no trigger on `sla_timers` touches `pending_cases`; `claim_timer_for_firing` and `mark_fired` write **only** `sla_timers` (read in full, not skimmed); the FK path above. **Not reproduced locally in 25 consecutive runs** — it needs CI's timing.
+- ⚠️ **`close_case` now takes `FOR NO KEY UPDATE` instead of `FOR UPDATE`.** That is the correct lock for a transaction that never changes the row's key, and it genuinely reduces the lock footprint — **but it is explicitly NOT claimed as the fix**, and the code comment says so. Shipping an unverified fix with a confident comment is the fabricated-evidence failure mode this project exists to avoid.
+- ▶ **Next step when this is picked up:** reproduce with `deadlock_timeout` lowered and `log_lock_waits = on` so Postgres prints the actual lock graph, rather than reasoning about it from the outside. The cycle involves two rows and two transactions; the server log will name both.
+
 ### 2026-09-14 — NODE B benchmarked before Phase 8, and it has less headroom than assumed
 
 - ✅ **The GPU is genuinely doing the work.** Measured on NODE B: RTX 3050, **2,939 MiB of 4,096 MiB VRAM**, 37 % utilisation while answering, model resident (`UNTIL: Forever`). 31.1 tok/s locally, **26.0 tok/s measured from NODE A** across the LAN.
