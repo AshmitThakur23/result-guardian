@@ -91,65 +91,59 @@
 >
 > Then, **from NODE A**: `Test-NetConnection 172.25.54.48 -Port 11434` → must be `True`.
 
-## 🔴 The two machines are on DIFFERENT NETWORKS — measured 2026-09-14
+## ~~🔴 The two machines are on DIFFERENT NETWORKS~~ — RESOLVED 2026-09-14
 
-**This, not the firewall rule, is the current blocker.**
+> ⛔ **Superseded. Do not act on this section — it is kept only so the reasoning
+> trail survives.** It was measured when NODE B was on a home router
+> (`192.168.0.168`) and NODE A on campus wifi. **NODE B has since joined
+> `Studentwifi_5G` and both nodes are now on `172.25.48.0/20`** — see the
+> "same subnet" note above, which is the current truth.
+>
+> Two conclusions it drew are now known to be **wrong**, and each would cost an
+> hour if followed:
+>
+> 1. *"`Studentwifi_5G` almost always runs client isolation."* It does **not** —
+>    TCP peer traffic was measured working on ports 80 and 8000. A phone hotspot
+>    is not needed.
+> 2. *"Test with `ping` before trusting it."* `ping` is a **false negative**
+>    between two Windows machines, which block inbound ICMP by default. Use
+>    `Test-NetConnection -Port`.
+>
+> What it got right, and what still stands: **a DHCP address on a network you do
+> not control is not a stable basis for a firewall rule.** Both addresses must be
+> re-read after every network change.
 
-| | NODE A | NODE B |
-|---|---|---|
-| Address | `172.25.52.148` | `192.168.0.168` |
-| Mask | /20 → `172.25.48.0`–`172.25.63.255` | /24 → `192.168.0.0`–`192.168.0.255` |
-| Gateway | `172.25.48.1` | `192.168.0.1` |
-
-`192.168.0.168` is **not** in NODE A's subnet, and the gateways differ — these
-are two separate routers. Measured from NODE A:
+**Confirmed from NODE A, 2026-09-14, both nodes on `Studentwifi_5G`:**
 
 ```
-Test-NetConnection 192.168.0.168 -Port 11434
-  PingSucceeded    = False
-  TcpTestSucceeded = False
+Get-NetIPConfiguration | ? { $_.NetAdapter.Status -eq 'Up' -and $_.IPv4DefaultGateway }
+  Wi-Fi   172.25.52.148   gateway 172.25.48.1        <- NODE A, unchanged
+
+Test-NetConnection 172.25.54.48 -Port 11434          <- NODE A -> NODE B
+  PingSucceeded    = False     (expected: Windows blocks inbound ICMP)
+  TcpTestSucceeded = False     <- THE BLOCKER: ollama.exe Block rules on NODE B
 ```
 
-**Adding a firewall rule now would achieve nothing**, and the address it was
-scoped to would be stale. NODE A was on `192.168.0.156` earlier the same day —
-the same subnet as NODE B — and has since moved to the campus Wi-Fi. **A DHCP
-address on a network you do not control is not a stable basis for a firewall
-rule.**
+NODE A's address has **not** moved, so the allow rule above — scoped to
+`172.25.52.148` — is correctly targeted. **The remaining work is entirely on
+NODE B**: remove the two auto-created `ollama.exe` inbound Block rules, then add
+the allow rule. Both commands are in the blocker section above.
 
-⚠️ **`Studentwifi_5G` is a further problem even if both machines join it.**
-Campus and guest networks almost always run **client isolation**, which blocks
-machine-to-machine traffic while both devices show "connected" — see the
-warning below, which calls this *"the single most common wasted hour"*. Test
-with `ping` before trusting it.
-
-**What actually unblocks this**, in order of preference:
-
-1. **Both machines back on the `192.168.0.x` router.** NODE B is already there,
-   NODE A was there this morning, and NODE B's address is already recorded. Then
-   NODE A's IP will be `192.168.0.x` — re-read it and scope the rule to that.
-2. **Phone hotspot.** Works, and is immune to campus client isolation. IPs shift
-   on every reconnect, so re-read both and update `RG_LLM_BASE_URL`.
-3. **Ethernet cable between the two laptops**, static addressing. Most reliable,
-   least convenient.
-
-**Set on NODE A once both machines are on the same network** (already set in
-`.env`, and correct for option 1):
+**Set on NODE A** (already in `.env`):
 
 ```bash
 RG_LLM_BASE_URL=http://172.25.54.48:11434
 ```
 
-> 🔴 **NODE B's firewall rule has NOT been applied**, and should not be applied
-> until the two machines are on one network and NODE A's address on *that*
-> network is known. It needs NODE A's IP, and the script refuses `0.0.0.0/0` by
-> design (Phase 10.1). Until it is added, port 11434 is governed only by the
-> Windows network profile — acceptable on a trusted home network, **not** for
-> the hospital deployment. Run on **NODE B**, elevated:
+> 🔴 **NODE B's firewall rule has NOT been applied.** Port 11434 is governed only
+> by the Windows network profile — acceptable on a trusted network, **not** for
+> the hospital deployment.
 >
-> ```powershell
-> netsh advfirewall firewall add rule name="Result Guardian NODE B" `
->     dir=in action=allow protocol=TCP localport=11434 remoteip=<NODE_A_IP>
-> ```
+> ⚠️ **The `netsh` one-liner this runbook used to give here was not enough**, and
+> is deliberately removed: in Windows Firewall a **Block rule beats an Allow
+> rule**, so adding an allow while the two `ollama.exe` blocks exist changes
+> nothing and looks like a network fault. Use the two-step fix in the blocker
+> section above — remove the blocks *first*.
 
 > ⚠️ An earlier version of this table had the two roles **backwards**, and
 > [ADR 0006](adr/0006-node-roles-corrected.md) — which fixed that — then attached the
@@ -168,15 +162,32 @@ RG_LLM_BASE_URL=http://172.25.54.48:11434
 | 4 | Direct Ethernet | No router. Static `10.0.0.1` (NODE A) / `10.0.0.2` (NODE B). |
 | 5 | Cloud API | **Last resort. Breaks the on-prem claim. Requires written approval.** |
 
-### ⛔ Not usable: campus, hotel, or guest wifi
+### ⚠️ Usually not usable: campus, hotel, or guest wifi — **but measure, don't assume**
 
-Client isolation blocks machine-to-machine traffic **even when both machines show "connected"**. This is the single most common wasted hour. Always test with `ping` before trusting a network:
+Client isolation blocks machine-to-machine traffic **even when both machines show "connected"**. This is the single most common wasted hour.
 
-```bash
-ping 192.168.1.50        # from NODE A, to NODE B
+**The second most common wasted hour is assuming isolation that isn't there.**
+`Studentwifi_5G` — a campus network — was measured on 2026-09-14 and **permits
+peer traffic**. Had we trusted the rule of thumb, we would have chased a hotspot
+instead of finding the actual blocker, which was a firewall rule on NODE B.
+
+**Test with the port, never with `ping`:**
+
+```powershell
+Test-NetConnection <OTHER_NODE_IP> -Port 11434     # Windows to Windows
 ```
 
-No reply → switch to a hotspot or a cable. Do not debug the application.
+```bash
+nc -vz <OTHER_NODE_IP> 11434                        # if the far side is Linux
+```
+
+⛔ **A silent `ping` proves nothing between two Windows machines** — inbound ICMP
+is blocked by default, so it fails on a perfectly good network. Only trust `ping`
+where the far side is Linux, or ICMP is known to be permitted.
+
+`TcpTestSucceeded : False` → check the **far side's firewall first** (blocked
+program rules beat allow rules), and only then suspect the network. Do not debug
+the application.
 
 ---
 
@@ -191,8 +202,21 @@ No reply → switch to a hotspot or a cable. Do not debug the application.
 
 ```powershell
 # NODE A (LAPTOP-06ER0HBM) and NODE B (LAPTOP-5JCGN9SJ)
-ipconfig | Select-String IPv4
+Get-NetIPConfiguration |
+  Where-Object { $_.NetAdapter.Status -eq 'Up' -and $_.IPv4DefaultGateway } |
+  Select-Object InterfaceAlias,
+                @{n='IP';e={$_.IPv4Address.IPAddress}},
+                @{n='GW';e={$_.IPv4DefaultGateway.NextHop}}
 ```
+
+⛔ **Do not use `ipconfig | Select-String IPv4`.** It lists every address on the
+machine, including stale static ones on **disconnected** adapters, with nothing
+to tell you which is live. On 2026-09-14 that is exactly what happened on NODE B:
+a dead Ethernet adapter held `172.18.30.66`, the setup script reported it as the
+LAN IP, and it even answered `/api/tags` — because a request from a machine to
+its own address never leaves the box. The check looked green while NODE A could
+never have reached it. **An address only counts if its adapter is `Up` and it has
+a default gateway.**
 
 If NODE A is later moved to the hospital's Linux box, as the build plan assumes:
 
@@ -260,8 +284,8 @@ Applied by `infra/nodeb/setup-windows.ps1` or `infra/nodeb/setup.sh`.
 
 | # | Check | Command | If it fails |
 |---|---|---|---|
-| 1 | Same subnet? | `ipconfig` / `hostname -I` on both | Fix addressing before anything else |
-| 2 | Reachable? | `ping <NODE_B_IP>` | Client isolation → change network |
+| 1 | Same subnet? | `Get-NetIPConfiguration \| ? { $_.NetAdapter.Status -eq 'Up' -and $_.IPv4DefaultGateway }` on both — **not** `ipconfig`, which lists stale addresses on disconnected adapters | Fix addressing before anything else |
+| 2 | Reachable? | `Test-NetConnection <NODE_B_IP> -Port 11434` — **never `ping`**, it false-negatives on Windows | Far side's firewall first (a Block rule beats an Allow rule), then client isolation → change network |
 | 3 | Port open? | `curl http://<NODE_B_IP>:11434/api/tags` from NODE A host | Firewall rule, or `OLLAMA_HOST` still bound to localhost |
 | 4 | Reachable **from the container**? | `docker compose exec api python -c "import httpx; print(httpx.get('http://<IP>:11434/api/tags', timeout=5).status_code)"` | Wrong IP in `.env` — check for `localhost` |
 | 5 | Model loaded? | `ollama ps` on NODE B | `ollama pull <model>`; check `OLLAMA_KEEP_ALIVE=-1` |

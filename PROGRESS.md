@@ -11,10 +11,22 @@
 >
 > **Machines** — never write "this machine"; name the owner.
 > **NODE A = Abhinendra's laptop**, `LAPTOP-06ER0HBM`. Docker present. No NVIDIA GPU.
-> **NODE B = Ashmit's machine**, `LAPTOP-5JCGN9SJ`, **192.168.0.168** — ✅ **provisioned 2026-09-14**,
+> **NODE B = Ashmit's machine**, `LAPTOP-5JCGN9SJ`, **172.25.54.48** — ✅ **provisioned 2026-09-14**,
 > RTX 3050 / 4 GB VRAM, Ollama `v0.15.2` serving `qwen3:4b`. On NODE A set
-> `RG_LLM_BASE_URL=http://192.168.0.168:11434`. 🔴 **Its firewall rule still needs NODE A's IP.**
+> `RG_LLM_BASE_URL=http://172.25.54.48:11434`.
 > See [ADR 0006](docs/adr/0006-node-roles-corrected.md), which supersedes ADR 0005.
+>
+> **🔴 ONE ACTION BLOCKS EVERY CROSS-NODE CHECK, AND IT RUNS ON NODE B.**
+> Both nodes are now on the **same subnet** (`172.25.48.0/20`, gw `172.25.48.1`) —
+> addressing and the network are **not** the problem. `Test-NetConnection
+> 172.25.54.48 -Port 11434` from NODE A is still `False` because **two
+> auto-created `ollama.exe` inbound *Block* rules** sit on NODE B, and in Windows
+> Firewall **a Block rule beats an Allow rule**. Remove them, *then* allow 11434
+> from `172.25.52.148` only — both commands in
+> [`docs/network-runbook.md`](docs/network-runbook.md).
+> ⛔ **Never diagnose this with `ping`** — Windows blocks inbound ICMP, so it
+> false-negatives on a working network. That false negative is what made this look
+> like a network problem for a day.
 >
 > **🏁 CI is GREEN — all 3 jobs (2026-09-12, run `34670777455`).** All nine defects D1–D9
 > are **verified**, not merely fixed. The NODE A Postgres image builds and runs with
@@ -504,12 +516,21 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-14 — Cross-node blocker identified: it was never the network
+
+- **The "different networks" blocker logged below is RESOLVED.** NODE B joined `Studentwifi_5G` and is now `172.25.54.48/20`, gw `172.25.48.1`. NODE A is unchanged at `172.25.52.148/20` on the same gateway — **one subnet, no hotspot, no cable.**
+- **Two assumptions in that entry were wrong, and both would have cost an hour.** (1) *"Campus SSIDs usually run client isolation"* — `Studentwifi_5G` does **not**; TCP from NODE B to NODE A succeeded on ports 80 and 8000. (2) *"`ping` and TCP:11434 both fail"* treated a silent `ping` as evidence — **Windows blocks inbound ICMP by default, so `ping` is a false negative between two Windows hosts.** The runbook's own "test with `ping`" advice was the thing pointing the wrong way; it has been replaced with `Test-NetConnection -Port` throughout.
+- 🔴 **The actual blocker, found on NODE B: two auto-created `ollama.exe` inbound *Block* rules** on the Public profile, made by Windows when the first listen prompt was dismissed. **A Block rule beats an Allow rule**, so the Phase 10.1 allow rule would have changed nothing and looked like a network fault. The fix is two steps — remove the blocks, *then* allow 11434 from `172.25.52.148` only — and the old `netsh` one-liner has been removed from the runbook because it was the insufficient half.
+- **A stale-IP defect in `infra/nodeb/setup-windows.ps1`, fixed on NODE B** (`2825a21`). It picked the first non-loopback IPv4, which on a disconnected Ethernet adapter was a stale static `172.18.30.66` — and **that address answered `/api/tags`**, because a request from a machine to its own address never leaves the box. The check read green while NODE A could never have reached it. Now filters on adapter `Up` + default gateway, and warns about every address it skipped. `ipconfig | Select-String IPv4` is banned in the runbook for the same reason.
+- **Verified from NODE A**, both nodes on one subnet: `Test-NetConnection 172.25.54.48 -Port 11434` → `TcpTestSucceeded: False`. Consistent with the Block rules still in place. **This is the one outstanding action, and it must run elevated on NODE B.**
+- 🟡 **Nothing about Exit Gate 0 changes yet.** Clause 4's deliberate "stop Ollama" run still needs a working path first, and the path is still blocked. Reachability is unproven until `TcpTestSucceeded` is `True` from NODE A.
+
 ### 2026-09-14 — Exit Gate 0: three of four clauses verified on NODE A
 
 - **Full stack up on NODE A and healthy.** `docker compose up -d` → `alembic current` at `0013` → `curl localhost/api/health` through Caddy → **200**, `db: "ok"`, `worker_heartbeat_age_s: 1`. That closes gate clauses 1 and 2, and finishes the "stack never run" caveat that has sat in this file since Phase 0.
 - **RULE 2 demonstrated at the HTTP boundary.** With NODE B unreachable: still **200**, `status: "ok"`, `llm.reachable: false`, `degraded_features: ["llm_generation"]` and nothing else. The whole 1048-test backend suite also passes with NODE B unreachable, which is the same property asserted much more broadly.
 - ⚠️ **But not the literal test, and it matters.** NODE B was unreachable because the two machines were **on different networks**, not because Ollama was stopped. At the HTTP boundary those are indistinguishable, and losing the network path is arguably the stronger test — RULE 2 is about the network between nodes — but the deliberate "stop Ollama" run still has to happen. Recorded in the gate itself, not just here.
-- 🔴 **The two machines are on different networks — this, not the firewall rule, is the blocker.** NODE A `172.25.52.148/20` gw `172.25.48.1` (SSID `Studentwifi_5G`); NODE B `192.168.0.168/24` gw `192.168.0.1`. `ping` and TCP:11434 both fail. **A firewall rule scoped to NODE A's current address would achieve nothing and would be stale** — NODE A was on `192.168.0.156` earlier the same day and has since moved to campus Wi-Fi. Campus SSIDs also usually run client isolation, which this runbook already calls *"the single most common wasted hour"*. Options and their trade-offs recorded in [`docs/network-runbook.md`](docs/network-runbook.md).
+- ⛔ **SUPERSEDED — see the entry above, dated the same day. Both conclusions in this bullet turned out to be wrong.** ~~🔴 **The two machines are on different networks — this, not the firewall rule, is the blocker.**~~ NODE A `172.25.52.148/20` gw `172.25.48.1` (SSID `Studentwifi_5G`); NODE B `192.168.0.168/24` gw `192.168.0.1`. `ping` and TCP:11434 both fail. **A firewall rule scoped to NODE A's current address would achieve nothing and would be stale** — NODE A was on `192.168.0.156` earlier the same day and has since moved to campus Wi-Fi. Campus SSIDs also usually run client isolation, which this runbook already calls *"the single most common wasted hour"*. Options and their trade-offs recorded in [`docs/network-runbook.md`](docs/network-runbook.md).
 - **Clarified an ambiguity in gate clause 4.** *"and no error"* means the endpoint does not error — not that `llm.error` is absent. `tests/test_health.py` deliberately asserts the reason **is** populated (*"the reason is reported, not swallowed"*). A health endpoint that hides why NODE B is missing is worse than one that says so.
 
 ### 2026-09-14 — Phase 6 document ingestion, built and run end to end
