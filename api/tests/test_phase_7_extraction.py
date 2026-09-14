@@ -129,7 +129,8 @@ def test_a_sex_specific_range_is_not_resolved_without_a_sex() -> None:
     """★ Defaulting to the male range would flag healthy women as anaemic."""
     parsed = parse_reference_range("Male: 13-17 / Female: 12-15")
     assert parsed is not None
-    assert parsed.low is None and parsed.high is None
+    assert parsed.low is None
+    assert parsed.high is None
     assert parsed.text == "Male: 13-17 / Female: 12-15"
 
 

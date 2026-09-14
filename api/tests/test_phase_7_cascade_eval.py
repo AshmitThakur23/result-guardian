@@ -89,7 +89,8 @@ def test_a_template_scores_higher_than_a_generic_parse() -> None:
     }
     templated = apply_template(template, REPORT)
     generic = parse_generic(REPORT)
-    assert templated and generic
+    assert templated
+    assert generic
     assert templated[0].confidence > generic[0].confidence
     assert templated[0].method == TIER_TEMPLATE
 
@@ -152,7 +153,8 @@ async def test_unparseable_text_with_no_model_reaches_a_human(
     )
     assert result.tier == TIER_HUMAN
     assert result.needs_human
-    assert result.reason and "by hand" in result.reason
+    assert result.reason is not None
+    assert "by hand" in result.reason
     # The clerk is told *why* they are doing this, and "the AI is offline" is a
     # different situation from "the AI could not read it".
     assert "offline" in result.reason
@@ -211,7 +213,8 @@ async def test_an_empty_document_goes_straight_to_a_human(
         report_type="biochemistry",
     )
     assert result.tier == TIER_HUMAN
-    assert result.reason and "no readable text" in result.reason
+    assert result.reason is not None
+    assert "no readable text" in result.reason
 
 
 # ── 7.7 evaluation ────────────────────────────────────────────────────

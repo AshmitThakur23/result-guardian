@@ -64,6 +64,24 @@ gh run list --limit 3          # did it go red?
 gh run view <id> --log-failed  # why, specifically
 ```
 
+### ⛔ Check the EXIT CODE, never the last line of output
+
+On 2026-09-14 two commits went onto a red CI for a second time, and the cause
+was not the tooling — **it was reading the wrong line.** `ruff check .` ended
+with:
+
+```
+Found 5 errors.
+No fixes available (4 hidden fixes can be enabled with the `--unsafe-fixes` option).
+```
+
+A `| tail -1` showed only the second line, which reads like success. The same
+local ruff, the same version as CI's, had found the same five errors all along.
+
+**So: `cmd >/dev/null 2>&1; echo "exit=$?"`.** A zero exit is the only thing that
+means a check passed. A tool's final line is prose, and prose about "no fixes
+available" is not prose about "no problems found".
+
 - **Never push twice without looking.** One red run is a mistake; eight is a habit.
 - **Never say "everything is green" from a local run.** Say which suite, run
   where. "1048 tests pass locally, CI not yet checked" is honest; "everything is

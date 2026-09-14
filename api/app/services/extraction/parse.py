@@ -3,7 +3,8 @@
 Three things a report line contains and this module turns into data:
 
 * a **value** — ``9.2``, ``<5``, ``>1000``, ``Positive``, ``Not Detected``
-* a **reference range** — ``10-20``, ``< 5``, ``>= 3.5``, ``Male: 13-17 / Female: 12-15``
+* a **reference range** — ``10-20``, ``< 5``, ``>= 3.5``, and the sex-split
+  form ``Male: 13-17 / Female: 12-15``
 * a **status stamp** — ``PRELIMINARY`` / ``FINAL`` / ``AMENDED``
 
 ## Why censored values are not numbers
