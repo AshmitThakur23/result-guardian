@@ -159,7 +159,7 @@
 | Phase | Node | Status | Exit gate | Notes |
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
-| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **CI green; D1–D9 verified. NODE B ✅ provisioned 2026-09-14 (192.168.0.168).** Remaining: full compose stack on NODE A, + 3 cross-node checks. [Status table](docs/build/phase-00-foundation.md) |
+| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **3 of 4 gate clauses verified 2026-09-14.** Full stack now runs on NODE A — health 200, `db: ok`, heartbeat 1s, migrations at `0013`. NODE B ✅ provisioned (192.168.0.168). 🔴 **Remaining blocker: the two machines are on different networks** — *not* the firewall rule. [network-runbook](docs/network-runbook.md) |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ✅ **done** | ✅ **PASSED** | 2.1–2.5 all built, audited and pushed (`13a7151`). Chaos test: 50 cases, 2 restarts, exactly 50 flags. Sweep-only recovery proven |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | 🛑 **ON HOLD — code done + audited (3.1–3.7)** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
