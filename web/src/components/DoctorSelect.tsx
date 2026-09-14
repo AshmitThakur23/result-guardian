@@ -149,7 +149,7 @@ export function DoctorSelect({
         id={labelId}
         htmlFor={`${listboxId}-input`}
         className={cn(
-          "mb-1 block text-sm font-medium text-slate-700",
+          "mb-1 block text-sm font-medium text-ink-body",
           hideLabel && "sr-only",
         )}
       >
@@ -182,8 +182,8 @@ export function DoctorSelect({
         onKeyDown={onKeyDown}
         className={cn(
           "w-full rounded-md border px-3 py-2 text-sm",
-          "disabled:bg-slate-100 disabled:text-slate-500",
-          invalid ? "border-red-500 bg-red-50" : "border-slate-300 bg-white",
+          "disabled:bg-surface-sunken disabled:text-ink-muted",
+          invalid ? "border-red-500 bg-critical-subtle" : "border-line bg-surface",
         )}
       />
 
@@ -192,10 +192,10 @@ export function DoctorSelect({
           id={listboxId}
           role="listbox"
           aria-labelledby={labelId}
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-300 bg-white py-1 shadow-lg"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-line bg-surface py-1 shadow-lg"
         >
           {options.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-slate-500" role="presentation">
+            <li className="px-3 py-2 text-sm text-ink-muted" role="presentation">
               {isFetching ? "Searching…" : "No matching doctor"}
             </li>
           ) : (
@@ -214,11 +214,11 @@ export function DoctorSelect({
                 }}
                 className={cn(
                   "cursor-pointer px-3 py-2 text-sm",
-                  index === activeIndex ? "bg-blue-50" : "bg-white",
+                  index === activeIndex ? "bg-brand-subtle" : "bg-surface",
                 )}
               >
-                <span className="font-medium text-slate-900">{doctor.full_name}</span>
-                <span className="ml-2 text-xs text-slate-500">
+                <span className="font-medium text-ink">{doctor.full_name}</span>
+                <span className="ml-2 text-xs text-ink-muted">
                   {doctor.employee_code}
                 </span>
               </li>

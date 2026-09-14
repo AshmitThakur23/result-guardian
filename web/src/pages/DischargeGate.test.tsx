@@ -435,7 +435,24 @@ describe("the override path", () => {
     renderGate();
 
     const button = await screen.findByRole("button", { name: /Override the gate/ });
-    expect(button.className).toMatch(/bg-red-700/);
+
+    // Was `toMatch(/bg-critical/)`. That named a raw Tailwind colour, which the
+    // design-token migration renamed to `bg-critical` — the assertion was
+    // coupled to a spelling rather than to the thing it cares about.
+    //
+    // Restated against the intent in this test's own name, and *strengthened*:
+    // it is no longer enough that the override button is red, it must also be
+    // visually distinct from the primary action beside it. "Never part of the
+    // main flow" is the property; sharing a style with Confirm discharge would
+    // violate it however red both were.
+    expect(button.className).toMatch(/bg-critical/);
+
+    const primary = await screen.findByRole("button", {
+      name: /Assign responsibility/,
+    });
+    expect(button.className).not.toBe(primary.className);
+    expect(primary.className).not.toMatch(/bg-critical/);
+
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

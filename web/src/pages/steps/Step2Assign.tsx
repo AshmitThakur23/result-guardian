@@ -99,11 +99,11 @@ export function Step2Assign({
 
   return (
     <section aria-labelledby="step2-heading" className="space-y-6">
-      <h2 id="step2-heading" className="text-lg font-semibold text-slate-900">
+      <h2 id="step2-heading" className="text-lg font-semibold text-ink">
         Step 2 — Who is responsible, and by when?
       </h2>
 
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-ink-body">
         Each investigation needs a doctor who will review the result and a date
         by which it is expected. Defaults come from the attending doctor and the
         test&rsquo;s turnaround time — change any that are wrong.
@@ -119,8 +119,8 @@ export function Step2Assign({
       ) : null}
 
       {orders.length > 1 && firstAssignment ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3">
-          <span className="text-sm text-slate-700">
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-4 py-3">
+          <span className="text-sm text-ink-body">
             Same doctor and date for all {orders.length} investigations?
           </span>
           <Button
@@ -150,19 +150,19 @@ export function Step2Assign({
             <li
               key={order.order_id}
               id={`row-${order.order_id}`}
-              className="rounded-md border border-slate-200 bg-white p-4"
+              className="rounded-md border border-line bg-surface p-4"
             >
               <div className="mb-3">
-                <span className="font-medium text-slate-900">{order.test_name}</span>
-                <span className="ml-2 text-xs text-slate-500">{order.test_code}</span>
-                <span className="ml-3 text-xs text-slate-500">
+                <span className="font-medium text-ink">{order.test_name}</span>
+                <span className="ml-2 text-xs text-ink-muted">{order.test_code}</span>
+                <span className="ml-3 text-xs text-ink-muted">
                   ordered {formatShort(order.ordered_at)}
                   {order.expected_tat_hours
                     ? ` · turnaround ${Number(order.expected_tat_hours)} h`
                     : " · no turnaround time recorded"}
                 </span>
                 {needsManualDate(order) ? (
-                  <p className="mt-1 text-xs text-amber-800">
+                  <p className="mt-1 text-xs text-followup-text">
                     No usable default — this test&rsquo;s expected turnaround has
                     already passed or was never recorded. Choose a date.
                   </p>
@@ -190,9 +190,9 @@ export function Step2Assign({
                     invalid={showDoctorError}
                     describedBy={showDoctorError ? errorId : undefined}
                   />
-                  <p className="mt-1 text-xs text-slate-500">Responsible doctor</p>
+                  <p className="mt-1 text-xs text-ink-muted">Responsible doctor</p>
                   {showDoctorError ? (
-                    <p id={errorId} className="mt-1 text-xs text-red-700">
+                    <p id={errorId} className="mt-1 text-xs text-critical-text">
                       Choose the doctor who will review this result.
                     </p>
                   ) : null}
@@ -218,13 +218,13 @@ export function Step2Assign({
                     }
                     className={
                       showDateError
-                        ? "w-full rounded-md border border-red-500 bg-red-50 px-3 py-2 text-sm"
-                        : "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                        ? "w-full rounded-md border border-red-500 bg-critical-subtle px-3 py-2 text-sm"
+                        : "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
                     }
                   />
-                  <p className="mt-1 text-xs text-slate-500">Result expected by</p>
+                  <p className="mt-1 text-xs text-ink-muted">Result expected by</p>
                   {showDateError ? (
-                    <p id={`${errorId}-date`} className="mt-1 text-xs text-red-700">
+                    <p id={`${errorId}-date`} className="mt-1 text-xs text-critical-text">
                       {problem.expectedBy}
                     </p>
                   ) : null}

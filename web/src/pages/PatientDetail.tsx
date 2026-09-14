@@ -59,34 +59,34 @@ function Detail({ patientId }: { patientId: string }) {
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
       <nav className="text-sm">
-        <Link to="/patients" className="text-blue-700 underline">
+        <Link to="/patients" className="text-brand-text underline">
           ← Back to search
         </Link>
       </nav>
 
-      <header className="rounded-md border border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-xl font-semibold text-slate-900">{patient.name}</h1>
-        <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+      <header className="rounded-md border border-line bg-surface px-4 py-3">
+        <h1 className="text-xl font-semibold text-ink">{patient.name}</h1>
+        <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-body">
           <div className="flex gap-1">
             <dt>MRN</dt>
-            <dd className="font-medium text-slate-800">{patient.mrn}</dd>
+            <dd className="font-medium text-ink">{patient.mrn}</dd>
           </div>
           {patient.sex ? (
             <div className="flex gap-1">
               <dt>Sex</dt>
-              <dd className="font-medium text-slate-800">{patient.sex}</dd>
+              <dd className="font-medium text-ink">{patient.sex}</dd>
             </div>
           ) : null}
           {patient.dob ? (
             <div className="flex gap-1">
               <dt>DOB</dt>
-              <dd className="font-medium text-slate-800">{patient.dob}</dd>
+              <dd className="font-medium text-ink">{patient.dob}</dd>
             </div>
           ) : null}
           {patient.phone_primary_e164 ? (
             <div className="flex gap-1">
               <dt>Phone</dt>
-              <dd className="font-medium text-slate-800">
+              <dd className="font-medium text-ink">
                 {patient.phone_primary_e164}
               </dd>
             </div>
@@ -118,7 +118,7 @@ function EncounterList({
   if (rows.length === 0) return null;
   return (
     <section aria-labelledby={`enc-${title}`}>
-      <h2 id={`enc-${title}`} className="mb-2 text-sm font-semibold text-slate-900">
+      <h2 id={`enc-${title}`} className="mb-2 text-sm font-semibold text-ink">
         {title} ({rows.length})
       </h2>
       <ul className="space-y-2">
@@ -126,16 +126,16 @@ function EncounterList({
           <li key={encounter.id}>
             <Link
               to={`/encounters/${encounter.id}`}
-              className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50"
+              className="flex items-center justify-between gap-4 rounded-md border border-line bg-surface px-4 py-3 hover:bg-surface-sunken"
             >
               <span>
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-ink">
                   {encounter.encounter_no}
                 </span>
-                <span className="ml-3 text-xs uppercase text-slate-500">
+                <span className="ml-3 text-xs uppercase text-ink-muted">
                   {encounter.type}
                 </span>
-                <span className="block text-xs text-slate-500">
+                <span className="block text-xs text-ink-muted">
                   Admitted {formatShort(encounter.admitted_at)}
                   {encounter.ward ? ` · ${encounter.ward}` : ""}
                   {encounter.bed ? ` / ${encounter.bed}` : ""}
@@ -144,8 +144,8 @@ function EncounterList({
               <span
                 className={
                   encounter.status === "active"
-                    ? "shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium capitalize text-blue-900"
-                    : "shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-700"
+                    ? "shrink-0 rounded-full bg-brand-subtle px-2 py-0.5 text-xs font-medium capitalize text-brand-text"
+                    : "shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-xs font-medium capitalize text-ink-body"
                 }
               >
                 {encounter.status}

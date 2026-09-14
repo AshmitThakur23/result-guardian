@@ -35,8 +35,8 @@ export function PatientSearchPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
       <header>
-        <h1 className="text-xl font-semibold text-slate-900">Find a patient</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="text-xl font-semibold text-ink">Find a patient</h1>
+        <p className="mt-1 text-sm text-ink-body">
           Search by MRN, name or phone number.
         </p>
       </header>
@@ -53,7 +53,7 @@ export function PatientSearchPage() {
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
           placeholder="MRN-4410, Sunita Rao, or 98765 43210"
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
         />
       </div>
 
@@ -95,7 +95,7 @@ function Results({
 
   return (
     <>
-      <p role="status" className="text-sm text-slate-600">
+      <p role="status" className="text-sm text-ink-body">
         {rows.length} {rows.length === 1 ? "patient" : "patients"}
         {state.isFetching ? " · updating…" : ""}
       </p>
@@ -113,12 +113,12 @@ function PatientCard({ patient }: { patient: PatientSearchRow }) {
     <li>
       <Link
         to={`/patients/${patient.id}`}
-        className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50"
+        className="flex items-center justify-between gap-4 rounded-md border border-line bg-surface px-4 py-3 hover:bg-surface-sunken"
       >
         <span>
-          <span className="font-medium text-slate-900">{patient.name}</span>
-          <span className="ml-3 text-xs text-slate-500">{patient.mrn}</span>
-          <span className="block text-xs text-slate-500">
+          <span className="font-medium text-ink">{patient.name}</span>
+          <span className="ml-3 text-xs text-ink-muted">{patient.mrn}</span>
+          <span className="block text-xs text-ink-muted">
             {[
               patient.sex,
               patient.dob ? `DOB ${formatShort(`${patient.dob}T00:00:00Z`)}` : null,
@@ -129,7 +129,7 @@ function PatientCard({ patient }: { patient: PatientSearchRow }) {
           </span>
         </span>
         {patient.active_encounter_count > 0 ? (
-          <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
+          <span className="shrink-0 rounded-full bg-brand-subtle px-2 py-0.5 text-xs font-medium text-brand-text">
             {patient.active_encounter_count} active
           </span>
         ) : null}

@@ -1,26 +1,47 @@
+/**
+ * The one button in the product.
+ *
+ * Variants are named by **intent**, not by colour, so a screen cannot end up
+ * with two differently-coloured primary actions. `danger` is deliberately the
+ * only filled red control anywhere: the override path is the one place a
+ * clinician can do something irreversible, and it must not look like Save.
+ */
+
 import { forwardRef } from "react";
 import type { ButtonHTMLAttributes } from "react";
 
 import { cn } from "../../lib/cn";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Size = "sm" | "md";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-blue-700 text-white hover:bg-blue-800 disabled:bg-slate-300",
+  primary:
+    "bg-brand text-white shadow-sm hover:bg-brand-hover " +
+    "disabled:bg-line-strong disabled:text-ink-muted disabled:shadow-none",
   secondary:
-    "bg-white text-slate-900 border border-slate-300 hover:bg-slate-50 disabled:text-slate-400",
-  ghost: "bg-transparent text-slate-700 hover:bg-slate-100",
+    "bg-surface text-ink border border-line shadow-sm hover:bg-surface-hover " +
+    "hover:border-line-strong disabled:text-ink-muted disabled:shadow-none",
+  ghost: "bg-transparent text-ink-body hover:bg-surface-hover hover:text-ink",
   // Reserved for the override path. Nothing else on this screen is red-filled,
   // so the one destructive action cannot be mistaken for the normal one.
-  danger: "bg-red-700 text-white hover:bg-red-800 disabled:bg-red-300",
+  danger:
+    "bg-critical text-white shadow-sm hover:brightness-95 " +
+    "disabled:bg-critical-line disabled:text-ink-muted disabled:shadow-none",
+};
+
+const SIZES: Record<Size, string> = {
+  sm: "px-3 py-1.5 text-xs gap-1.5",
+  md: "px-4 py-2 text-sm gap-2",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
+  size?: Size;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "primary", className, type = "button", ...props },
+  { variant = "primary", size = "md", className, type = "button", ...props },
   ref,
 ) {
   return (
@@ -28,8 +49,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2",
-        "text-sm font-medium transition-colors disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center rounded font-medium",
+        // 120ms: perceptible, but gone before it can feel like lag on a
+        // clinician clicking through forty cases.
+        "transition-[background-color,border-color,box-shadow,filter] duration-120",
+        "disabled:cursor-not-allowed active:translate-y-px",
+        SIZES[size],
         VARIANTS[variant],
         className,
       )}

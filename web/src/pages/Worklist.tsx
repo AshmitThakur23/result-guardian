@@ -65,13 +65,13 @@ export function WorklistPage() {
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-ink">
           {filters.mine_only ? "My open flags" : "Department flags"}
         </h1>
         {data?.total_open != null ? (
-          <span className="text-sm text-slate-600">{data.total_open} open</span>
+          <span className="text-sm text-ink-body">{data.total_open} open</span>
         ) : null}
-        <span className="ml-auto text-xs text-slate-500">
+        <span className="ml-auto text-xs text-ink-muted">
           {isFetching ? "Refreshing…" : "Refreshes every 30 seconds"}
         </span>
       </header>
@@ -101,12 +101,12 @@ export function WorklistPage() {
       ) : null}
 
       {rows.length > 0 ? (
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">
               Open flags, most critical first, then oldest
             </caption>
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
               <tr>
                 <th scope="col" className="w-10 px-3 py-2">
                   <span className="sr-only">Select</span>
@@ -169,7 +169,7 @@ export function WorklistPage() {
       </div>
 
       {user?.role === "auditor" ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-muted">
           You are signed in as an auditor: this view is read-only.
         </p>
       ) : null}
@@ -190,7 +190,7 @@ function Row({
   const isCritical = row.severity === "critical";
 
   return (
-    <tr className={cn("border-b border-slate-100 last:border-0", isCritical && "bg-red-50/40")}>
+    <tr className={cn("border-b border-slate-100 last:border-0", isCritical && "bg-critical-subtle/40")}>
       <td className="px-3 py-2 align-top">
         <input
           type="checkbox"
@@ -213,30 +213,30 @@ function Row({
       <td className="px-3 py-2 align-top">
         <Link
           to={`/cases/${row.case_id}`}
-          className="font-medium text-blue-800 underline-offset-2 hover:underline"
+          className="font-medium text-brand-text underline-offset-2 hover:underline"
         >
           {row.patient_name}
         </Link>
-        <div className="text-xs text-slate-500">{row.mrn}</div>
+        <div className="text-xs text-ink-muted">{row.mrn}</div>
         {row.reopened_count > 0 ? (
-          <div className="text-xs font-medium text-amber-800">
+          <div className="text-xs font-medium text-followup-text">
             Reopened {row.reopened_count}×
           </div>
         ) : null}
       </td>
       <td className="px-3 py-2 align-top">
         <div>{row.test_name}</div>
-        <div className="max-w-md text-xs text-slate-600">{row.summary}</div>
+        <div className="max-w-md text-xs text-ink-body">{row.summary}</div>
       </td>
       <td className="px-3 py-2 align-top">
         {row.severity ? (
           <SeverityBadge severity={row.severity} />
         ) : (
-          <span className="text-xs text-slate-500">Not yet classified</span>
+          <span className="text-xs text-ink-muted">Not yet classified</span>
         )}
       </td>
-      <td className="px-3 py-2 align-top text-slate-700">{formatAge(row.age_seconds)}</td>
-      <td className="px-3 py-2 align-top text-slate-700">
+      <td className="px-3 py-2 align-top text-ink-body">{formatAge(row.age_seconds)}</td>
+      <td className="px-3 py-2 align-top text-ink-body">
         {row.escalation_level === null ? "—" : `Rung ${row.escalation_level}`}
       </td>
       <td className="px-3 py-2 align-top">
@@ -244,16 +244,16 @@ function Row({
           <span
             className={cn(
               "text-sm",
-              countdown.overdue ? "font-semibold text-red-800" : "text-slate-700",
+              countdown.overdue ? "font-semibold text-critical-text" : "text-ink-body",
             )}
           >
             {countdown.label}
           </span>
         ) : (
-          <span className="text-sm text-slate-500">None scheduled</span>
+          <span className="text-sm text-ink-muted">None scheduled</span>
         )}
       </td>
-      <td className="px-3 py-2 align-top text-slate-700">{row.owner_name ?? "Unassigned"}</td>
+      <td className="px-3 py-2 align-top text-ink-body">{row.owner_name ?? "Unassigned"}</td>
     </tr>
   );
 }
@@ -277,8 +277,8 @@ function BulkCloseBar({
     : [];
 
   return (
-    <div className="rounded-md border border-slate-300 bg-white p-4">
-      <p className="text-sm font-medium text-slate-900">
+    <div className="rounded-md border border-line bg-surface p-4">
+      <p className="text-sm font-medium text-ink">
         Close {caseIds.length} {caseIds.length === 1 ? "case" : "cases"}
       </p>
 
@@ -293,11 +293,11 @@ function BulkCloseBar({
 
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Reason</span>
+          <span className="text-sm font-medium text-ink">Reason</span>
           <select
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 block rounded-md border border-line px-3 py-2 text-sm"
           >
             {CLOSURE_REASONS.map((value) => (
               <option key={value} value={value}>
@@ -308,12 +308,12 @@ function BulkCloseBar({
         </label>
 
         <label className="block flex-1">
-          <span className="text-sm font-medium text-slate-800">Note (required)</span>
+          <span className="text-sm font-medium text-ink">Note (required)</span>
           <input
             value={note}
             onChange={(event) => setNote(event.target.value)}
             minLength={10}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
         </label>
 
@@ -348,9 +348,9 @@ function Filters({
   onChange: (patch: Partial<WorklistFilters>) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-3">
+    <div className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-surface p-3">
       <label className="block">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-600">
+        <span className="text-xs font-medium uppercase tracking-wide text-ink-body">
           Severity
         </span>
         <select
@@ -360,7 +360,7 @@ function Filters({
               severity: event.target.value ? [event.target.value] : undefined,
             })
           }
-          className="mt-1 block rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="mt-1 block rounded-md border border-line px-3 py-1.5 text-sm"
         >
           <option value="">All</option>
           {SEVERITY_OPTIONS.map((option) => (
@@ -372,17 +372,17 @@ function Filters({
       </label>
 
       <label className="block flex-1 min-w-[12rem]">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-600">
+        <span className="text-xs font-medium uppercase tracking-wide text-ink-body">
           Patient name or MRN
         </span>
         <input
           value={filters.search ?? ""}
           onChange={(event) => onChange({ search: event.target.value || undefined })}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="mt-1 w-full rounded-md border border-line px-3 py-1.5 text-sm"
         />
       </label>
 
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-ink-body">
         <input
           type="checkbox"
           checked={filters.mine_only ?? false}
@@ -392,7 +392,7 @@ function Filters({
         Only mine
       </label>
 
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-ink-body">
         <input
           type="checkbox"
           checked={filters.overdue_only ?? false}
@@ -402,7 +402,7 @@ function Filters({
         Overdue only
       </label>
 
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-ink-body">
         <input
           type="checkbox"
           checked={filters.include_closed ?? false}

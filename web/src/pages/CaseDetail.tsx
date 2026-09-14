@@ -69,13 +69,13 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
   );
 
   return (
-    <header className="rounded-md border border-slate-200 bg-white p-4">
+    <header className="rounded-md border border-line bg-surface p-4">
       <div className="flex flex-wrap items-start gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-xl font-semibold text-ink">
             {text(detail.patient.full_name)}
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-body">
             MRN {text(detail.patient.mrn)} · {text(detail.encounter.department_name)}
             {detail.encounter.discharged_at
               ? ` · discharged ${new Date(
@@ -83,12 +83,12 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
                 ).toLocaleDateString()}`
               : null}
           </p>
-          <p className="mt-1 text-sm text-slate-700">{text(detail.order.test_name)}</p>
+          <p className="mt-1 text-sm text-ink-body">{text(detail.order.test_name)}</p>
         </div>
 
         <div className="ml-auto flex flex-col items-end gap-2">
           {detail.severity ? <SeverityBadge severity={detail.severity} /> : null}
-          <span className="text-xs text-slate-600">
+          <span className="text-xs text-ink-body">
             {detail.flagged_at
               ? formatAge(
                   Math.round((Date.now() - new Date(detail.flagged_at).getTime()) / 1000),
@@ -96,7 +96,7 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
               : "Not yet flagged"}
           </span>
           {detail.escalation_level !== null ? (
-            <span className="text-xs text-slate-600">
+            <span className="text-xs text-ink-body">
               Escalation rung {detail.escalation_level}
             </span>
           ) : null}
@@ -104,7 +104,7 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
             <span
               className={cn(
                 "text-xs",
-                countdown.overdue ? "font-semibold text-red-800" : "text-slate-600",
+                countdown.overdue ? "font-semibold text-critical-text" : "text-ink-body",
               )}
             >
               Next escalation {countdown.label}
@@ -123,7 +123,7 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
       ) : null}
 
       {detail.reopened_count > 0 ? (
-        <p className="mt-2 text-sm text-amber-800">
+        <p className="mt-2 text-sm text-followup-text">
           This case has been reopened {detail.reopened_count}{" "}
           {detail.reopened_count === 1 ? "time" : "times"}.
         </p>
@@ -135,9 +135,9 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
 function Explanations({ explanations }: { explanations: RuleExplanation[] }) {
   if (explanations.length === 0) {
     return (
-      <section className="rounded-md border border-dashed border-slate-300 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-900">Why this is flagged</h2>
-        <p className="mt-1 text-sm text-slate-600">
+      <section className="rounded-md border border-dashed border-line bg-surface p-4">
+        <h2 className="text-sm font-semibold text-ink">Why this is flagged</h2>
+        <p className="mt-1 text-sm text-ink-body">
           No result has been classified yet. The case is being tracked and will
           be classified as soon as a result arrives.
         </p>
@@ -146,8 +146,8 @@ function Explanations({ explanations }: { explanations: RuleExplanation[] }) {
   }
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4">
-      <h2 className="text-sm font-semibold text-slate-900">Why this is flagged</h2>
+    <section className="rounded-md border border-line bg-surface p-4">
+      <h2 className="text-sm font-semibold text-ink">Why this is flagged</h2>
       <ul className="mt-3 space-y-3">
         {explanations.map((item, index) => (
           <li key={`${item.rule_id}-${item.reason_code}-${index}`}>
@@ -155,18 +155,18 @@ function Explanations({ explanations }: { explanations: RuleExplanation[] }) {
               className={cn(
                 "text-sm",
                 item.severity === "critical"
-                  ? "font-semibold text-red-900"
-                  : "text-slate-900",
+                  ? "font-semibold text-critical-text"
+                  : "text-ink",
               )}
             >
               {item.headline}
             </p>
             {item.detail ? (
-              <p className="mt-0.5 text-sm text-slate-600">{item.detail}</p>
+              <p className="mt-0.5 text-sm text-ink-body">{item.detail}</p>
             ) : null}
             {/* The code, kept visible. A clinician who wants to know exactly
                 which rule fired should not have to open the audit trail. */}
-            <p className="mt-0.5 font-mono text-xs text-slate-400">
+            <p className="mt-0.5 font-mono text-xs text-ink-muted">
               rule {item.rule_id} · {item.reason_code}
             </p>
           </li>
@@ -184,9 +184,9 @@ function ResultBlock({ detail }: { detail: CaseDetail }) {
 
   if (!detail.result) {
     return (
-      <section className="rounded-md border border-dashed border-slate-300 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-900">Result</h2>
-        <p className="mt-1 text-sm text-slate-600">
+      <section className="rounded-md border border-dashed border-line bg-surface p-4">
+        <h2 className="text-sm font-semibold text-ink">Result</h2>
+        <p className="mt-1 text-sm text-ink-body">
           No result has arrived yet. The case stays open and escalates until one
           does — that is the point.
         </p>
@@ -195,10 +195,10 @@ function ResultBlock({ detail }: { detail: CaseDetail }) {
   }
 
   return (
-    <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+    <section className="space-y-4 rounded-md border border-line bg-surface p-4">
       <div className="flex flex-wrap items-baseline gap-2">
-        <h2 className="text-sm font-semibold text-slate-900">Result</h2>
-        <span className="text-xs text-slate-500">
+        <h2 className="text-sm font-semibold text-ink">Result</h2>
+        <span className="text-xs text-ink-muted">
           {text(detail.result.report_status)} · received{" "}
           {new Date(String(detail.result.received_at)).toLocaleString()}
         </span>
@@ -210,17 +210,17 @@ function ResultBlock({ detail }: { detail: CaseDetail }) {
       ))}
       {detail.narratives.map((narrative) => (
         <div key={narrative.section}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-body">
             {narrative.section}
           </h3>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">
+          <p className="mt-1 whitespace-pre-wrap text-sm text-ink">
             {narrative.text}
           </p>
         </div>
       ))}
 
       {!hasContent ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-body">
           The report arrived with no structured content. Open the source report.
         </p>
       ) : null}
@@ -232,7 +232,7 @@ function AnalyteTable({ rows }: { rows: AnalyteRow[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-600">
+        <thead className="border-b border-line text-xs uppercase tracking-wide text-ink-body">
           <tr>
             <th scope="col" className="py-2 pr-3">Test</th>
             <th scope="col" className="py-2 pr-3">Value</th>
@@ -243,19 +243,19 @@ function AnalyteTable({ rows }: { rows: AnalyteRow[] }) {
         <tbody>
           {rows.map((row) => (
             <tr key={row.seq} className="border-b border-slate-100 last:border-0">
-              <td className="py-2 pr-3 text-slate-800">{row.test_name}</td>
+              <td className="py-2 pr-3 text-ink">{row.test_name}</td>
               <td
                 className={cn(
                   "py-2 pr-3",
                   // Colour is never the only signal -- the Flag column
                   // carries the word too, for a colour-blind reader and for
                   // a printed report.
-                  row.abnormal ? "font-semibold text-red-800" : "text-slate-800",
+                  row.abnormal ? "font-semibold text-critical-text" : "text-ink",
                 )}
               >
                 {row.value ?? "—"} {row.unit ?? ""}
               </td>
-              <td className="py-2 pr-3 text-slate-600">
+              <td className="py-2 pr-3 text-ink-body">
                 {row.ref_text ??
                   (row.ref_low || row.ref_high
                     ? `${row.ref_low ?? "−∞"} – ${row.ref_high ?? "∞"}`
@@ -263,7 +263,7 @@ function AnalyteTable({ rows }: { rows: AnalyteRow[] }) {
               </td>
               <td className="py-2 text-sm">
                 {row.abnormal ? (
-                  <span className="font-medium text-red-800">
+                  <span className="font-medium text-critical-text">
                     {row.abnormal_direction === "high"
                       ? "High"
                       : row.abnormal_direction === "low"
@@ -271,7 +271,7 @@ function AnalyteTable({ rows }: { rows: AnalyteRow[] }) {
                         : "Abnormal"}
                   </span>
                 ) : (
-                  <span className="text-slate-500">Normal</span>
+                  <span className="text-ink-muted">Normal</span>
                 )}
               </td>
             </tr>
@@ -291,15 +291,15 @@ const INTERPRETATION_LABELS: Record<string, string> = {
 function SensitivityGrid({ organism }: { organism: OrganismRow }) {
   return (
     <div>
-      <h3 className="text-sm font-medium text-slate-900">
+      <h3 className="text-sm font-medium text-ink">
         {organism.organism}
         {organism.colony_count ? (
-          <span className="ml-2 text-xs font-normal text-slate-600">
+          <span className="ml-2 text-xs font-normal text-ink-body">
             {organism.colony_count}
           </span>
         ) : null}
         {organism.specimen_type ? (
-          <span className="ml-2 text-xs font-normal text-slate-500">
+          <span className="ml-2 text-xs font-normal text-ink-muted">
             ({organism.specimen_type})
           </span>
         ) : null}
@@ -307,7 +307,7 @@ function SensitivityGrid({ organism }: { organism: OrganismRow }) {
 
       <div className="mt-2 overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="border-b border-line text-xs uppercase tracking-wide text-ink-body">
             <tr>
               <th scope="col" className="py-2 pr-3">Antibiotic</th>
               <th scope="col" className="py-2 pr-3">Result</th>
@@ -320,22 +320,22 @@ function SensitivityGrid({ organism }: { organism: OrganismRow }) {
                 key={cell.antibiotic ?? ""}
                 className="border-b border-slate-100 last:border-0"
               >
-                <td className="py-2 pr-3 text-slate-800">{cell.antibiotic ?? "—"}</td>
+                <td className="py-2 pr-3 text-ink">{cell.antibiotic ?? "—"}</td>
                 <td
                   className={cn(
                     "py-2 pr-3",
                     cell.interpretation === "R"
-                      ? "font-semibold text-red-800"
+                      ? "font-semibold text-critical-text"
                       : cell.interpretation === "I"
-                        ? "font-medium text-amber-800"
-                        : "text-green-800",
+                        ? "font-medium text-followup-text"
+                        : "text-normal-text",
                   )}
                 >
                   {INTERPRETATION_LABELS[cell.interpretation ?? ""] ??
                     cell.interpretation ??
                     "—"}
                 </td>
-                <td className="py-2 text-slate-600">{cell.mic ?? "—"}</td>
+                <td className="py-2 text-ink-body">{cell.mic ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -349,7 +349,7 @@ function ActionBar({ detail }: { detail: CaseDetail }) {
   const [mode, setMode] = useState<"none" | "close" | "note" | "reopen">("none");
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4">
+    <section className="rounded-md border border-line bg-surface p-4">
       <div className="flex flex-wrap gap-2">
         {detail.can_acknowledge ? (
           <Button onClick={() => setMode(mode === "close" ? "none" : "close")}>
@@ -368,7 +368,7 @@ function ActionBar({ detail }: { detail: CaseDetail }) {
         </Button>
         <Link
           to={`/patients/${text(detail.patient.id, "")}`}
-          className="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium text-ink-body hover:bg-surface-sunken"
         >
           Open the patient
         </Link>
@@ -396,7 +396,7 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
 
   return (
     <form
-      className="mt-4 space-y-3 border-t border-slate-200 pt-4"
+      className="mt-4 space-y-3 border-t border-line pt-4"
       onSubmit={(event) => {
         event.preventDefault();
         mutation.mutate(
@@ -419,11 +419,11 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
       ) : null}
 
       <label className="block">
-        <span className="text-sm font-medium text-slate-800">Closure reason</span>
+        <span className="text-sm font-medium text-ink">Closure reason</span>
         <select
           value={reason}
           onChange={(event) => setReason(event.target.value as ClosureReason)}
-          className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 block rounded-md border border-line px-3 py-2 text-sm"
         >
           {CLOSURE_REASONS.map((value) => (
             <option key={value} value={value}>
@@ -434,7 +434,7 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-slate-800">
+        <span className="text-sm font-medium text-ink">
           {CLOSURE_REASON_PROMPTS[reason]}
         </span>
         <textarea
@@ -443,21 +443,21 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
           rows={3}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
         />
-        <span className="mt-1 block text-xs text-slate-500">
+        <span className="mt-1 block text-xs text-ink-muted">
           At least {MIN_NOTE} characters. This is what an auditor reads.
         </span>
       </label>
 
       {needsDuplicate ? (
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Original case ID</span>
+          <span className="text-sm font-medium text-ink">Original case ID</span>
           <input
             required
             value={duplicateOf}
             onChange={(event) => setDuplicateOf(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 font-mono text-sm"
           />
         </label>
       ) : null}
@@ -482,20 +482,20 @@ function NoteForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void }
 
   return (
     <form
-      className="mt-4 space-y-3 border-t border-slate-200 pt-4"
+      className="mt-4 space-y-3 border-t border-line pt-4"
       onSubmit={(event) => {
         event.preventDefault();
         mutation.mutate({ note }, { onSuccess: onDone });
       }}
     >
       <label className="block">
-        <span className="text-sm font-medium text-slate-800">Note</span>
+        <span className="text-sm font-medium text-ink">Note</span>
         <textarea
           required
           rows={3}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
         />
       </label>
       {mutation.isError ? <ErrorState error={mutation.error} /> : null}
@@ -517,14 +517,14 @@ function ReopenForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void
 
   return (
     <form
-      className="mt-4 space-y-3 border-t border-slate-200 pt-4"
+      className="mt-4 space-y-3 border-t border-line pt-4"
       onSubmit={(event) => {
         event.preventDefault();
         mutation.mutate({ reason }, { onSuccess: onDone });
       }}
     >
       <label className="block">
-        <span className="text-sm font-medium text-slate-800">
+        <span className="text-sm font-medium text-ink">
           Why is this being reopened?
         </span>
         <textarea
@@ -533,9 +533,9 @@ function ReopenForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void
           rows={3}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
         />
-        <span className="mt-1 block text-xs text-slate-500">
+        <span className="mt-1 block text-xs text-ink-muted">
           The original closure stays in the history. Reopening adds to it.
         </span>
       </label>
@@ -573,34 +573,34 @@ function Timeline({ detail }: { detail: CaseDetail }) {
   }
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4">
-      <h2 className="text-sm font-semibold text-slate-900">History</h2>
+    <section className="rounded-md border border-line bg-surface p-4">
+      <h2 className="text-sm font-semibold text-ink">History</h2>
       <ol className="mt-3 space-y-3">
         {detail.timeline.map((event, index) => (
           <li key={`${event.occurred_at}-${index}`} className="flex gap-3 text-sm">
             <time
               dateTime={event.occurred_at}
-              className="w-40 shrink-0 text-xs text-slate-500"
+              className="w-40 shrink-0 text-xs text-ink-muted"
             >
               {new Date(event.occurred_at).toLocaleString()}
             </time>
             <div>
-              <p className="text-slate-900">
+              <p className="text-ink">
                 {EVENT_LABELS[event.event_type] ?? event.event_type}
                 {event.actor_name ? (
-                  <span className="text-slate-500"> · {event.actor_name}</span>
+                  <span className="text-ink-muted"> · {event.actor_name}</span>
                 ) : (
-                  <span className="text-slate-400"> · system</span>
+                  <span className="text-ink-muted"> · system</span>
                 )}
               </p>
               {typeof event.payload.note === "string" ? (
-                <p className="text-slate-600">{event.payload.note}</p>
+                <p className="text-ink-body">{event.payload.note}</p>
               ) : null}
               {typeof event.payload.reason === "string" ? (
-                <p className="text-slate-600">{event.payload.reason}</p>
+                <p className="text-ink-body">{event.payload.reason}</p>
               ) : null}
               {typeof event.payload.closure_reason === "string" ? (
-                <p className="text-slate-600">
+                <p className="text-ink-body">
                   Reason: {event.payload.closure_reason}
                 </p>
               ) : null}

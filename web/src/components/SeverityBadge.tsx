@@ -10,9 +10,9 @@ import { cn } from "../lib/cn";
 import type { Severity } from "../api/types";
 
 const TONES: Record<Severity, string> = {
-  critical: "border-red-300 bg-red-100 text-red-900",
-  follow_up: "border-amber-300 bg-amber-100 text-amber-900",
-  normal: "border-green-300 bg-green-100 text-green-900",
+  critical: "border-critical-line bg-critical-subtle text-critical-text",
+  follow_up: "border-followup-line bg-followup-subtle text-followup-text",
+  normal: "border-normal-line bg-normal-subtle text-normal-text",
 };
 
 const LABELS: Record<Severity, string> = {

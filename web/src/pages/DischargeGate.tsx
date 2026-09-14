@@ -283,7 +283,7 @@ function Gate({ encounterId }: { encounterId: string }) {
   if (encounterQuery.isPending || readinessQuery.isPending) {
     return (
       <Shell>
-        <p role="status" className="text-sm text-slate-600">
+        <p role="status" className="text-sm text-ink-body">
           Loading discharge details…
         </p>
       </Shell>
@@ -398,11 +398,11 @@ function Gate({ encounterId }: { encounterId: string }) {
       ) : null}
 
       {blockingOrders.length > 0 ? (
-        <div className="border-t border-slate-200 pt-6">
-          <h2 className="text-sm font-semibold text-slate-900">
+        <div className="border-t border-line pt-6">
+          <h2 className="text-sm font-semibold text-ink">
             If this discharge cannot wait
           </h2>
-          <p className="mt-1 max-w-prose text-sm text-slate-600">
+          <p className="mt-1 max-w-prose text-sm text-ink-body">
             Overriding the gate discharges the patient without assigning these
             results to a doctor. It is recorded permanently and every
             investigation is flagged to the unit head.

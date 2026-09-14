@@ -70,29 +70,29 @@ function Detail({ encounterId }: { encounterId: string }) {
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
       <nav className="text-sm">
-        <Link to={`/patients/${encounter.patient.id}`} className="text-blue-700 underline">
+        <Link to={`/patients/${encounter.patient.id}`} className="text-brand-text underline">
           ← {encounter.patient.name}
         </Link>
       </nav>
 
-      <header className="rounded-md border border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-xl font-semibold text-slate-900">
+      <header className="rounded-md border border-line bg-surface px-4 py-3">
+        <h1 className="text-xl font-semibold text-ink">
           {encounter.encounter_no}
-          <span className="ml-3 text-sm font-normal uppercase text-slate-500">
+          <span className="ml-3 text-sm font-normal uppercase text-ink-muted">
             {encounter.type}
           </span>
         </h1>
-        <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+        <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-body">
           <div className="flex gap-1">
             <dt>Patient</dt>
-            <dd className="font-medium text-slate-800">
+            <dd className="font-medium text-ink">
               {encounter.patient.name} · {encounter.patient.mrn}
             </dd>
           </div>
           {encounter.ward ? (
             <div className="flex gap-1">
               <dt>Ward</dt>
-              <dd className="font-medium text-slate-800">
+              <dd className="font-medium text-ink">
                 {encounter.ward}
                 {encounter.bed ? ` / ${encounter.bed}` : ""}
               </dd>
@@ -100,19 +100,19 @@ function Detail({ encounterId }: { encounterId: string }) {
           ) : null}
           <div className="flex gap-1">
             <dt>Admitted</dt>
-            <dd className="font-medium text-slate-800">
+            <dd className="font-medium text-ink">
               {formatShort(encounter.admitted_at)}
             </dd>
           </div>
           <div className="flex gap-1">
             <dt>Attending</dt>
-            <dd className="font-medium text-slate-800">
+            <dd className="font-medium text-ink">
               {encounter.attending_doctor?.full_name ?? "Not assigned"}
             </dd>
           </div>
           <div className="flex gap-1">
             <dt>Status</dt>
-            <dd className="font-medium capitalize text-slate-800">
+            <dd className="font-medium capitalize text-ink">
               {encounter.status}
             </dd>
           </div>
@@ -133,7 +133,7 @@ function Detail({ encounterId }: { encounterId: string }) {
       {/* ── orders ─────────────────────────────────────────────── */}
       <section aria-labelledby="orders-heading" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 id="orders-heading" className="text-lg font-semibold text-slate-900">
+          <h2 id="orders-heading" className="text-lg font-semibold text-ink">
             Investigations ({encounter.orders.length})
           </h2>
           {encounter.can_add_orders ? (
@@ -148,7 +148,7 @@ function Detail({ encounterId }: { encounterId: string }) {
         </div>
 
         {!encounter.can_add_orders ? (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-body">
             This encounter is {encounter.status}. New investigations cannot be
             added to it — one ordered after discharge could not be tracked by
             the gate.
@@ -156,7 +156,7 @@ function Detail({ encounterId }: { encounterId: string }) {
         ) : null}
 
         {addingOrder && encounter.can_add_orders ? (
-          <div className="rounded-md border border-slate-200 bg-white p-4">
+          <div className="rounded-md border border-line bg-surface p-4">
             <AddOrderForm
               encounterId={encounterId}
               onCreated={(testName) => {
@@ -192,7 +192,7 @@ function Detail({ encounterId }: { encounterId: string }) {
       {/* ── medications ────────────────────────────────────────── */}
       <section aria-labelledby="meds-heading" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 id="meds-heading" className="text-lg font-semibold text-slate-900">
+          <h2 id="meds-heading" className="text-lg font-semibold text-ink">
             Discharge medications ({encounter.medications.length})
           </h2>
           <Button
@@ -205,7 +205,7 @@ function Detail({ encounterId }: { encounterId: string }) {
         </div>
 
         {addingMedication ? (
-          <div className="rounded-md border border-slate-200 bg-white p-4">
+          <div className="rounded-md border border-line bg-surface p-4">
             <AddMedicationForm encounterId={encounterId} />
           </div>
         ) : null}
@@ -251,12 +251,12 @@ function GateSummary({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-line bg-surface px-4 py-3">
       <div>
         {encounter.can_discharge ? (
-          <p className="font-semibold text-green-800">Ready to discharge</p>
+          <p className="font-semibold text-normal-text">Ready to discharge</p>
         ) : (
-          <p className="font-semibold text-red-800">
+          <p className="font-semibold text-critical-text">
             Discharge blocked — {encounter.blocking_order_count}{" "}
             {encounter.blocking_order_count === 1
               ? "investigation has"
@@ -264,13 +264,13 @@ function GateSummary({
             no one responsible
           </p>
         )}
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-body">
           The gate re-checks this on the server when the discharge is attempted.
         </p>
       </div>
       <Link
         to={`/encounters/${encounter.id}/discharge`}
-        className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+        className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover"
       >
         Open discharge gate
       </Link>
@@ -292,21 +292,21 @@ function OrderTable({
   if (rows.length === 0) {
     return emptyLabel ? (
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-slate-900">{title}</h3>
-        <p className="text-sm text-slate-600">{emptyLabel}</p>
+        <h3 className="mb-1 text-sm font-semibold text-ink">{title}</h3>
+        <p className="text-sm text-ink-body">{emptyLabel}</p>
       </div>
     ) : null;
   }
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-slate-900">
+      <h3 className="mb-2 text-sm font-semibold text-ink">
         {title} ({rows.length})
       </h3>
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full text-left text-sm">
           <caption className="sr-only">{title} investigations</caption>
-          <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
             <tr>
               <th scope="col" className="px-4 py-2">
                 Investigation
@@ -329,13 +329,13 @@ function OrderTable({
             {rows.map((order) => (
               <tr key={order.id}>
                 <td className="px-4 py-3">
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-ink">
                     {order.test_name}
                   </span>
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="ml-2 text-xs text-ink-muted">
                     {order.test_code}
                   </span>
-                  <span className="block text-xs capitalize text-slate-500">
+                  <span className="block text-xs capitalize text-ink-muted">
                     {order.category}
                     {order.external_order_id ? ` · ${order.external_order_id}` : ""}
                   </span>
@@ -344,30 +344,30 @@ function OrderTable({
                   <span
                     className={
                       order.is_outstanding
-                        ? "rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium capitalize text-amber-900"
-                        : "rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-700"
+                        ? "rounded-full bg-followup-subtle px-2 py-0.5 text-xs font-medium capitalize text-followup-text"
+                        : "rounded-full bg-surface-sunken px-2 py-0.5 text-xs font-medium capitalize text-ink-body"
                     }
                   >
                     {order.status.replace(/_/g, " ")}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-ink-body">
                   {formatShort(order.ordered_at)}
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-ink-body">
                   {order.contract_id ? (
                     <>
                       <span className="font-medium">
                         {order.responsible_doctor_name ?? "Assigned"}
                       </span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-ink-muted">
                         due {formatShort(order.expected_by)}
                       </span>
                     </>
                   ) : order.is_outstanding ? (
-                    <span className="text-red-800">No one yet</span>
+                    <span className="text-critical-text">No one yet</span>
                   ) : (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-ink-muted">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -377,7 +377,7 @@ function OrderTable({
                       that must not be turned away. */}
                   <Link
                     to={`/encounters/${encounterId}/orders/${order.id}/result`}
-                    className="text-blue-700 underline"
+                    className="text-brand-text underline"
                   >
                     {order.is_outstanding ? "Enter result" : "Enter an amendment"}
                     <span className="sr-only"> for {order.test_name}</span>
@@ -394,16 +394,16 @@ function OrderTable({
 
 function MedicationList({ rows }: { rows: DischargeMedicationRow[] }) {
   return (
-    <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
+    <ul className="divide-y divide-slate-100 rounded-md border border-line bg-surface">
       {rows.map((medication) => (
         <li key={medication.id} className="px-4 py-3 text-sm">
-          <span className="font-medium text-slate-900">{medication.drug_name}</span>
+          <span className="font-medium text-ink">{medication.drug_name}</span>
           {medication.is_antibiotic ? (
             <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-900">
               antibiotic
             </span>
           ) : null}
-          <span className="block text-xs text-slate-500">
+          <span className="block text-xs text-ink-muted">
             {[
               medication.dose,
               medication.route,

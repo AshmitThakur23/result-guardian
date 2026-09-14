@@ -51,7 +51,7 @@ export function Step3Review({
 
   return (
     <section aria-labelledby="step3-heading" className="space-y-6">
-      <h2 id="step3-heading" className="text-lg font-semibold text-slate-900">
+      <h2 id="step3-heading" className="text-lg font-semibold text-ink">
         Step 3 — Confirm
       </h2>
 
@@ -75,13 +75,13 @@ export function Step3Review({
       ) : null}
 
       {sentences.length > 0 ? (
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-900">
+        <div className="rounded-md border border-line bg-surface p-4">
+          <h3 className="text-sm font-semibold text-ink">
             These results will be tracked after discharge
           </h3>
           <ul className="mt-3 space-y-2">
             {sentences.map((sentence) => (
-              <li key={sentence.key} className="text-sm leading-relaxed text-slate-800">
+              <li key={sentence.key} className="text-sm leading-relaxed text-ink">
                 <span className="font-medium">{sentence.doctor}</span> will review{" "}
                 <span className="font-medium">{sentence.test}</span> by{" "}
                 <span className="font-medium">{sentence.when}</span>.
@@ -92,13 +92,13 @@ export function Step3Review({
       ) : null}
 
       {alreadyContracted.length > 0 ? (
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-900">
+        <div className="rounded-md border border-line bg-surface p-4">
+          <h3 className="text-sm font-semibold text-ink">
             Already assigned before this discharge
           </h3>
           <ul className="mt-3 space-y-2">
             {alreadyContracted.map((order) => (
-              <li key={order.order_id} className="text-sm leading-relaxed text-slate-800">
+              <li key={order.order_id} className="text-sm leading-relaxed text-ink">
                 <span className="font-medium">
                   {nameFor(order.responsible_doctor_id)}
                 </span>{" "}

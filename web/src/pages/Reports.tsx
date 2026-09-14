@@ -45,7 +45,7 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Reports</h1>
+        <h1 className="text-xl font-semibold text-ink">Reports</h1>
         <div className="flex gap-1">
           {WINDOWS.map((window) => (
             <button
@@ -55,8 +55,8 @@ export function ReportsPage() {
               className={cn(
                 "rounded-md px-3 py-1.5 text-sm font-medium",
                 days === window.days
-                  ? "bg-blue-50 text-blue-800"
-                  : "text-slate-600 hover:bg-slate-100",
+                  ? "bg-brand-subtle text-brand-text"
+                  : "text-ink-body hover:bg-surface-sunken",
               )}
             >
               {window.label}
@@ -119,9 +119,9 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4">
-      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-      {hint ? <p className="mt-0.5 text-xs text-slate-600">{hint}</p> : null}
+    <section className="rounded-md border border-line bg-surface p-4">
+      <h2 className="text-sm font-semibold text-ink">{title}</h2>
+      {hint ? <p className="mt-0.5 text-xs text-ink-body">{hint}</p> : null}
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -130,9 +130,9 @@ function Card({
 function Bar({ value, max, tone = "blue" }: { value: number; max: number; tone?: string }) {
   const width = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
   return (
-    <div className="h-2 w-full rounded bg-slate-100">
+    <div className="h-2 w-full rounded bg-surface-sunken">
       <div
-        className={cn("h-2 rounded", tone === "red" ? "bg-red-600" : "bg-blue-600")}
+        className={cn("h-2 rounded", tone === "red" ? "bg-critical" : "bg-brand")}
         style={{ width: `${width}%` }}
       />
     </div>
@@ -161,8 +161,8 @@ function AlertFatigue({ report }: { report: MetricsSummary }) {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-2xl font-semibold text-slate-900">{value}</div>
-      <div className="text-xs uppercase tracking-wide text-slate-600">{label}</div>
+      <div className="text-2xl font-semibold text-ink">{value}</div>
+      <div className="text-xs uppercase tracking-wide text-ink-body">{label}</div>
     </div>
   );
 }
@@ -198,10 +198,10 @@ function ClosureReasons({ report }: { report: MetricsSummary }) {
           {rows.map((row) => (
             <li key={row.closure_reason}>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-800">
+                <span className="text-ink">
                   {row.closure_reason.replace(/_/g, " ")}
                 </span>
-                <span className="text-slate-600">
+                <span className="text-ink-body">
                   {row.count} ({(row.share * 100).toFixed(0)}%)
                 </span>
               </div>
@@ -225,7 +225,7 @@ function Turnaround({ report }: { report: MetricsSummary }) {
       hint="Median and 90th percentile, not an average — these distributions have long tails and a mean describes no actual patient."
     >
       <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase tracking-wide text-slate-600">
+        <thead className="text-xs uppercase tracking-wide text-ink-body">
           <tr>
             <th scope="col" className="py-1">Stage</th>
             <th scope="col" className="py-1">p50</th>
@@ -236,16 +236,16 @@ function Turnaround({ report }: { report: MetricsSummary }) {
         <tbody>
           {report.turnaround.map((stat) => (
             <tr key={stat.stage} className="border-t border-slate-100">
-              <td className="py-2 text-slate-800">
+              <td className="py-2 text-ink">
                 {STAGE_LABELS[stat.stage] ?? stat.stage}
               </td>
-              <td className="py-2 text-slate-700">
+              <td className="py-2 text-ink-body">
                 {stat.p50_seconds === null ? "—" : formatDuration(stat.p50_seconds)}
               </td>
-              <td className="py-2 text-slate-700">
+              <td className="py-2 text-ink-body">
                 {stat.p90_seconds === null ? "—" : formatDuration(stat.p90_seconds)}
               </td>
-              <td className="py-2 text-slate-500">{stat.sample_size}</td>
+              <td className="py-2 text-ink-muted">{stat.sample_size}</td>
             </tr>
           ))}
         </tbody>
@@ -265,11 +265,11 @@ function AgeBuckets({ report }: { report: MetricsSummary }) {
         {report.age_buckets.map((bucket) => (
           <li key={bucket.label}>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-800">{bucket.label}</span>
-              <span className="text-slate-600">
+              <span className="text-ink">{bucket.label}</span>
+              <span className="text-ink-body">
                 {bucket.count}
                 {bucket.critical_count > 0 ? (
-                  <span className="ml-2 font-medium text-red-800">
+                  <span className="ml-2 font-medium text-critical-text">
                     {bucket.critical_count} critical
                   </span>
                 ) : null}
@@ -305,7 +305,7 @@ function Escalations({ report }: { report: MetricsSummary }) {
       hint="Counts rungs that actually fired. A ladder stopped by a prompt acknowledgement did not escalate."
     >
       <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase tracking-wide text-slate-600">
+        <thead className="text-xs uppercase tracking-wide text-ink-body">
           <tr>
             <th scope="col" className="py-1">Department</th>
             <th scope="col" className="py-1">Rung</th>
@@ -315,11 +315,11 @@ function Escalations({ report }: { report: MetricsSummary }) {
         <tbody>
           {report.escalations.map((row, index) => (
             <tr key={`${row.department_id}-${row.rung}-${index}`} className="border-t border-slate-100">
-              <td className="py-2 text-slate-800">
+              <td className="py-2 text-ink">
                 {row.department_name ?? "Unassigned"}
               </td>
-              <td className="py-2 text-slate-700">{row.rung ?? "—"}</td>
-              <td className="py-2 text-slate-700">{row.fired}</td>
+              <td className="py-2 text-ink-body">{row.rung ?? "—"}</td>
+              <td className="py-2 text-ink-body">{row.fired}</td>
             </tr>
           ))}
         </tbody>
@@ -388,7 +388,7 @@ function PerDoctor({ days }: { days: number }) {
       hint="How long each doctor's flags waited before someone looked. Open cases are the number that matters most."
     >
       <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase tracking-wide text-slate-600">
+        <thead className="text-xs uppercase tracking-wide text-ink-body">
           <tr>
             <th scope="col" className="py-1">Doctor</th>
             <th scope="col" className="py-1">Open</th>
@@ -400,25 +400,25 @@ function PerDoctor({ days }: { days: number }) {
         <tbody>
           {data.map((row) => (
             <tr key={row.user_id} className="border-t border-slate-100">
-              <td className="py-2 text-slate-800">
+              <td className="py-2 text-ink">
                 {row.full_name}
-                <span className="ml-2 font-mono text-xs text-slate-500">
+                <span className="ml-2 font-mono text-xs text-ink-muted">
                   {row.employee_code}
                 </span>
               </td>
               <td
                 className={cn(
                   "py-2",
-                  row.open_cases > 0 ? "font-medium text-amber-800" : "text-slate-700",
+                  row.open_cases > 0 ? "font-medium text-followup-text" : "text-ink-body",
                 )}
               >
                 {row.open_cases}
               </td>
-              <td className="py-2 text-slate-700">{row.cases_closed}</td>
-              <td className="py-2 text-slate-700">
+              <td className="py-2 text-ink-body">{row.cases_closed}</td>
+              <td className="py-2 text-ink-body">
                 {row.p50_ack_seconds === null ? "—" : formatDuration(row.p50_ack_seconds)}
               </td>
-              <td className="py-2 text-slate-700">
+              <td className="py-2 text-ink-body">
                 {row.p90_ack_seconds === null ? "—" : formatDuration(row.p90_ack_seconds)}
               </td>
             </tr>

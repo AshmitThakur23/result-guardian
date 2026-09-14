@@ -35,12 +35,12 @@ function CopyableReference({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <span className="inline-flex items-center gap-2">
-      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-800">
+      <code className="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-xs text-ink">
         {value}
       </code>
       <button
         type="button"
-        className="text-xs text-blue-700 underline"
+        className="text-xs text-brand-text underline"
         onClick={() => {
           // Clipboard access is denied outright on an insecure origin, which a
           // ward machine on plain HTTP over the LAN may well be. The reference
@@ -103,16 +103,16 @@ export function SuccessScreen({
       </Banner>
 
       {createdContracts.length > 0 ? (
-        <div className="rounded-md border border-slate-200 bg-white p-4">
-          <h2 id="success-heading" className="text-sm font-semibold text-slate-900">
+        <div className="rounded-md border border-line bg-surface p-4">
+          <h2 id="success-heading" className="text-sm font-semibold text-ink">
             Contract references
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-ink-muted">
             Quote one of these when asking about a result.
           </p>
           <ul className="mt-3 space-y-3">
             {createdContracts.map((contract) => (
-              <li key={contract.contract_id} className="text-sm text-slate-800">
+              <li key={contract.contract_id} className="text-sm text-ink">
                 <div>
                   <span className="font-medium">
                     {testNameFor(contract.order_id)}
@@ -134,11 +134,11 @@ export function SuccessScreen({
       )}
 
       {overridden.length > 0 ? (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
-          <h3 className="text-sm font-semibold text-amber-900">
+        <div className="rounded-md border border-followup-line bg-followup-subtle p-4">
+          <h3 className="text-sm font-semibold text-followup-text">
             Bypassed and flagged to the unit head
           </h3>
-          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+          <ul className="mt-2 space-y-1 text-sm text-followup-text">
             {overridden.map((record) => (
               <li key={record.override_id}>
                 {testNameFor(record.order_id)} — now owned by{" "}

@@ -75,7 +75,7 @@ export function PageImage({
   if (error) {
     return (
       <div
-        className={`flex items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 p-8 text-sm text-slate-600 ${className}`}
+        className={`flex items-center justify-center rounded border border-dashed border-line bg-surface-sunken p-8 text-sm text-ink-body ${className}`}
       >
         {error}
       </div>
@@ -85,7 +85,7 @@ export function PageImage({
   if (!url) {
     return (
       <div
-        className={`flex items-center justify-center rounded border border-slate-200 bg-slate-50 p-8 text-sm text-slate-500 ${className}`}
+        className={`flex items-center justify-center rounded border border-line bg-surface-sunken p-8 text-sm text-ink-muted ${className}`}
         role="status"
       >
         Loading page {pageNo}…
@@ -105,7 +105,7 @@ export function PageImage({
       <img
         src={url}
         alt={`Page ${pageNo} of the uploaded report`}
-        className="w-full rounded border border-slate-300"
+        className="w-full rounded border border-line"
       />
       {canOverlay &&
         drawn.map((span, index) => (

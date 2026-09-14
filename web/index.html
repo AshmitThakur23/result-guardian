@@ -3,7 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Result Guardian — no post-discharge investigation result is ever lost."
+    />
     <title>Result Guardian</title>
+    <script>
+      // Applied before first paint, deliberately blocking and inline.
+      //
+      // If the theme class were set from React instead, every load on a dark
+      // theme would flash white for a frame or two. That is unpleasant on a
+      // desk and genuinely unpleasant at 3am in a dim ward, which is exactly
+      // when this product is being used.
+      //
+      // Wrapped in try/catch because localStorage throws outright in some
+      // private-browsing modes, and a theme preference must never be able to
+      // stop the application loading.
+      (function () {
+        try {
+          var stored = localStorage.getItem("rg-theme");
+          var dark =
+            stored === "dark" ||
+            (stored !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", dark);
+          document.documentElement.classList.toggle("light", stored === "light");
+        } catch (e) {
+          /* no preference available; the CSS media query still applies */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

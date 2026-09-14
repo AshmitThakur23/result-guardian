@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 
 import { useReviewQueue, useUploadReport } from "../api/queries6";
 import type { DocumentRow } from "../api/types6";
+import { Badge } from "../components/ui/Badge";
 import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
 import { ErrorState, Loading } from "../components/ui/States";
@@ -39,22 +40,25 @@ function formatWhen(iso: string): string {
 function StatusBadge({ status }: { status: DocumentRow["status"] }) {
   const tone =
     status === "failed"
-      ? "bg-red-100 text-red-900 ring-red-300"
+      ? "critical"
       : status === "needs_review"
-        ? "bg-amber-100 text-amber-900 ring-amber-300"
+        ? "followup"
         : status === "extracted"
-          ? "bg-green-100 text-green-900 ring-green-300"
-          : "bg-slate-100 text-slate-700 ring-slate-300";
+          ? "normal"
+          : "info";
   const label =
     status === "needs_review"
       ? "Needs review"
       : status === "failed"
         ? "Could not read"
         : status.charAt(0).toUpperCase() + status.slice(1);
+  // The shared Badge, which sets `whitespace-nowrap`. Hand-rolled, this pill
+  // broke across two lines in a narrow column and read as a rendering fault --
+  // visible only in a screenshot, never in a passing test.
   return (
-    <span className={`rounded px-2 py-0.5 text-xs font-medium ring-1 ${tone}`}>
+    <Badge tone={tone} dot>
       {label}
-    </span>
+    </Badge>
   );
 }
 
@@ -64,9 +68,9 @@ function UploadPanel() {
   const [selected, setSelected] = useState<File | null>(null);
 
   return (
-    <section className="rounded border border-slate-300 bg-white p-4">
-      <h2 className="text-sm font-semibold text-slate-900">Upload a report</h2>
-      <p className="mt-1 text-sm text-slate-600">
+    <section className="rounded border border-line bg-surface p-4">
+      <h2 className="text-sm font-semibold text-ink">Upload a report</h2>
+      <p className="mt-1 text-sm text-ink-body">
         PDF, PNG, JPEG or TIFF, up to 25 MB. The file is checked and queued for
         reading; you do not have to wait here.
       </p>
@@ -145,8 +149,8 @@ export function DocumentQueuePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-slate-900">Documents</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="text-xl font-semibold text-ink">Documents</h1>
+        <p className="mt-1 text-sm text-ink-body">
           Uploaded reports the system could not read on its own. Open one to
           enter it by hand with the scanned page beside the form.
         </p>
@@ -155,7 +159,7 @@ export function DocumentQueuePage() {
       <UploadPanel />
 
       <section>
-        <h2 className="text-sm font-semibold text-slate-900">
+        <h2 className="text-sm font-semibold text-ink">
           Waiting for a person
         </h2>
 
@@ -178,14 +182,14 @@ export function DocumentQueuePage() {
           <div className="mt-3 overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-300 text-left">
+                <tr className="border-b border-line text-left">
                   <th scope="col" className="py-2 pr-3 font-medium">
                     Received
                   </th>
                   <th scope="col" className="py-2 pr-3 font-medium">
                     File
                   </th>
-                  <th scope="col" className="py-2 pr-3 font-medium">
+                  <th scope="col" className="w-36 py-2 pr-3 font-medium">
                     Status
                   </th>
                   <th scope="col" className="py-2 pr-3 font-medium">
@@ -195,18 +199,18 @@ export function DocumentQueuePage() {
               </thead>
               <tbody>
                 {queue.data.documents.map((row) => (
-                  <tr key={row.id} className="border-b border-slate-200 align-top">
+                  <tr key={row.id} className="border-b border-line align-top">
                     <td className="py-2 pr-3 whitespace-nowrap">
                       {formatWhen(row.received_at)}
                     </td>
                     <td className="py-2 pr-3">
                       <Link
-                        className="font-medium text-blue-800 underline"
+                        className="font-medium text-brand-text underline"
                         to={`/documents/${row.id}`}
                       >
                         {row.original_filename ?? "Untitled report"}
                       </Link>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-ink-muted">
                         {formatBytes(row.size_bytes)}
                         {row.page_count ? ` · ${row.page_count} pages` : ""}
                         {` · via ${row.source_channel.replace("_", " ")}`}
@@ -215,7 +219,7 @@ export function DocumentQueuePage() {
                     <td className="py-2 pr-3">
                       <StatusBadge status={row.status} />
                     </td>
-                    <td className="py-2 pr-3 text-slate-700">
+                    <td className="py-2 pr-3 text-ink-body">
                       {row.error_text ?? "—"}
                     </td>
                   </tr>

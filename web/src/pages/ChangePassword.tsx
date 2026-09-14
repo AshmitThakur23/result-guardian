@@ -61,9 +61,9 @@ export function ChangePasswordPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-      <h1 className="text-2xl font-semibold text-slate-900">Choose a new password</h1>
+      <h1 className="text-2xl font-semibold text-ink">Choose a new password</h1>
       {user?.must_change_password ? (
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-body">
           You must change your password before using the system.
         </p>
       ) : null}
@@ -76,19 +76,19 @@ export function ChangePasswordPage() {
         ) : null}
 
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Current password</span>
+          <span className="text-sm font-medium text-ink">Current password</span>
           <input
             type="password"
             autoComplete="current-password"
             required
             value={current}
             onChange={(event) => setCurrent(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">New password</span>
+          <span className="text-sm font-medium text-ink">New password</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -96,12 +96,12 @@ export function ChangePasswordPage() {
             minLength={MIN_LENGTH}
             value={next}
             onChange={(event) => setNext(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Confirm new password</span>
+          <span className="text-sm font-medium text-ink">Confirm new password</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -109,16 +109,16 @@ export function ChangePasswordPage() {
             value={confirm}
             onChange={(event) => setConfirm(event.target.value)}
             aria-invalid={mismatch}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
           {mismatch ? (
-            <span className="mt-1 block text-sm text-red-700">
+            <span className="mt-1 block text-sm text-critical-text">
               The two passwords do not match.
             </span>
           ) : null}
         </label>
 
-        <ul className="list-inside list-disc text-xs text-slate-600">
+        <ul className="list-inside list-disc text-xs text-ink-body">
           <li>At least {MIN_LENGTH} characters</li>
           <li>Upper and lower case letters, and a digit</li>
           <li>Must not contain your employee code</li>
@@ -128,7 +128,7 @@ export function ChangePasswordPage() {
           {submitting ? "Saving…" : "Change password"}
         </Button>
 
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-muted">
           Changing your password signs you out of every other device.
         </p>
       </form>

@@ -186,9 +186,9 @@ const router = createBrowserRouter(
 function NotFound() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-xl font-semibold text-slate-900">Page not found</h1>
-      <p className="mt-2 text-sm text-slate-600">
-        <Link to="/worklist" className="text-blue-700 underline">
+      <h1 className="text-xl font-semibold text-ink">Page not found</h1>
+      <p className="mt-2 text-sm text-ink-body">
+        <Link to="/worklist" className="text-brand-text underline">
           Go to your worklist
         </Link>
       </p>

@@ -168,7 +168,7 @@ export function ResultEntryPage() {
         <Banner tone="warning" title="That investigation is not on this encounter.">
           <Link
             to={`/encounters/${encounterId}`}
-            className="text-blue-700 underline"
+            className="text-brand-text underline"
           >
             Back to the encounter
           </Link>
@@ -212,16 +212,16 @@ export function ResultEntryPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <nav className="mb-4 text-sm">
-        <Link to={`/encounters/${encounterId}`} className="text-blue-700 underline">
+        <Link to={`/encounters/${encounterId}`} className="text-brand-text underline">
           ← {encounter.data.patient.name}
         </Link>
       </nav>
 
       <header className="mb-6">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-ink">
           Enter a result — {order.test_name}
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-body">
           {order.test_code} · {order.category} · ordered{" "}
           {new Date(order.ordered_at).toLocaleString()}
         </p>
@@ -233,14 +233,14 @@ export function ResultEntryPage() {
 
           {/* ── the report itself ──────────────────────────────── */}
           <section aria-labelledby="report-heading" className="space-y-4">
-            <h2 id="report-heading" className="text-lg font-semibold text-slate-900">
+            <h2 id="report-heading" className="text-lg font-semibold text-ink">
               Report
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label
                   htmlFor="report-status"
-                  className="mb-1 block text-sm font-medium text-slate-700"
+                  className="mb-1 block text-sm font-medium text-ink-body"
                 >
                   Report status
                 </label>
@@ -248,7 +248,7 @@ export function ResultEntryPage() {
                   id="report-status"
                   value={reportStatus}
                   onChange={(e) => setReportStatus(e.target.value as ReportStatus)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
                 >
                   {REPORT_STATUSES.map((s) => (
                     <option key={s} value={s}>
@@ -256,7 +256,7 @@ export function ResultEntryPage() {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-ink-muted">
                   {reportStatus === "preliminary"
                     ? "A preliminary report is held, not closed — the final one is still owed."
                     : reportStatus === "amended" || reportStatus === "corrected"
@@ -267,7 +267,7 @@ export function ResultEntryPage() {
               <div>
                 <label
                   htmlFor="source-ref"
-                  className="mb-1 block text-sm font-medium text-slate-700"
+                  className="mb-1 block text-sm font-medium text-ink-body"
                 >
                   Lab reference (optional)
                 </label>
@@ -276,9 +276,9 @@ export function ResultEntryPage() {
                   value={sourceRef}
                   onChange={(e) => setSourceRef(e.target.value)}
                   placeholder="ACC-100234"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-line px-3 py-2 text-sm"
                 />
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-ink-muted">
                   The accession number. It is what stops the same report being
                   taken in twice.
                 </p>
@@ -290,7 +290,7 @@ export function ResultEntryPage() {
           <CulturePanel rows={organisms} setRows={setOrganisms} />
           <NarrativePanel rows={narratives} setRows={setNarratives} />
 
-          <div className="flex items-center gap-3 border-t border-slate-200 pt-6">
+          <div className="flex items-center gap-3 border-t border-line pt-6">
             <Button onClick={save} disabled={isEmpty || record.isPending}>
               {record.isPending ? "Saving…" : "Save result"}
             </Button>
@@ -301,7 +301,7 @@ export function ResultEntryPage() {
               Cancel
             </Button>
             {isEmpty ? (
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-ink-body">
                 Nothing to save yet — a report needs a value, an organism or a
                 section.
               </p>
@@ -330,7 +330,7 @@ function NumericPanel({
   return (
     <section aria-labelledby="numeric-heading" className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 id="numeric-heading" className="text-lg font-semibold text-slate-900">
+        <h2 id="numeric-heading" className="text-lg font-semibold text-ink">
           Numeric panel
         </h2>
         <Button
@@ -342,14 +342,14 @@ function NumericPanel({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-body">
           No numeric values on this report.
         </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-600">
+              <tr className="border-b border-line text-left text-ink-body">
                 <th scope="col" className="py-2 pr-3 font-medium">
                   Test
                 </th>
@@ -447,7 +447,7 @@ function NumericPanel({
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-ink-muted">
             A value with no reference range is not treated as normal — it is
             flagged for a human to check.
           </p>
@@ -472,7 +472,7 @@ function CulturePanel({
   return (
     <section aria-labelledby="culture-heading" className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 id="culture-heading" className="text-lg font-semibold text-slate-900">
+        <h2 id="culture-heading" className="text-lg font-semibold text-ink">
           Culture and sensitivity
         </h2>
         <Button
@@ -484,15 +484,15 @@ function CulturePanel({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-600">No growth entered on this report.</p>
+        <p className="text-sm text-ink-body">No growth entered on this report.</p>
       ) : null}
 
       {rows.map((organism, index) => (
         <fieldset
           key={organism.key}
-          className="space-y-4 rounded-md border border-slate-300 p-4"
+          className="space-y-4 rounded-md border border-line p-4"
         >
-          <legend className="px-1 text-sm font-medium text-slate-700">
+          <legend className="px-1 text-sm font-medium text-ink-body">
             Organism {index + 1}
           </legend>
 
@@ -525,7 +525,7 @@ function CulturePanel({
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-slate-700">
+              <h3 className="text-sm font-medium text-ink-body">
                 Sensitivity panel
               </h3>
               <Button
@@ -542,7 +542,7 @@ function CulturePanel({
 
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-600">
+                <tr className="border-b border-line text-left text-ink-body">
                   <th scope="col" className="py-2 pr-3 font-medium">
                     Antibiotic
                   </th>
@@ -662,7 +662,7 @@ function NarrativePanel({
   return (
     <section aria-labelledby="narrative-heading" className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 id="narrative-heading" className="text-lg font-semibold text-slate-900">
+        <h2 id="narrative-heading" className="text-lg font-semibold text-ink">
           Report text
         </h2>
         <Button
@@ -674,16 +674,16 @@ function NarrativePanel({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-600">No report text on this result.</p>
+        <p className="text-sm text-ink-body">No report text on this result.</p>
       ) : null}
 
       {rows.map((row, index) => (
-        <div key={row.key} className="space-y-2 rounded-md border border-slate-300 p-4">
+        <div key={row.key} className="space-y-2 rounded-md border border-line p-4">
           <div className="flex items-end justify-between gap-4">
             <div>
               <label
                 htmlFor={`narrative-section-${row.key}`}
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-ink-body"
               >
                 Section
               </label>
@@ -693,7 +693,7 @@ function NarrativePanel({
                 onChange={(e) =>
                   update(row.key, { section: e.target.value as NarrativeSection })
                 }
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
               >
                 {NARRATIVE_SECTIONS.map((section) => (
                   <option key={section} value={section}>
@@ -713,7 +713,7 @@ function NarrativePanel({
 
           <label
             htmlFor={`narrative-text-${row.key}`}
-            className="mb-1 block text-sm font-medium text-slate-700"
+            className="mb-1 block text-sm font-medium text-ink-body"
           >
             Text
           </label>
@@ -722,13 +722,13 @@ function NarrativePanel({
             value={row.text}
             onChange={(e) => update(row.key, { text: e.target.value })}
             rows={4}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-line px-3 py-2 text-sm"
             placeholder="No evidence of malignancy."
           />
         </div>
       ))}
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-ink-muted">
         Report text never closes a case on its own. The most a section can be
         is a follow-up.
       </p>
@@ -762,7 +762,7 @@ function Cell({
     <div className={block ? "" : "min-w-[8rem]"}>
       <label
         htmlFor={id}
-        className={block ? "mb-1 block text-sm font-medium text-slate-700" : "sr-only"}
+        className={block ? "mb-1 block text-sm font-medium text-ink-body" : "sr-only"}
       >
         {label}
       </label>
@@ -772,7 +772,7 @@ function Cell({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+        className="w-full rounded-md border border-line px-2 py-1.5 text-sm"
       />
     </div>
   );

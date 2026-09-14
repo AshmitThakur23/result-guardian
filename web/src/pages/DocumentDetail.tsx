@@ -35,7 +35,7 @@ import { ErrorState, Loading } from "../components/ui/States";
 function ConfidenceNote({ page }: { page: DocumentPage }) {
   if (!page.is_scanned) {
     return (
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-ink-muted">
         This page had a text layer, so it was read directly — no scanning
         involved.
       </p>
@@ -43,7 +43,7 @@ function ConfidenceNote({ page }: { page: DocumentPage }) {
   }
   if (page.ocr_confidence === null) {
     return (
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-ink-muted">
         This page was scanned and nothing could be read from it.
       </p>
     );
@@ -51,7 +51,7 @@ function ConfidenceNote({ page }: { page: DocumentPage }) {
   const percent = Math.round(page.ocr_confidence * 100);
   const low = page.ocr_confidence < OCR_CONFIDENCE_FLOOR;
   return (
-    <p className={`text-xs ${low ? "text-amber-800" : "text-slate-500"}`}>
+    <p className={`text-xs ${low ? "text-followup-text" : "text-ink-muted"}`}>
       Scanned page, read with {percent}% confidence
       {low
         ? ` — below the ${Math.round(OCR_CONFIDENCE_FLOOR * 100)}% threshold. Check every value against the image.`
@@ -89,10 +89,10 @@ export function DocumentDetailPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-xl font-semibold text-ink">
             {doc.original_filename ?? "Untitled report"}
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-ink-body">
             Received {new Date(doc.received_at).toLocaleString("en-IN")} ·{" "}
             {doc.page_count ?? pages.length} pages · via{" "}
             {doc.source_channel.replace("_", " ")}
@@ -173,7 +173,7 @@ export function DocumentDetailPage() {
                   className={`rounded border px-3 py-1 text-sm ${
                     p.page_no === pageNo
                       ? "border-slate-800 bg-slate-800 text-white"
-                      : "border-slate-300 bg-white text-slate-700"
+                      : "border-line bg-surface text-ink-body"
                   }`}
                 >
                   Page {p.page_no}
@@ -187,7 +187,7 @@ export function DocumentDetailPage() {
             // desk is not always a big monitor.
             <div className="grid gap-4 lg:grid-cols-2">
               <div>
-                <h2 className="mb-2 text-sm font-semibold text-slate-900">
+                <h2 className="mb-2 text-sm font-semibold text-ink">
                   Page {page.page_no} as received
                 </h2>
                 {page.image_url ? (
@@ -209,24 +209,24 @@ export function DocumentDetailPage() {
 
               <div>
                 <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-slate-900">
+                  <h2 className="text-sm font-semibold text-ink">
                     What was read
                   </h2>
                   {page.image_url && (
-                    <label className="text-xs text-slate-600">
+                    <label className="text-xs text-ink-body">
                       Highlight{" "}
                       <input
                         type="text"
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="e.g. 9.2"
-                        className="w-28 rounded border border-slate-300 px-2 py-0.5 text-xs"
+                        className="w-28 rounded border border-line px-2 py-0.5 text-xs"
                       />
                     </label>
                   )}
                 </div>
                 <ConfidenceNote page={page} />
-                <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded border border-slate-300 bg-slate-50 p-3 text-xs text-slate-800">
+                <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded border border-line bg-surface-sunken p-3 text-xs text-ink">
                   {page.text_layer?.trim() ||
                     "Nothing could be read from this page."}
                 </pre>

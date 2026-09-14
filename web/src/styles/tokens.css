@@ -1,0 +1,230 @@
+/**
+ * Design tokens. The whole palette lives here and nowhere else.
+ *
+ * ## Why semantic names, not `slate-600`
+ *
+ * Before this file the codebase used raw Tailwind utilities — 97 uses of
+ * `text-slate-600`, 71 of `text-slate-900` — which means a colour decision was
+ * made 97 separate times and can only be changed 97 separate times. Worse, it
+ * makes dark mode impossible: `text-slate-900` is near-black by definition, so
+ * on a dark surface it is invisible. Tokens are what let one declaration serve
+ * both themes.
+ *
+ * ## The design brief this palette answers
+ *
+ * This is a screen a ward clerk stares at for a nine-hour shift, and the
+ * product's whole job is to make one thing impossible to miss. Two consequences
+ * follow, and they pull in opposite directions:
+ *
+ * 1. **Calm by default.** Almost everything is near-neutral. A dashboard that
+ *    shouts all day is a dashboard nobody reads by Thursday.
+ * 2. **Loud where it counts.** Saturated colour is *reserved* for severity. If
+ *    a button, a nav item and a critical flag all compete in blue, the critical
+ *    flag has lost.
+ *
+ * ## Colour is never the only signal
+ *
+ * Roughly 1 in 12 men has a red/green deficiency, and this product routes
+ * critical results. So severity always carries **a word as well as a colour**
+ * (`Critical`, `Needs review`) and the two severity hues are separated on
+ * lightness as well as hue, so they stay distinguishable in greyscale and on a
+ * bad projector.
+ *
+ * OKLCH is used deliberately: it is perceptually uniform, so a lightness of
+ * 0.55 looks equally dark in red and in blue. In HSL it does not, which is how
+ * palettes end up with one status colour that looks heavier than the others.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── surfaces ─────────────────────────────────────────────────── */
+  /* `canvas` sits behind everything; `surface` is the card on top of it.
+     The gap between them is deliberately small — heavy contrast between
+     background and card turns a dense table into a set of floating islands. */
+  --rg-canvas: oklch(98.4% 0.003 240);
+  --rg-surface: oklch(100% 0 0);
+  --rg-surface-raised: oklch(100% 0 0);
+  --rg-surface-sunken: oklch(96.8% 0.004 240);
+  /* Row hover / selected. Subtle: a table you are scanning should not flash. */
+  --rg-surface-hover: oklch(97.2% 0.006 240);
+
+  /* ── text ─────────────────────────────────────────────────────── */
+  /* `body` is the workhorse. 44% lightness on white is ~7.5:1 — comfortably
+     past WCAG AA, because clinical values get misread at AA-minimum greys. */
+  --rg-text: oklch(21% 0.012 250);
+  --rg-text-body: oklch(44% 0.012 250);
+  --rg-text-muted: oklch(56% 0.012 250);
+  --rg-text-inverse: oklch(99% 0 0);
+
+  /* ── lines ────────────────────────────────────────────────────── */
+  --rg-border: oklch(91% 0.006 250);
+  --rg-border-strong: oklch(83% 0.008 250);
+
+  /* ── brand ────────────────────────────────────────────────────── */
+  /* A single restrained blue. Used for actions and focus, never for status. */
+  --rg-brand: oklch(48% 0.15 255);
+  --rg-brand-hover: oklch(42% 0.15 255);
+  --rg-brand-subtle: oklch(96% 0.025 255);
+  --rg-brand-text: oklch(40% 0.15 255);
+
+  /* ── severity ─────────────────────────────────────────────────── *
+   * The only saturated colours in the system. Each has a `-subtle`
+   * background, a `-line` for its border, and a `-text` guaranteed to clear
+   * 4.5:1 on its own subtle background.                                    */
+
+  /* CRITICAL — a doctor must act. */
+  --rg-critical: oklch(52% 0.20 25);
+  --rg-critical-subtle: oklch(96% 0.03 25);
+  --rg-critical-line: oklch(84% 0.09 25);
+  --rg-critical-text: oklch(42% 0.17 25);
+
+  /* FOLLOW-UP — a human must look. Amber, and deliberately *lighter* than
+     critical so the two differ in weight, not only in hue. */
+  --rg-followup: oklch(72% 0.16 70);
+  --rg-followup-subtle: oklch(97% 0.04 80);
+  --rg-followup-line: oklch(86% 0.09 75);
+  --rg-followup-text: oklch(45% 0.12 65);
+
+  /* NORMAL / resolved. */
+  --rg-normal: oklch(58% 0.13 155);
+  --rg-normal-subtle: oklch(96% 0.03 155);
+  --rg-normal-line: oklch(85% 0.07 155);
+  --rg-normal-text: oklch(41% 0.11 155);
+
+  /* INFO — used for "AI offline", which is a *normal operating state* and
+     must never be styled as an alarm. Neutral on purpose. */
+  --rg-info-subtle: oklch(96.5% 0.005 250);
+  --rg-info-line: oklch(88% 0.008 250);
+  --rg-info-text: oklch(43% 0.012 250);
+
+  /* ── elevation ────────────────────────────────────────────────── */
+  /* Barely-there. Depth is for separating layers, not for decoration. */
+  --rg-shadow-sm: 0 1px 2px oklch(21% 0.012 250 / 0.05);
+  --rg-shadow: 0 1px 3px oklch(21% 0.012 250 / 0.07),
+    0 1px 2px oklch(21% 0.012 250 / 0.04);
+  --rg-shadow-lg: 0 10px 24px oklch(21% 0.012 250 / 0.10),
+    0 2px 6px oklch(21% 0.012 250 / 0.05);
+
+  --rg-radius: 0.5rem;
+  --rg-radius-lg: 0.75rem;
+}
+
+/* ── dark theme ───────────────────────────────────────────────────
+ * Night shifts are when the fewest people are awake and the most gets
+ * missed, so this is a safety feature rather than a preference.
+ *
+ * Surfaces are *lifted* rather than text being dimmed: raising a card above
+ * the canvas reads as depth, whereas greying text in a dark room reads as
+ * unreadable. Severity hues gain lightness and lose a little chroma, because
+ * a saturated red that works on white vibrates unpleasantly on near-black. */
+.dark {
+  color-scheme: dark;
+
+  --rg-canvas: oklch(17% 0.012 255);
+  --rg-surface: oklch(21% 0.014 255);
+  --rg-surface-raised: oklch(24% 0.015 255);
+  --rg-surface-sunken: oklch(19% 0.013 255);
+  --rg-surface-hover: oklch(25% 0.016 255);
+
+  --rg-text: oklch(97% 0.004 250);
+  --rg-text-body: oklch(82% 0.008 250);
+  --rg-text-muted: oklch(66% 0.010 250);
+  --rg-text-inverse: oklch(17% 0.012 255);
+
+  --rg-border: oklch(31% 0.014 255);
+  --rg-border-strong: oklch(41% 0.016 255);
+
+  --rg-brand: oklch(70% 0.14 255);
+  --rg-brand-hover: oklch(77% 0.13 255);
+  --rg-brand-subtle: oklch(28% 0.05 255);
+  --rg-brand-text: oklch(80% 0.11 255);
+
+  --rg-critical: oklch(65% 0.19 25);
+  --rg-critical-subtle: oklch(27% 0.07 25);
+  --rg-critical-line: oklch(42% 0.12 25);
+  --rg-critical-text: oklch(84% 0.11 25);
+
+  --rg-followup: oklch(78% 0.15 75);
+  --rg-followup-subtle: oklch(27% 0.06 70);
+  --rg-followup-line: oklch(43% 0.10 70);
+  --rg-followup-text: oklch(87% 0.11 80);
+
+  --rg-normal: oklch(70% 0.13 155);
+  --rg-normal-subtle: oklch(25% 0.05 155);
+  --rg-normal-line: oklch(38% 0.08 155);
+  --rg-normal-text: oklch(84% 0.12 155);
+
+  --rg-info-subtle: oklch(25% 0.010 250);
+  --rg-info-line: oklch(34% 0.012 250);
+  --rg-info-text: oklch(78% 0.010 250);
+
+  --rg-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4);
+  --rg-shadow: 0 1px 3px oklch(0% 0 0 / 0.45), 0 1px 2px oklch(0% 0 0 / 0.3);
+  --rg-shadow-lg: 0 10px 24px oklch(0% 0 0 / 0.55), 0 2px 6px oklch(0% 0 0 / 0.4);
+}
+
+/* Respect the OS unless the user has chosen explicitly. `.light` is what the
+   toggle writes to opt back out of a dark OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+
+    --rg-canvas: oklch(17% 0.012 255);
+    --rg-surface: oklch(21% 0.014 255);
+    --rg-surface-raised: oklch(24% 0.015 255);
+    --rg-surface-sunken: oklch(19% 0.013 255);
+    --rg-surface-hover: oklch(25% 0.016 255);
+
+    --rg-text: oklch(97% 0.004 250);
+    --rg-text-body: oklch(82% 0.008 250);
+    --rg-text-muted: oklch(66% 0.010 250);
+    --rg-text-inverse: oklch(17% 0.012 255);
+
+    --rg-border: oklch(31% 0.014 255);
+    --rg-border-strong: oklch(41% 0.016 255);
+
+    --rg-brand: oklch(70% 0.14 255);
+    --rg-brand-hover: oklch(77% 0.13 255);
+    --rg-brand-subtle: oklch(28% 0.05 255);
+    --rg-brand-text: oklch(80% 0.11 255);
+
+    --rg-critical: oklch(65% 0.19 25);
+    --rg-critical-subtle: oklch(27% 0.07 25);
+    --rg-critical-line: oklch(42% 0.12 25);
+    --rg-critical-text: oklch(84% 0.11 25);
+
+    --rg-followup: oklch(78% 0.15 75);
+    --rg-followup-subtle: oklch(27% 0.06 70);
+    --rg-followup-line: oklch(43% 0.10 70);
+    --rg-followup-text: oklch(87% 0.11 80);
+
+    --rg-normal: oklch(70% 0.13 155);
+    --rg-normal-subtle: oklch(25% 0.05 155);
+    --rg-normal-line: oklch(38% 0.08 155);
+    --rg-normal-text: oklch(84% 0.12 155);
+
+    --rg-info-subtle: oklch(25% 0.010 250);
+    --rg-info-line: oklch(34% 0.012 250);
+    --rg-info-text: oklch(78% 0.010 250);
+
+    --rg-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4);
+    --rg-shadow: 0 1px 3px oklch(0% 0 0 / 0.45), 0 1px 2px oklch(0% 0 0 / 0.3);
+    --rg-shadow-lg: 0 10px 24px oklch(0% 0 0 / 0.55),
+      0 2px 6px oklch(0% 0 0 / 0.4);
+  }
+}
+
+/* ── reduced motion ───────────────────────────────────────────────
+   Vestibular disorders are common, and nothing in this product needs
+   animation to be understood. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

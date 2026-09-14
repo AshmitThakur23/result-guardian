@@ -139,7 +139,7 @@ export function RequireAuth({
 
   if (restoring) {
     return (
-      <p role="status" className="py-16 text-center text-sm text-slate-600">
+      <p role="status" className="py-16 text-center text-sm text-ink-body">
         Restoring your session…
       </p>
     );
@@ -158,10 +158,10 @@ export function RequireAuth({
   if (roles.length > 0 && !roles.includes(user.role)) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">
+        <h1 className="text-xl font-semibold text-ink">
           You do not have access to this page
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-body">
           This page is for: {roles.join(", ")}. You are signed in as{" "}
           <strong>{user.role.replace("_", " ")}</strong>.
         </p>

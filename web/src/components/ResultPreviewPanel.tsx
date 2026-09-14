@@ -77,27 +77,27 @@ export function ResultPreviewPanel({
   return (
     <aside
       aria-labelledby="preview-heading"
-      className="space-y-3 rounded-md border border-slate-300 bg-slate-50 p-4"
+      className="space-y-3 rounded-md border border-line bg-surface-sunken p-4"
     >
       <div>
-        <h2 id="preview-heading" className="text-sm font-semibold text-slate-900">
+        <h2 id="preview-heading" className="text-sm font-semibold text-ink">
           Predicted severity
         </h2>
-        <p className="mt-1 text-xs text-slate-600">
+        <p className="mt-1 text-xs text-ink-body">
           What the rule engine would decide about this report as typed. Nothing
           is saved until you press Save.
         </p>
       </div>
 
       {isEmpty ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-body">
           Enter a value, an organism or a report section to see what it would
           mean.
         </p>
       ) : preview.isError ? (
         <ErrorState error={preview.error} />
       ) : preview.data === undefined ? (
-        <p className="text-sm text-slate-600" role="status">
+        <p className="text-sm text-ink-body" role="status">
           Grading…
         </p>
       ) : (
@@ -111,7 +111,7 @@ export function ResultPreviewPanel({
           <div className="flex items-center gap-3">
             <SeverityBadge severity={preview.data.severity} />
             {preview.isFetching ? (
-              <span className="text-xs text-slate-500">updating…</span>
+              <span className="text-xs text-ink-muted">updating…</span>
             ) : null}
           </div>
 
@@ -126,20 +126,20 @@ export function ResultPreviewPanel({
             {preview.data.rules.map((row, index) => (
               <li
                 key={`${row.rule_id}-${row.subject ?? index}`}
-                className="rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                className="rounded border border-line bg-surface px-3 py-2 text-sm"
               >
-                <p className="font-medium text-slate-900">
+                <p className="font-medium text-ink">
                   {row.subject ?? RULE_NAMES[row.rule_id] ?? row.rule_id}
                 </p>
-                <p className="text-slate-700">{explain(row)}</p>
+                <p className="text-ink-body">{explain(row)}</p>
                 {row.offending_drug ? (
-                  <p className="mt-1 text-slate-700">
+                  <p className="mt-1 text-ink-body">
                     Prescribed at discharge:{" "}
                     <strong className="font-semibold">{row.offending_drug}</strong>
                   </p>
                 ) : null}
                 {row.alternatives_available.length > 0 ? (
-                  <p className="mt-1 text-slate-600">
+                  <p className="mt-1 text-ink-body">
                     Susceptible on this panel: {row.alternatives_available.join(", ")}
                   </p>
                 ) : null}
@@ -147,7 +147,7 @@ export function ResultPreviewPanel({
             ))}
           </ul>
 
-          <dl className="space-y-1 text-xs text-slate-600">
+          <dl className="space-y-1 text-xs text-ink-body">
             <div className="flex gap-2">
               <dt className="font-medium">Discharge antibiotics compared:</dt>
               <dd>

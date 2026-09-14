@@ -1,21 +1,92 @@
+@import "./styles/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    color-scheme: light;
-  }
-
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-canvas text-ink antialiased;
+    /* Clinical text is read, not skimmed. */
+    text-rendering: optimizeLegibility;
   }
 
   /* Keyboard operation is a hard requirement of the gate, so the focus ring is
      never removed -- only replaced with one that is visible against every
      background used here. A doctor tabbing through this screen must always be
-     able to see where they are. */
+     able to see where they are.
+
+     `--rg-canvas` as the offset colour is what makes this work in both themes:
+     a white offset ring on a dark surface draws a bright halo that is harder
+     to read than no ring at all. */
   :focus-visible {
-    @apply outline-none ring-2 ring-blue-600 ring-offset-2 ring-offset-white;
+    @apply outline-none ring-2 ring-brand ring-offset-2;
+    --tw-ring-offset-color: var(--rg-canvas);
+  }
+
+  /* ★ Tabular figures for anything numeric.
+     A column of lab values in proportional digits does not line up, and a
+     misread decimal place in this product is a clinical incident. `1` must
+     occupy the same width as `8`. */
+  table,
+  time,
+  [data-numeric],
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Headings carry weight rather than size alone -- dense screens run out of
+     size budget quickly. */
+  h1,
+  h2,
+  h3 {
+    @apply text-ink font-semibold;
+    text-wrap: balance;
+  }
+
+  /* Long clinical prose reads better without orphans. */
+  p {
+    text-wrap: pretty;
+  }
+
+  /* The browser default is a hairline that disappears on dark surfaces. */
+  hr {
+    @apply border-line;
+  }
+
+  ::selection {
+    background: var(--rg-brand-subtle);
+    color: var(--rg-brand-text);
+  }
+
+  /* Scrollbars styled only where the platform draws them permanently. */
+  @supports (scrollbar-color: auto) {
+    * {
+      scrollbar-color: var(--rg-border-strong) transparent;
+      scrollbar-width: thin;
+    }
+  }
+}
+
+@layer components {
+  /* A single definition for the card shape the whole product uses, so a
+     "panel" means the same thing on every screen. */
+  .rg-panel {
+    @apply rounded-lg border border-line bg-surface shadow-sm;
+  }
+
+  /* Table rows: the hover has to be perceptible without flashing at someone
+     dragging a cursor down forty rows. */
+  .rg-row {
+    @apply border-b border-line transition-colors duration-100 hover:bg-surface-hover;
+  }
+
+  /* Skip link -- visible only on focus. Keyboard users should not have to tab
+     through the whole nav to reach a worklist. */
+  .rg-skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50
+           focus:rounded focus:bg-surface focus:px-4 focus:py-2 focus:text-sm
+           focus:font-medium focus:text-ink focus:shadow-lg;
   }
 }

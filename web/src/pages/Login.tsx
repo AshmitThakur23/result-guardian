@@ -29,7 +29,7 @@ export function LoginPage() {
 
   if (restoring) {
     return (
-      <p role="status" className="py-16 text-center text-sm text-slate-600">
+      <p role="status" className="py-16 text-center text-sm text-ink-body">
         Restoring your session…
       </p>
     );
@@ -61,8 +61,8 @@ export function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-      <h1 className="text-2xl font-semibold text-slate-900">Result Guardian</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-2xl font-semibold text-ink">Result Guardian</h1>
+      <p className="mt-1 text-sm text-ink-body">
         Post-discharge investigation follow-up
       </p>
 
@@ -76,7 +76,7 @@ export function LoginPage() {
         ) : null}
 
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Employee code</span>
+          <span className="text-sm font-medium text-ink">Employee code</span>
           <input
             name="employee_code"
             autoComplete="username"
@@ -84,12 +84,12 @@ export function LoginPage() {
             autoFocus
             value={employeeCode}
             onChange={(event) => setEmployeeCode(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Password</span>
+          <span className="text-sm font-medium text-ink">Password</span>
           <input
             name="password"
             type="password"
@@ -97,7 +97,7 @@ export function LoginPage() {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
         </label>
 
@@ -106,7 +106,7 @@ export function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-xs text-slate-500">
+      <p className="mt-6 text-xs text-ink-muted">
         Five failed attempts lock an account for 15 minutes. If you are locked
         out, an administrator can unlock it.
       </p>

@@ -68,14 +68,14 @@ export function OverrideDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-30 bg-slate-900/50" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-40 w-[min(40rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
+          className="fixed left-1/2 top-1/2 z-40 w-[min(40rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-surface p-6 shadow-xl"
           aria-describedby="override-description"
         >
-          <Dialog.Title className="text-lg font-semibold text-red-900">
+          <Dialog.Title className="text-lg font-semibold text-critical-text">
             Discharge without assigning {blockingCount === 1 ? "this result" : "these results"}?
           </Dialog.Title>
 
-          <Dialog.Description id="override-description" className="mt-2 text-sm text-slate-700">
+          <Dialog.Description id="override-description" className="mt-2 text-sm text-ink-body">
             {blockingCount} investigation{blockingCount === 1 ? "" : "s"} for{" "}
             {patientName} {blockingCount === 1 ? "has" : "have"} no responsible
             doctor. Overriding records this permanently, flags every one of them
@@ -100,7 +100,7 @@ export function OverrideDialog({
             <div>
               <label
                 htmlFor="override-reason-code"
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-ink-body"
               >
                 Reason
               </label>
@@ -110,7 +110,7 @@ export function OverrideDialog({
                 onChange={(event) =>
                   setReasonCode(event.target.value as OverrideReasonCode | "")
                 }
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
               >
                 <option value="">Choose a reason…</option>
                 {OVERRIDE_REASON_CODES.map((code) => (
@@ -124,7 +124,7 @@ export function OverrideDialog({
             <div>
               <label
                 htmlFor="override-reason-text"
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-ink-body"
               >
                 What happened?
               </label>
@@ -134,14 +134,14 @@ export function OverrideDialog({
                 value={reasonText}
                 onChange={(event) => setReasonText(event.target.value)}
                 aria-describedby="override-reason-count"
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
               <p
                 id="override-reason-count"
                 className={
                   reasonLongEnough
-                    ? "mt-1 text-xs text-slate-500"
-                    : "mt-1 text-xs text-red-700"
+                    ? "mt-1 text-xs text-ink-muted"
+                    : "mt-1 text-xs text-critical-text"
                 }
               >
                 {reasonLongEnough
@@ -156,7 +156,7 @@ export function OverrideDialog({
                 value={overriddenBy}
                 onChange={(doctorId) => setOverriddenBy(doctorId)}
               />
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ink-muted">
                 Recorded against this override. Comes from the signed-in user
                 once authentication is in place.
               </p>

@@ -15,85 +15,75 @@
  */
 
 import { useHealth } from "../api/queries5";
-import { cn } from "../lib/cn";
-
-const TONES = {
-  ok: "border-green-300 bg-green-50 text-green-900",
-  info: "border-slate-300 bg-slate-50 text-slate-700",
-  warn: "border-amber-300 bg-amber-50 text-amber-900",
-  danger: "border-red-300 bg-red-50 text-red-900",
-} as const;
+import { Badge } from "./ui/Badge";
 
 export function SystemStatusPill() {
   const { data, isPending, isError } = useHealth();
 
   if (isPending) {
-    return <Pill tone="info" label="Checking…" />;
+    return <Badge tone="info">Checking…</Badge>;
   }
 
   if (isError || !data) {
     return (
-      <Pill
-        tone="warn"
-        label="Status unknown"
-        title="Could not reach /api/health. Tracking may still be running."
-      />
+      <Badge
+        tone="followup"
+        dot
+        className="cursor-help"
+        // Title, not a toast: the distinction between "the system is down" and
+        // "this browser tab cannot reach it" matters, and guessing wrong in
+        // either direction is harmful.
+      >
+        <span title="Could not reach /api/health. Tracking may still be running.">
+          Status unknown
+        </span>
+      </Badge>
     );
   }
 
   // Worst first. A stale worker outranks everything: timers are not firing.
   const workerStale = data.degraded_features.includes("worker");
   if (data.db !== "ok") {
-    return <Pill tone="danger" label="Database unavailable" />;
+    return (
+      <Badge tone="critical" dot>
+        Database unavailable
+      </Badge>
+    );
   }
   if (workerStale) {
     return (
-      <Pill
-        tone="danger"
-        label="Worker not responding"
-        title={
-          "Timers may not be firing. This is the failure the system exists to " +
-          "prevent — tell the administrator now."
-        }
-      />
+      <Badge tone="critical" dot className="cursor-help">
+        <span
+          title={
+            "Timers may not be firing. This is the failure the system exists to " +
+            "prevent — tell the administrator now."
+          }
+        >
+          Worker not responding
+        </span>
+      </Badge>
     );
   }
 
   if (data.llm.reachable) {
-    return <Pill tone="ok" label="AI: connected" />;
+    return (
+      <Badge tone="normal" dot>
+        AI: connected
+      </Badge>
+    );
   }
 
+  // `info`, not `warning`. Deliberately the quietest tone in the system.
   return (
-    <Pill
-      tone="info"
-      label="AI: offline — core tracking unaffected"
-      title={
-        "NODE B is an accelerator. Tracking, timers, escalation and " +
-        "notification all run on this machine and are unaffected."
-      }
-    />
-  );
-}
-
-function Pill({
-  tone,
-  label,
-  title,
-}: {
-  tone: keyof typeof TONES;
-  label: string;
-  title?: string;
-}) {
-  return (
-    <span
-      role="status"
-      title={title}
-      className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
-        TONES[tone],
-      )}
-    >
-      {label}
-    </span>
+    <Badge tone="info" dot className="cursor-help">
+      <span
+        title={
+          "NODE B is an accelerator. Tracking, timers, escalation and " +
+          "notification all run on this machine and are unaffected."
+        }
+      >
+        AI: offline — core tracking unaffected
+      </span>
+    </Badge>
   );
 }

@@ -103,7 +103,7 @@ export function AddOrderForm({
 
   return (
     <form onSubmit={submit} className="space-y-4" aria-labelledby="add-order-heading">
-      <h3 id="add-order-heading" className="text-sm font-semibold text-slate-900">
+      <h3 id="add-order-heading" className="text-sm font-semibold text-ink">
         Add an investigation
       </h3>
 
@@ -130,7 +130,7 @@ export function AddOrderForm({
         <div>
           <label
             htmlFor="order-category"
-            className="mb-1 block text-sm font-medium text-slate-700"
+            className="mb-1 block text-sm font-medium text-ink-body"
           >
             Category
           </label>
@@ -138,7 +138,7 @@ export function AddOrderForm({
             id="order-category"
             value={fields.category}
             onChange={(e) => set("category", e.target.value as OrderCategory)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
           >
             {ORDER_CATEGORIES.map((category) => (
               <option key={category} value={category}>
@@ -151,7 +151,7 @@ export function AddOrderForm({
         <div>
           <label
             htmlFor="order-status"
-            className="mb-1 block text-sm font-medium text-slate-700"
+            className="mb-1 block text-sm font-medium text-ink-body"
           >
             Status
           </label>
@@ -159,7 +159,7 @@ export function AddOrderForm({
             id="order-status"
             value={fields.status}
             onChange={(e) => set("status", e.target.value as ManualOrderStatus)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
           >
             {MANUAL_ORDER_STATUSES.map((status) => (
               <option key={status} value={status}>
@@ -167,7 +167,7 @@ export function AddOrderForm({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-ink-muted">
             A result is recorded by the lab, not entered here.
           </p>
         </div>
@@ -228,7 +228,7 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-slate-700">
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink-body">
         {label}
       </label>
       <input
@@ -242,16 +242,16 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         className={
           error
-            ? "w-full rounded-md border border-red-500 bg-red-50 px-3 py-2 text-sm"
-            : "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            ? "w-full rounded-md border border-red-500 bg-critical-subtle px-3 py-2 text-sm"
+            : "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
         }
       />
       {error ? (
-        <p id={`${id}-error`} className="mt-1 text-xs text-red-700">
+        <p id={`${id}-error`} className="mt-1 text-xs text-critical-text">
           {error}
         </p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="mt-1 text-xs text-slate-500">
+        <p id={`${id}-hint`} className="mt-1 text-xs text-ink-muted">
           {hint}
         </p>
       ) : null}

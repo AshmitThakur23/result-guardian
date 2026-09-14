@@ -11,13 +11,54 @@ import type { ReactNode } from "react";
 
 import { Banner } from "./Banner";
 import { Button } from "./Button";
+import { cn } from "../../lib/cn";
 import type { ApiError } from "../../api/client";
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <p role="status" className="py-8 text-center text-sm text-slate-600">
+    <p
+      role="status"
+      className="flex items-center justify-center gap-2 py-8 text-sm text-ink-muted"
+    >
+      <Spinner />
       {label}
     </p>
+  );
+}
+
+/**
+ * A spinner, not a progress bar: we genuinely do not know how long an
+ * extraction will take, and a bar that stalls at 90% is a lie.
+ *
+ * `aria-hidden` because the surrounding `role="status"` already announces the
+ * label — otherwise a screen reader reads the decoration too.
+ */
+export function Spinner({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-block size-3.5 shrink-0 animate-spin rounded-full",
+        "border-2 border-line-strong border-t-brand",
+        className,
+      )}
+    />
+  );
+}
+
+/**
+ * A shaped placeholder for content that is on its way.
+ *
+ * Used only where the final shape is known — a table of a known column count,
+ * say — because a skeleton that does not match what arrives is worse than a
+ * spinner: the eye settles on a layout that then jumps.
+ */
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("block animate-pulse rounded bg-surface-sunken", className)}
+    />
   );
 }
 
@@ -29,9 +70,9 @@ export function Empty({
   children?: ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-8 text-center">
-      <p className="text-sm font-medium text-slate-800">{title}</p>
-      {children ? <div className="mt-1 text-sm text-slate-600">{children}</div> : null}
+    <div className="rounded-lg border border-dashed border-line-strong bg-surface px-4 py-10 text-center">
+      <p className="text-sm font-medium text-ink">{title}</p>
+      {children ? <div className="mt-1 text-sm text-ink-muted">{children}</div> : null}
     </div>
   );
 }

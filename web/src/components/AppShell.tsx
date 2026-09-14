@@ -3,12 +3,18 @@
  *
  * Carries the two things that must be visible from anywhere: who you are
  * signed in as, and whether the system is healthy.
+ *
+ * The header is sticky because the status pill is one of those two things. A
+ * clerk forty rows down a worklist should not have to scroll up to find out
+ * that the worker has stopped — that is the single failure this product exists
+ * to prevent, and it must stay on screen.
  */
 
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import { SystemStatusPill } from "./SystemStatusPill";
+import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/Button";
 import { IfRole, useAuth } from "../auth/AuthProvider";
 import { cn } from "../lib/cn";
@@ -34,24 +40,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
-          <Link to="/worklist" className="text-sm font-semibold text-slate-900">
+    <div className="min-h-screen bg-canvas">
+      {/* Keyboard users should not have to tab through six nav items to reach
+          the thing they came for. */}
+      <a href="#main" className="rg-skip-link">
+        Skip to content
+      </a>
+
+      <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+          <Link
+            to="/worklist"
+            className="flex items-center gap-2 text-sm font-semibold text-ink"
+          >
+            <ShieldMark />
             Result Guardian
           </Link>
 
-          <nav className="flex flex-wrap items-center gap-1">
+          <nav aria-label="Main" className="flex flex-wrap items-center gap-0.5">
             {NAV.map((item) => (
               <IfRole key={item.to} roles={item.roles}>
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      "rounded-md px-3 py-1.5 text-sm font-medium",
+                      "rounded px-2.5 py-1.5 text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-blue-50 text-blue-800"
-                        : "text-slate-600 hover:bg-slate-100",
+                        ? "bg-brand-subtle text-brand-text"
+                        : "text-ink-body hover:bg-surface-hover hover:text-ink",
                     )
                   }
                 >
@@ -61,16 +77,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             <SystemStatusPill />
             {user ? (
-              <span className="text-sm text-slate-600">
+              <span className="hidden text-sm text-ink-body sm:inline">
                 {user.full_name}{" "}
-                <span className="text-slate-400">· {user.role.replace("_", " ")}</span>
+                <span className="text-ink-muted">
+                  · {user.role.replace("_", " ")}
+                </span>
               </span>
             ) : null}
+            <ThemeToggle />
             <Button
               variant="ghost"
+              size="sm"
               onClick={async () => {
                 await logout();
                 navigate("/login", { replace: true });
@@ -84,14 +104,39 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Break-glass is loud in the audit log; it should be loud on screen
             too, so nobody forgets they are outside their own department. */}
         {user?.break_glass ? (
-          <div className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
+          <div
+            role="alert"
+            className="border-t border-followup-line bg-followup-subtle px-4 py-2
+                       text-center text-sm font-medium text-followup-text"
+          >
             Break-glass access is active. Everything you open is being recorded
             against the reason you gave.
           </div>
         ) : null}
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+      <main id="main" className="mx-auto max-w-7xl px-4 py-6">
+        {children}
+      </main>
     </div>
+  );
+}
+
+/** A quiet mark. Not a logo — this product has no room for decoration. */
+function ShieldMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-[18px] text-brand"
+    >
+      <path d="M12 3 5 6v6c0 4.2 2.9 7.9 7 9 4.1-1.1 7-4.8 7-9V6l-7-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
   );
 }

@@ -51,9 +51,9 @@ export function AdminPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Administration</h1>
+      <h1 className="text-xl font-semibold text-ink">Administration</h1>
 
-      <div role="tablist" className="flex flex-wrap gap-1 border-b border-slate-200">
+      <div role="tablist" className="flex flex-wrap gap-1 border-b border-line">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -64,8 +64,8 @@ export function AdminPage() {
             className={cn(
               "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
               tab === item.id
-                ? "border-blue-700 text-blue-800"
-                : "border-transparent text-slate-600 hover:text-slate-900",
+                ? "border-blue-700 text-brand-text"
+                : "border-transparent text-ink-body hover:text-ink",
             )}
           >
             {item.label}
@@ -104,18 +104,18 @@ function NodeBPanel() {
         <p>{data.safety_note}</p>
       </Banner>
 
-      <dl className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-2">
+      <dl className="grid gap-3 rounded-md border border-line bg-surface p-4 sm:grid-cols-2">
         <Field label="Inference enabled">
           {data.llm_enabled ? "Yes" : "No"}
-          <span className="ml-2 text-xs text-slate-500">
+          <span className="ml-2 text-xs text-ink-muted">
             (set in the {data.llm_enabled_source})
           </span>
         </Field>
         <Field label="Reachable right now">
           {data.reachable ? (
-            <span className="text-green-800">Yes</span>
+            <span className="text-normal-text">Yes</span>
           ) : (
-            <span className="text-slate-700">
+            <span className="text-ink-body">
               No{data.probe_error ? ` — ${data.probe_error}` : ""}
             </span>
           )}
@@ -132,7 +132,7 @@ function NodeBPanel() {
       </dl>
 
       <form
-        className="space-y-3 rounded-md border border-slate-200 bg-white p-4"
+        className="space-y-3 rounded-md border border-line bg-surface p-4"
         onSubmit={(event) => {
           event.preventDefault();
           killSwitch.mutate(
@@ -141,11 +141,11 @@ function NodeBPanel() {
           );
         }}
       >
-        <h2 className="text-sm font-semibold text-slate-900">
+        <h2 className="text-sm font-semibold text-ink">
           {turningOff ? "Turn inference off" : "Turn inference back on"}
         </h2>
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">
+          <span className="text-sm font-medium text-ink">
             Why? This is shown to users and written to the audit log.
           </span>
           <input
@@ -153,7 +153,7 @@ function NodeBPanel() {
             minLength={5}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
           />
         </label>
         {killSwitch.isError ? <ErrorState error={killSwitch.error} /> : null}
@@ -168,7 +168,7 @@ function NodeBPanel() {
               ? "Turn inference off"
               : "Turn inference on"}
         </Button>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-muted">
           Takes effect within 10 seconds. No restart, no shell.
         </p>
       </form>
@@ -179,10 +179,10 @@ function NodeBPanel() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-600">
+      <dt className="text-xs font-medium uppercase tracking-wide text-ink-body">
         {label}
       </dt>
-      <dd className="mt-0.5 text-sm text-slate-900">{children}</dd>
+      <dd className="mt-0.5 text-sm text-ink">{children}</dd>
     </div>
   );
 }
@@ -201,7 +201,7 @@ function UsersPanel() {
 
   return (
     <section className="space-y-3">
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-ink-body">
         <input
           type="checkbox"
           checked={includeInactive}
@@ -226,9 +226,9 @@ function UsersPanel() {
         </Banner>
       ) : null}
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
             <tr>
               <th scope="col" className="px-3 py-2">Name</th>
               <th scope="col" className="px-3 py-2">Code</th>
@@ -241,25 +241,25 @@ function UsersPanel() {
           <tbody>
             {(data ?? []).map((user) => (
               <tr key={user.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-3 py-2 text-slate-900">{user.full_name}</td>
-                <td className="px-3 py-2 font-mono text-xs text-slate-600">
+                <td className="px-3 py-2 text-ink">{user.full_name}</td>
+                <td className="px-3 py-2 font-mono text-xs text-ink-body">
                   {user.employee_code}
                 </td>
-                <td className="px-3 py-2 text-slate-700">{user.role.replace("_", " ")}</td>
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-ink-body">{user.role.replace("_", " ")}</td>
+                <td className="px-3 py-2 text-ink-body">
                   {user.department_name ?? "—"}
                 </td>
                 <td className="px-3 py-2 text-xs">
                   {!user.is_active ? (
-                    <span className="text-slate-500">Deactivated</span>
+                    <span className="text-ink-muted">Deactivated</span>
                   ) : user.locked_until ? (
-                    <span className="font-medium text-red-800">
+                    <span className="font-medium text-critical-text">
                       Locked ({user.failed_login_count} failures)
                     </span>
                   ) : user.must_change_password ? (
-                    <span className="text-amber-800">Must change password</span>
+                    <span className="text-followup-text">Must change password</span>
                   ) : (
-                    <span className="text-green-800">Active</span>
+                    <span className="text-normal-text">Active</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -320,9 +320,9 @@ function KeywordsPanel() {
   if (!data || data.length === 0) return <Empty title="No clinical keywords configured" />;
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-md border border-line bg-surface">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+        <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
           <tr>
             <th scope="col" className="px-3 py-2">Term</th>
             <th scope="col" className="px-3 py-2">Category</th>
@@ -334,10 +334,10 @@ function KeywordsPanel() {
         <tbody>
           {data.map((keyword) => (
             <tr key={keyword.id} className="border-b border-slate-100 last:border-0">
-              <td className="px-3 py-2 text-slate-900">{keyword.term}</td>
-              <td className="px-3 py-2 text-slate-700">{keyword.category}</td>
-              <td className="px-3 py-2 text-slate-700">{keyword.severity}</td>
-              <td className="px-3 py-2 text-slate-700">
+              <td className="px-3 py-2 text-ink">{keyword.term}</td>
+              <td className="px-3 py-2 text-ink-body">{keyword.category}</td>
+              <td className="px-3 py-2 text-ink-body">{keyword.severity}</td>
+              <td className="px-3 py-2 text-ink-body">
                 {keyword.requires_negation_check ? "Yes" : "No"}
               </td>
               <td className="px-3 py-2">
@@ -386,9 +386,9 @@ function ThresholdsPanel() {
           seeded from the hospital&rsquo;s critical value list.
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-md border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
               <tr>
                 <th scope="col" className="px-3 py-2">Test</th>
                 <th scope="col" className="px-3 py-2">Sex</th>
@@ -402,15 +402,15 @@ function ThresholdsPanel() {
             <tbody>
               {data.map((row) => (
                 <tr key={row.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-3 py-2 font-mono text-xs text-slate-900">
+                  <td className="px-3 py-2 font-mono text-xs text-ink">
                     {row.test_code}
                   </td>
-                  <td className="px-3 py-2 text-slate-700">{row.sex}</td>
-                  <td className="px-3 py-2 text-slate-700">{row.critical_low ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-700">{row.critical_high ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-700">{row.unit ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-600">{row.source}</td>
-                  <td className="px-3 py-2 text-xs text-slate-600">
+                  <td className="px-3 py-2 text-ink-body">{row.sex}</td>
+                  <td className="px-3 py-2 text-ink-body">{row.critical_low ?? "—"}</td>
+                  <td className="px-3 py-2 text-ink-body">{row.critical_high ?? "—"}</td>
+                  <td className="px-3 py-2 text-ink-body">{row.unit ?? "—"}</td>
+                  <td className="px-3 py-2 text-ink-body">{row.source}</td>
+                  <td className="px-3 py-2 text-xs text-ink-body">
                     {new Date(row.effective_from).toLocaleDateString()}
                   </td>
                 </tr>
@@ -434,15 +434,15 @@ function ChainPanel() {
 
   return (
     <section className="space-y-3">
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-ink-body">
         Rows with no department are the global default that every department
         inherits until it defines its own. Editing a rung applies to cases
         flagged afterwards — timers already scheduled keep their original time.
       </p>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
             <tr>
               <th scope="col" className="px-3 py-2">Department</th>
               <th scope="col" className="px-3 py-2">Severity</th>
@@ -455,18 +455,18 @@ function ChainPanel() {
           <tbody>
             {data.map((rung) => (
               <tr key={rung.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-ink-body">
                   {rung.department_name ?? (
-                    <span className="italic text-slate-500">Global default</span>
+                    <span className="italic text-ink-muted">Global default</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-slate-700">{rung.severity}</td>
-                <td className="px-3 py-2 text-slate-700">{rung.level}</td>
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-ink-body">{rung.severity}</td>
+                <td className="px-3 py-2 text-ink-body">{rung.level}</td>
+                <td className="px-3 py-2 text-ink-body">
                   {rung.target_type.replace("_", " ")}
                 </td>
-                <td className="px-3 py-2 text-slate-700">{rung.delay_minutes} min</td>
-                <td className="px-3 py-2 text-xs text-slate-600">
+                <td className="px-3 py-2 text-ink-body">{rung.delay_minutes} min</td>
+                <td className="px-3 py-2 text-xs text-ink-body">
                   {rung.channels.join(", ")}
                 </td>
               </tr>
@@ -490,9 +490,9 @@ function ProvidersPanel() {
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-md border border-line bg-surface">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+        <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
           <tr>
             <th scope="col" className="px-3 py-2">Channel</th>
             <th scope="col" className="px-3 py-2">Adapter</th>
@@ -505,20 +505,20 @@ function ProvidersPanel() {
         <tbody>
           {data.map((row) => (
             <tr key={row.channel} className="border-b border-slate-100 last:border-0">
-              <td className="px-3 py-2 text-slate-900">{row.channel}</td>
-              <td className="px-3 py-2 text-xs text-slate-600">{row.adapter}</td>
-              <td className="px-3 py-2 text-slate-700">{row.sent_24h}</td>
+              <td className="px-3 py-2 text-ink">{row.channel}</td>
+              <td className="px-3 py-2 text-xs text-ink-body">{row.adapter}</td>
+              <td className="px-3 py-2 text-ink-body">{row.sent_24h}</td>
               <td
                 className={cn(
                   "px-3 py-2",
-                  row.failed_24h > 0 ? "font-semibold text-red-800" : "text-slate-700",
+                  row.failed_24h > 0 ? "font-semibold text-critical-text" : "text-ink-body",
                 )}
               >
                 {row.failed_24h}
                 {row.failed_24h > 0 ? ` (${(row.failure_rate * 100).toFixed(0)}%)` : null}
               </td>
-              <td className="px-3 py-2 text-slate-700">{row.suppressed_24h}</td>
-              <td className="px-3 py-2 text-xs text-slate-600">
+              <td className="px-3 py-2 text-ink-body">{row.suppressed_24h}</td>
+              <td className="px-3 py-2 text-xs text-ink-body">
                 {row.last_error ?? "—"}
               </td>
             </tr>
@@ -542,14 +542,14 @@ function OverridesPanel() {
 
   return (
     <section className="space-y-3">
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-ink-body">
         Every discharge that bypassed the contract gate. A rising count means
         the gate is being routed around — a process finding, not a bug.
       </p>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="border-b border-line bg-surface-sunken text-xs uppercase tracking-wide text-ink-body">
             <tr>
               <th scope="col" className="px-3 py-2">When</th>
               <th scope="col" className="px-3 py-2">Patient</th>
@@ -561,23 +561,23 @@ function OverridesPanel() {
           <tbody>
             {data.map((row) => (
               <tr key={row.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-3 py-2 text-xs text-slate-600">
+                <td className="px-3 py-2 text-xs text-ink-body">
                   {new Date(row.created_at).toLocaleString()}
                 </td>
-                <td className="px-3 py-2 text-slate-900">
+                <td className="px-3 py-2 text-ink">
                   {row.patient_name ?? "—"}
-                  <div className="text-xs text-slate-500">{row.mrn ?? ""}</div>
+                  <div className="text-xs text-ink-muted">{row.mrn ?? ""}</div>
                 </td>
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-ink-body">
                   <div className="font-mono text-xs">{row.reason_code}</div>
                   <div className="max-w-md text-sm">{row.reason_text}</div>
                 </td>
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-ink-body">
                   {row.overridden_by_name ?? "—"}
                 </td>
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-ink-body">
                   {row.approved_by_name ?? (
-                    <span className="text-amber-800">Not approved</span>
+                    <span className="text-followup-text">Not approved</span>
                   )}
                 </td>
               </tr>
