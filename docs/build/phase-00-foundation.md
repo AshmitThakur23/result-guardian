@@ -211,7 +211,7 @@ Write `docs/network-runbook.md` covering:
 - [x] ✅ Fresh machine → `docker compose up -d` → `/api/health` returns 200 with `db: ok` and an `llm` block — **verified on NODE A, 2026-09-14**
 - [x] ✅ Worker logs a heartbeat — `worker_heartbeat_age_s: 1`
 - [x] ✅ CI green on a dummy PR — run `34670777455`, 2026-09-12, all three jobs
-- [x] ✅ NODE B unreachable → `/api/health` still 200, `llm.reachable: false`, only `llm_generation` degraded — **see the caveat below**
+- [x] ✅ NODE B unreachable → `/api/health` still 200, `llm.reachable: false`, only `llm_generation` degraded — **CLOSED PROPERLY 2026-09-14 18:44, by the literal scripted step**
 
 **The measured response, 2026-09-14, `curl localhost/api/health` through Caddy:**
 
@@ -271,10 +271,45 @@ address — so the first health check after the firewall fix still reported
 that had not worked. The runbook asserted `.env` was "already set"; it was not.
 **A config file is not verified until something has read it.**
 
-> 🔴 **Clause 4 is still closed by outcome, not by the literal step.** The
-> deliberate version — **stop Ollama on NODE B while NODE A watches, both
-> machines on one LAN** — is now *possible* for the first time and has **not yet
-> been run.** Until it is, this clause stays qualified.
+### ✅ RULE 2 PROVEN BY THE DELIBERATE TEST — 2026-09-14 18:44
+
+**Clause 4 is now closed by intent as well as by outcome.** Ollama was deliberately
+stopped on NODE B **with both machines on one LAN and a path proven working seconds
+earlier** — so this is the scripted step, not a network outage standing in for it.
+
+NODE B killed **three** processes, tray app first: `ollama app.exe` (20244), then
+servers 2064 and 25640. **Killing the tray first matters** — otherwise it relaunches
+the server within seconds and you are testing a live NODE B while believing it is
+dead. Zero processes remained; port 11434 stopped listening.
+
+**Measured on NODE A with NODE B confirmed dead:**
+
+| Check | Result |
+|---|---|
+| `/api/health` HTTP status | **200** — not 503 |
+| `status` | **`"ok"`** — a missing NODE B is not an outage |
+| `llm.reachable` | `false`, with `error: "ConnectTimeout"` — **the reason is reported, not swallowed** |
+| `degraded_features` | **`["llm_generation"]` and nothing else** |
+| `worker_heartbeat_age_s` | **3–5 s** — still ticking |
+| **Full backend test suite** | **exit code 0 — entirely green with NODE B dead** |
+
+**The strongest evidence is in the worker log during the outage:**
+
+```
+{"queue": "sla_timers", "msg_id": 32220, "event": "message_handled"}
+{"queue": "classify",   "msg_id": 15,    "event": "message_handled"}
+```
+
+**Phase 2's SLA timers fired and Phase 3's classification ran while NODE B was
+dead.** That is RULE 2 stated as a measurement rather than an intention: the
+safety property does not depend on the network between the nodes, and it does not
+depend on AI.
+
+⚠️ **One observation worth keeping:** the error is `ConnectTimeout`, not
+`ConnectionRefused` — with no listener behind an allow rule, Windows drops rather
+than resetting. Either way the condition is detected and reported; but it means
+**"NODE B is off" and "NODE B is unreachable" look identical at this boundary**,
+which is the same ambiguity noted when the two machines were on different networks.
 
 ---
 

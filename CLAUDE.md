@@ -44,6 +44,42 @@
 - **Never tick something because it was typed.** Written ≠ done. If it has not run, it is 🟡, not ✅.
 - **If work was done but not logged, treat it as not done** — go verify it before claiming it.
 
+## ⚙️ A config value is not verified until something has READ it
+
+> **Added 2026-09-14 after the same defect appeared three times in one day.**
+> It is "written ≠ done" one layer down, and it is harder to spot, because the
+> value *is* there when you look at it.
+
+**Setting a value proves nothing. Only the consuming process proves it.** Ask the
+thing that reads the config what it actually has — never the file, never the
+environment you set it in.
+
+The three instances, all on 2026-09-14:
+
+| # | Where | What looked true, and was not |
+|---|---|---|
+| 1 | NODE B `OLLAMA_MODELS` | Env var set, but the **server never received it** → `mistral:7b` invisible for **3 days** |
+| 2 | NODE B's disconnected adapter | A stale static IP **answered `/api/tags` to itself** → looked reachable; NODE A could never have reached it |
+| 3 | NODE A `.env` | The runbook **asserted** `RG_LLM_BASE_URL` was set. It still held NODE B's old `192.168.0.168` → the first health check after the firewall fix read `ConnectTimeout` and **looked exactly like a firewall rule that had not worked** |
+
+Every one: a value was written, and **nobody checked that the thing which reads it
+actually read it.**
+
+**So, in practice:**
+
+- `docker compose exec <svc> printenv VAR` — **not** `grep VAR .env`
+- **Changing `.env` requires `docker compose up -d <svc>`.** A running container
+  holds the value it was *started* with; editing the file changes nothing until
+  the container is recreated.
+- **Never test a network endpoint from the machine that serves it.** A request to
+  your own address never crosses your own firewall, so it passes whether or not
+  the rule works. Only the *other* node's test counts.
+- **Never test a container's network path from the host.** Inside a container,
+  `localhost`, `127.0.0.1` and `host.docker.internal` all resolve to the wrong
+  machine. A host-level success does not prove the application's path.
+- When a doc asserts a config value, **re-read the live value before trusting the
+  doc.** A runbook that says "already set" is a claim, not a measurement.
+
 ## 🔁 End-of-phase sweep — MANDATORY before calling any phase complete
 
 > **User's instruction, 2026-09-14, stated twice.** *"make sure nothing will left
