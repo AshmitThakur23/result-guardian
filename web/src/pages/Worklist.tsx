@@ -340,6 +340,50 @@ function BulkCloseBar({
   );
 }
 
+/**
+ * How far back to look, in days. `null` means "do not filter at all".
+ *
+ * Offered as a fixed list rather than two date pickers because the question a
+ * ward actually asks is "what came in this week?", and a pair of calendars is
+ * four interactions to answer it. The endpoint takes arbitrary instants, so a
+ * custom range remains possible if anyone ever needs one.
+ */
+const PERIODS: { value: string; label: string; days: number | null }[] = [
+  { value: "any", label: "Any time", days: null },
+  { value: "7", label: "This week", days: 7 },
+  { value: "14", label: "Last 2 weeks", days: 14 },
+  { value: "30", label: "Last month", days: 30 },
+  { value: "90", label: "Last 3 months", days: 90 },
+];
+
+/** The ISO instant `days` ago, or `undefined` to clear the filter. */
+function sinceFor(value: string): string | undefined {
+  const period = PERIODS.find((option) => option.value === value);
+  if (!period?.days) return undefined;
+  return new Date(Date.now() - period.days * 86_400_000).toISOString();
+}
+
+/**
+ * Which option a stored `opened_from` corresponds to.
+ *
+ * Matched on the nearest boundary rather than on equality: the stored value is
+ * an instant computed when the user chose, so by the next render it is already
+ * a few milliseconds stale and an equality check would snap the control back
+ * to "Any time" while the filter was still applied.
+ */
+function periodOf(openedFrom: string | undefined): string {
+  if (!openedFrom) return "any";
+  const days = (Date.now() - new Date(openedFrom).getTime()) / 86_400_000;
+  let closest = PERIODS[1];
+  for (const option of PERIODS) {
+    if (option.days === null) continue;
+    if (Math.abs(option.days - days) < Math.abs((closest.days ?? 0) - days)) {
+      closest = option;
+    }
+  }
+  return closest.value;
+}
+
 function Filters({
   filters,
   onChange,
@@ -364,6 +408,25 @@ function Filters({
         >
           <option value="">All</option>
           {SEVERITY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="text-xs font-medium uppercase tracking-wide text-ink-body">
+          Opened
+        </span>
+        <select
+          value={periodOf(filters.opened_from)}
+          onChange={(event) =>
+            onChange({ opened_from: sinceFor(event.target.value) })
+          }
+          className="mt-1 block rounded-md border border-line px-3 py-1.5 text-sm"
+        >
+          {PERIODS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

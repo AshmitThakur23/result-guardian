@@ -11,10 +11,10 @@
  * silently would spend another 14 s to tell the reader the same thing.
  */
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
-import type { ExplainResponse, KbDocument } from "./types8";
+import type { ExplainResponse, IngestResult, KbDocument } from "./types8";
 
 export const keys8 = {
   kbDocuments: () => ["kb", "documents"] as const,
@@ -32,5 +32,42 @@ export function useKbDocuments() {
   return useQuery({
     queryKey: keys8.kbDocuments(),
     queryFn: () => api.get<{ documents: KbDocument[]; count: number }>("/kb/documents"),
+  });
+}
+
+/**
+ * Add a guideline. It arrives **unapproved**, and therefore invisible to
+ * retrieval, which is why this and `useApproveKbDocument` are separate calls
+ * rather than one convenient mutation: a document becomes visible because
+ * somebody approved it, never because somebody uploaded it.
+ */
+export function useIngestKbDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      title: string;
+      publisher: string;
+      doc_type: string;
+      document_text: string;
+      version?: string;
+      source_ref?: string | null;
+    }) => api.post<IngestResult>("/kb/documents", body),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: keys8.kbDocuments() }),
+    retry: false,
+  });
+}
+
+export function useApproveKbDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      api.post<{ approved: boolean; message: string }>(
+        `/kb/documents/${documentId}/approve`,
+        {},
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: keys8.kbDocuments() }),
+    retry: false,
   });
 }

@@ -12,6 +12,7 @@ import { ChangePasswordPage } from "./pages/ChangePassword";
 import { DischargeGatePage } from "./pages/DischargeGate";
 import { DocumentDetailPage } from "./pages/DocumentDetail";
 import { DocumentQueuePage } from "./pages/DocumentQueue";
+import { KnowledgeBasePage } from "./pages/KnowledgeBase";
 import { EncounterDetailPage } from "./pages/EncounterDetail";
 import { LoginPage } from "./pages/Login";
 import { PatientDetailPage } from "./pages/PatientDetail";
@@ -147,6 +148,18 @@ const router = createBrowserRouter(
       element: (
         <Guarded roles={["doctor", "unit_head", "lab_tech", "admin", "auditor"]}>
           <DocumentDetailPage />
+        </Guarded>
+      ),
+    },
+
+    // Phase 8.1. Adding guidance is an admin act and approving it is the
+    // point of the screen, so the route is admin-only -- the same allow-list
+    // the `/kb/documents` endpoints enforce server-side.
+    {
+      path: "/knowledge-base",
+      element: (
+        <Guarded roles={["admin"]}>
+          <KnowledgeBasePage />
         </Guarded>
       ),
     },

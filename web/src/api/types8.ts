@@ -72,3 +72,31 @@ export interface KbDocument {
   approved: boolean;
   chunks: number;
 }
+
+/**
+ * The closed vocabularies `kb_documents` enforces with a CHECK. Kept here so
+ * the form offers exactly what the database accepts — a free-text box would
+ * turn a typo into a 422 the user has to guess their way out of.
+ */
+export const KB_PUBLISHERS = ["hospital", "who", "icmr", "nlem", "other"] as const;
+export const KB_DOC_TYPES = [
+  "antibiotic_policy",
+  "guideline",
+  "antibiogram",
+  "protocol",
+  "sop",
+  "formulary",
+] as const;
+
+export interface IngestResult {
+  document_id: string;
+  chunks: number;
+  approved: boolean;
+  /**
+   * Anything in the text that looked like it belonged to a person. Returned
+   * rather than blocking: a guideline may legitimately say "Patient:" in a
+   * worked example, so the judgement belongs to whoever approves it.
+   */
+  identifier_warnings: { kind: string; excerpt: string }[];
+  message: string;
+}

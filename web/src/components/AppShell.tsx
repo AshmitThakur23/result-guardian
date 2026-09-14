@@ -31,6 +31,11 @@ const NAV = [
     roles: ["doctor", "unit_head", "lab_tech", "admin", "auditor"],
   },
   { to: "/reports", label: "Reports", roles: ["unit_head", "admin", "auditor"] },
+  // Phase 8.1. "Guidance" rather than "Knowledge base": what a clinician wants
+  // from this tab is the hospital's policies, and the storage mechanism is not
+  // their concern. It is also the third tab that could plausibly be called
+  // "Documents", which is exactly why it is not.
+  { to: "/knowledge-base", label: "Guidance", roles: ["admin"] },
   { to: "/audit", label: "Audit trail", roles: ["auditor", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
 ];

@@ -132,7 +132,20 @@ export function ExplainPanel({
 }) {
   const explain = useExplain(caseId);
   const [asked, setAsked] = useState(false);
+  const [ownQuestion, setOwnQuestion] = useState("");
   const result = explain.data;
+
+  // The default question is built from the structured fields by the caller.
+  // A typed one replaces it, but only once it is long enough for the API to
+  // accept -- `query` has min_length 3, and a two-character question would be
+  // refused by the server for a reason the reader cannot see.
+  const effectiveQuery =
+    ownQuestion.trim().length >= 3 ? ownQuestion.trim() : query;
+
+  function ask() {
+    setAsked(true);
+    explain.mutate(effectiveQuery);
+  }
 
   return (
     <section
@@ -154,10 +167,7 @@ export function ExplainPanel({
           size="sm"
           variant={asked ? "secondary" : "primary"}
           disabled={explain.isPending}
-          onClick={() => {
-            setAsked(true);
-            explain.mutate(query);
-          }}
+          onClick={ask}
         >
           {explain.isPending ? (
             <>
@@ -173,8 +183,46 @@ export function ExplainPanel({
       </header>
 
       <div className="px-4 py-4">
+        {/* ★ Ask something specific.
+            The endpoint has always accepted a free-text query; only the UI
+            hardcoded one built from the structured fields. Worth being plain
+            about what this searches: it searches the hospital's **approved
+            guidance**, not this patient's report. A question the guidance does
+            not cover returns "no approved guidance", which is the honest
+            answer and not a failure. */}
+        <label className="block">
+          <span className="text-xs font-medium uppercase tracking-wide text-ink-body">
+            Ask something specific{" "}
+            <span className="font-normal normal-case text-ink-muted">
+              (optional)
+            </span>
+          </span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <input
+              value={ownQuestion}
+              onChange={(event) => setOwnQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !explain.isPending) ask();
+              }}
+              maxLength={300}
+              placeholder={query}
+              className="min-w-[14rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink"
+            />
+            {ownQuestion ? (
+              <Button size="sm" variant="secondary" onClick={() => setOwnQuestion("")}>
+                Reset
+              </Button>
+            ) : null}
+          </div>
+          <span className="mt-1 block text-xs text-ink-muted">
+            Searches the hospital's approved guidance — not this patient's
+            report. Leave it blank to use{" "}
+            <span className="font-mono">{query}</span>.
+          </span>
+        </label>
+
         {!asked && !explain.isPending ? (
-          <p className="text-sm text-ink-muted">
+          <p className="mt-4 text-sm text-ink-muted">
             Nothing is sent anywhere until you ask. This usually takes about 15
             seconds.
           </p>

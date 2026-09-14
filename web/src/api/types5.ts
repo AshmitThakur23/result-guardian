@@ -373,6 +373,18 @@ export interface WorklistFilters {
   severity?: string[];
   state?: string[];
   department_id?: string;
+  /**
+   * ISO-8601 instants bounding `pending_cases.opened_at`.
+   *
+   * The endpoint has accepted these since Phase 5.2 and the Worklist screen's
+   * own docstring claimed a date range for just as long, but no control ever
+   * sent one — so "show me last month" was unreachable from the UI. Sent as
+   * full instants, not dates: the column is `TIMESTAMPTZ`, and a bare `YYYY-MM-DD`
+   * would be read as midnight UTC and quietly drop the first 5½ hours of an
+   * Indian working day.
+   */
+  opened_from?: string;
+  opened_to?: string;
   mine_only?: boolean;
   include_closed?: boolean;
   overdue_only?: boolean;
