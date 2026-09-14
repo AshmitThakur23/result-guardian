@@ -42,6 +42,12 @@ KEY_LLM_KILL_REASON = "llm_kill_switch_reason"
 EDITABLE_KEYS = {
     KEY_LLM_ENABLED: "bool",
     KEY_LLM_KILL_REASON: "string",
+    # Phase 6 ingestion thresholds. Documented in
+    # `app/services/documents/settings.py`, which owns their defaults and
+    # explains what each one costs when it moves.
+    "ocr_min_confidence": "float",
+    "scanned_char_density": "float",
+    "ingest_timeout_s": "float",
 }
 
 

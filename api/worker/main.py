@@ -24,8 +24,11 @@ from app.db.session import dispose_engine, get_sessionmaker
 from app.logging import configure_logging
 from worker.consumer import QueueConsumer
 from worker.consumers.classify import handle_classify
+from worker.consumers.ingest import handle_ingest
 from worker.consumers.notifications import handle_notification
 from worker.consumers.sla_timers import handle_sla_timer
+from worker.stale_documents import sweep_stale_documents
+from worker.watched_folder import WatchedFolder
 
 log = structlog.get_logger(__name__)
 
@@ -104,10 +107,27 @@ async def main() -> None:
         # shipped finally have a consumer. Idempotent on `notifications`
         # .dedupe_key, so a redelivered intent produces one message.
         QueueConsumer("notifications", handle_notification, shutdown),
+        # Phase 6.5. The `ingest` queue has been empty and unconsumed since
+        # Phase 0.7; it starts carrying messages the moment the first document
+        # is uploaded, which is why this consumer ships in the same commit as
+        # the upload endpoint rather than after it.
+        QueueConsumer("ingest", handle_ingest, shutdown),
     ]
 
     tasks = [asyncio.create_task(heartbeat(shutdown))]
     tasks += [asyncio.create_task(c.run()) for c in consumers]
+    # Phase 6.5. Resets documents left in `extracting` by a worker that died
+    # mid-extraction. pgmq redelivers the message, but nothing else would ever
+    # move the *status* -- so the document would look busy for ever while
+    # being invisible to the review queue.
+    tasks.append(asyncio.create_task(sweep_stale_documents(shutdown)))
+
+    # Phase 6.1. Off by default: a hospital that only uses the upload form
+    # should not have a poller walking a directory that will never exist.
+    if settings.watched_folder_enabled:
+        tasks.append(asyncio.create_task(WatchedFolder(shutdown).run()))
+    else:
+        log.info("watched_folder_disabled")
 
     await shutdown.wait()
     log.info("worker_shutdown_requested")

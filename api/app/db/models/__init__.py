@@ -9,7 +9,9 @@ Phase 2.1 adds the twelfth, ``sla_timers``, in migration 0005; Phase 2.3/2.4
 add ``lab_flags`` and ``results`` in 0006. Phase 3.1/3.2/3.6 add the result
 detail tables, the rule-engine configuration tables and ``classifications``
 in 0007. Phase 4.1/4.3/4.6 add the ownership, escalation and notification
-tables in 0008.
+tables in 0008. Phase 5.1 adds authentication and the audit log in 0010.
+Phase 6.1 adds ``documents``, ``document_pages`` and ``document_spans`` in
+migration 0012.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from app.db.models.discharge import (
     DischargeMedication,
     DischargeOverride,
 )
+from app.db.models.documents import Document, DocumentPage, DocumentSpan
 from app.db.models.encounters import Encounter
 from app.db.models.infra import SystemSetting, WorkerHealth
 from app.db.models.lab import LabFlag
@@ -61,6 +64,9 @@ __all__ = [
     "DischargeContractRevision",
     "DischargeMedication",
     "DischargeOverride",
+    "Document",
+    "DocumentPage",
+    "DocumentSpan",
     "DutyRoster",
     "Encounter",
     "EscalationChain",

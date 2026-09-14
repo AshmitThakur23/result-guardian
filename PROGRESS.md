@@ -3,7 +3,7 @@
 > **Read this first, every session.** It is the resume point.
 > Updating it after every unit of work is mandatory — see the protocol in [`CLAUDE.md`](CLAUDE.md).
 
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-14
 
 > ## ▶ RESUME HERE
 >
@@ -28,10 +28,20 @@
 > ▶ See **[🛑 PHASE 3 CLINICAL VALIDATION — RETURN AFTER ALL PHASES](#-phase-3-clinical-validation--return-after-all-phases)**
 > below, and [docs/clinical-validation.md](docs/clinical-validation.md).
 >
-> **🛑 PHASE 6 IS ON HOLD AND HAS NOT STARTED.** Two independent blockers:
-> Exit Gate 5 is open, and the Phase 1.6 corpus is at **0 of 200+** real PDFs.
-> Synthetic PDFs must never be presented as Exit Gate 6 evidence.
-> ▶ See **[🛑 PHASE 6 DOCUMENT INGESTION — ON HOLD, NOT STARTED](#-phase-6-document-ingestion--on-hold-not-started)**.
+> **📄 PHASE 6 IS BUILT AND RUNS END TO END (2026-09-14).** Upload → pgmq →
+> worker → text + spans, native and scanned, with the mandatory fallback to
+> Phase 3 manual entry. 1040 backend tests and 187 frontend tests pass; ruff,
+> black and mypy strict are clean. Nine defects were found and fixed on the
+> way — **three of them only by the end-to-end run**, including OCR being
+> entirely broken while every unit test passed.
+> ▶ Full record: **[`docs/build/phase-06-verification-log.md`](docs/build/phase-06-verification-log.md)**.
+>
+> **🔴 EXIT GATE 6 IS OPEN AND CODE CANNOT CLOSE IT.** Two of its three
+> clauses are measurements over **200 real PDFs**, and the corpus is at **0**.
+> The synthetic PDFs in `api/tests/_documents.py` are unit-test fixtures for
+> our own plumbing and **must never be presented as gate evidence**.
+> Phase 6 was started as a **knowing exception** while Exit Gate 5 was open —
+> recorded below.
 >
 > **▶ NEXT, on NODE A:** bring up the **full compose stack** — the piece still unproven.
 > `cp .env.example .env` (set `POSTGRES_PASSWORD`, `RG_JWT_SECRET`, `RG_LLM_BASE_URL`) →
@@ -155,7 +165,7 @@
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | 🛑 **ON HOLD — code done + audited (3.1–3.7)** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ✅ **done + audited** | ✅ **PASSED** | 4.1–4.7 built; 6 defects found and fixed. ⚠️ Started with Exit Gate 3 open — a knowing exception, see above. Not pushed |
 | [5 · Dashboard, closure, audit ★](docs/build/phase-05-dashboard-audit-mvp.md) | A | ✅ **done + audited (5.1–5.7)** | 🔴 **OPEN** | 🏁 **MVP code complete.** Audit found 31 unauthenticated endpoints and a chain-forking concurrency bug; both fixed with regression tests. Gate needs 2 weeks of ward shadow-running and a clinician sign-off — neither can be produced by code. Not pushed |
-| [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | 🛑 **ON HOLD — not started** | ⬜ | 2 wks. **Two independent blockers:** Exit Gate 5 open, and 1.6 corpus at 0/200. ▶ [hold record](#-phase-6-document-ingestion--on-hold-not-started) |
+| [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | ✅ **done + run end to end (6.1–6.5)** | 🔴 **OPEN** | Upload → pgmq → worker → text + spans; native **and** scanned, real OCR at 0.997. **18 defects found**, 9 only by the end-to-end run — including one unreadable PDF crash-looping the worker and taking Phase 2's timers with it. Gate needs **200 real PDFs; corpus is 0**. ▶ [verification log](docs/build/phase-06-verification-log.md) |
 | [7 · Extraction + matching](docs/build/phase-07-extraction-matching.md) | A (+B) | ⬜ not started | ⬜ | 3 wks |
 | [8 · RAG explanation](docs/build/phase-08-rag-explanation.md) | A + B | ⬜ not started | ⬜ | 3 wks. First phase that uses NODE B |
 | [9 · Hospital integration](docs/build/phase-09-hospital-integration.md) | A | 🔴 blocked | ⬜ | 3–5 wks. ⛔ gated by hospital IT / HIS vendor |
@@ -164,6 +174,34 @@
 **Timeline reference:** MVP at 11 weeks (team of 3) / 21 weeks (solo). Production at 25 / 46 weeks.
 
 ---
+
+> ### ⚠️ Knowing exception — Phase 6 started with Exit Gate 5 open
+>
+> **2026-09-14.** Both [`phase-06-document-ingestion.md`](docs/build/phase-06-document-ingestion.md)
+> and the governing rule say *"Do not start a phase until the previous exit
+> gate passes."* Exit Gate 5 is **open** — it needs two weeks of ward
+> shadow-running and a clinician sign-off, neither of which can be produced by
+> code. Phase 6 was started anyway, on the project owner's instruction.
+>
+> **This is a knowing exception to the build plan's own ordering rule, not an
+> oversight** — recorded here because [`CLAUDE.md`](CLAUDE.md) requires exactly
+> that, as was done when Phase 1 started before Exit Gate 0 closed and when
+> Phase 4 started with Exit Gate 3 open.
+>
+> **Why it is defensible:** Phase 6 changes how a result *arrives* — a file
+> instead of typing — and nothing about how it is tracked, graded, escalated
+> or closed. Its mandatory fallback routes any document it cannot read to the
+> Phase 3 manual entry form, so the worst case is the workflow the hospital
+> already has. Phase 5's open clauses are about clinical behaviour over a
+> fortnight; Phase 6 does not touch that behaviour.
+>
+> **What it does not license:**
+> - Phase 6 passing its own gate would **not** close Exit Gate 5.
+> - **Exit Gate 6 cannot be closed at all right now.** It requires 200 real
+>   PDFs and the corpus stands at **0 of 200+**. The code is built; the gate
+>   stays 🔴 OPEN until real documents exist.
+> - Synthetic PDFs are used as unit-test fixtures for the plumbing. They are
+>   **not** gate evidence, and the phase doc's prohibition stands.
 
 > ### ⚠️ Knowing exception — Phase 4 started with Exit Gate 3 open
 >
@@ -243,31 +281,61 @@ Phase 3 technical work
 
 ---
 
-# 🛑 PHASE 6 DOCUMENT INGESTION — ON HOLD, NOT STARTED
+# 📄 PHASE 6 DOCUMENT INGESTION — BUILT; EXIT GATE 6 STILL 🔴 OPEN
 
-> **This is a DEFERRED phase. It is not a to-do list to pick up.**
-> Read this before anyone opens `POST /api/reports/upload`, adds a PDF
-> dependency, or reports a Phase 6 result.
+> ⚠️ **This section was written on 2026-09-14 to stop the phase being
+> started, and the phase was then started the same day on the project
+> owner's instruction.** It is kept — rewritten, not deleted — because the
+> *second* blocker it names never cleared and still gates the exit.
+>
+> Read this before anyone reports a Phase 6 **result**.
 
-**Deferred on:** 2026-09-14 · **Return when:** *both* blockers below clear · **Owner:** project owner (one blocker needs external people, not code)
+**Built on:** 2026-09-14 · **Exit Gate 6:** 🔴 OPEN, and **code cannot close it**
 
-**Source of truth:** [`docs/build/phase-06-document-ingestion.md`](docs/build/phase-06-document-ingestion.md). Follow it. Do not work from this summary — it exists to stop the phase being started, not to specify it.
+**Source of truth:** [`docs/build/phase-06-document-ingestion.md`](docs/build/phase-06-document-ingestion.md) for what the phase is; [`docs/build/phase-06-verification-log.md`](docs/build/phase-06-verification-log.md) for what was actually built, run and fixed.
 
 ## Status
 
 | | |
 |---|---|
-| **Phase 6 implementation** | ⬜ **NOT STARTED.** No application code exists. No `documents`, `document_pages` or `document_spans` table. No `ingest` consumer. No PDF/OCR dependency declared. |
-| **Exit Gate 6** | ⬜ not started |
+| **Phase 6 implementation** | ✅ **BUILT AND RUN END TO END.** Migrations 0012/0013; `documents`, `document_pages`, `document_spans`; the `ingest` consumer; upload endpoint, watched folder, virus hook; native + scanned extraction with real OCR; review queue, overlay and retry UI. 18 defects found and fixed. |
+| **Exit Gate 6** | 🔴 **OPEN.** 1 of 3 clauses met. |
 
-The `ingest` pgmq queue **does** already exist and is deliberately unconsumed —
-see the comment in [`api/worker/main.py`](api/worker/main.py). An unconsumed
-queue is the correct state for a phase that has not been built; it is not
-evidence that Phase 6 has begun.
+**What is still 🟡 — written and never executed**, and therefore not done:
+the watched-folder consumer (off by default until a real share is mounted),
+the ClamAV `clean` path (no scanner deployed here), and the table-structure
+test (needs a real tabular report). Each is listed with its reason in §4 of
+the verification log.
 
-## Two independent blockers — either one is sufficient to stop the phase
+## The blocker that did NOT clear — and still gates the exit
 
-**1 · Exit Gate 5 is OPEN.**
+**The Phase 1.6 corpus is at 0 of 200+ real PDFs.**
+
+Two of Exit Gate 6's three clauses are *measurements over real hospital
+paperwork*:
+
+- **200 real PDFs, ≥95% producing usable text** — 0 of 200.
+- **Spans spot-checked on 20 documents** — needs 20 real documents.
+
+The third clause, *failures land in the review queue with page images
+visible*, is met and tested three ways.
+
+The phase doc's own blocking prerequisite says why the first two cannot be
+faked:
+
+> do not fake it with synthetic PDFs, they will not surface the failure modes
+> real labs produce
+
+The ≥95% figure is a claim about how the extractor copes with **a particular
+hospital's** fax headers, stamp overlays, carbon-copy scans and bilingual
+letterheads. Measuring it against PDFs we generated ourselves would measure
+our own fixture generator. The synthetic PDFs in
+[`api/tests/_documents.py`](api/tests/_documents.py) are unit-test fixtures
+for our plumbing and **must never be counted toward the 200**.
+
+## The blocker that was knowingly overridden
+
+**1 · Exit Gate 5 was OPEN.**
 
 The governing rule in
 [`docs/build/00-governing-rules-and-topology.md`](docs/build/00-governing-rules-and-topology.md):
@@ -282,7 +350,7 @@ Exit Gate 5 has three unticked clauses — two weeks of ward shadow-running,
 zero missed cases, and clinician sign-off on flag quality. **None of them can
 be produced by writing code.**
 
-**2 · The Phase 1.6 real corpus does not exist.**
+**2 · The Phase 1.6 real corpus does not exist.** — ⚠️ **STILL TRUE.**
 
 **0 of 200+** real anonymised PDFs collected —
 [`docs/test-corpus-manifest.md`](docs/test-corpus-manifest.md). Phase 6 names
@@ -292,34 +360,34 @@ this as a blocking prerequisite in its own first lines:
 > 1.6**. If it is not ready, this phase cannot start — **do not fake it with
 > synthetic PDFs, they will not surface the failure modes real labs produce.**"*
 
-This blocker stands **on its own**. Even if Exit Gate 5 closed tomorrow, Phase
-6 would still be blocked until the corpus exists.
+This blocker stands **on its own**, and it is the one that did not clear. The
+implementation was built anyway on the project owner's instruction; **Exit
+Gate 6 remains open because of this**, and no amount of further code will
+close it.
 
 ## ⛔ Do not
 
-- **Do NOT start Phase 6 implementation** until Exit Gate 5 passes *and* the corpus exists.
-- **Do NOT create Phase 6 application code** — no upload endpoint, no `documents`/`document_pages`/`document_spans` migration, no `ingest` consumer, no OCR or PDF dependency.
+- **Do NOT tick Exit Gate 6.** The implementation being finished is not the gate passing. Two of its three clauses are measurements over 200 real PDFs.
 - **Do NOT present synthetic PDFs as evidence for Exit Gate 6.** Synthetic files are acceptable as fixtures for unit-testing plumbing where that is genuinely useful; they are **not** gate evidence. Exit Gate 6 is measured against real documents, and the phase doc says why: generated PDFs do not reproduce the skew, stamps, bleed-through, bilingual headers or broken table borders that real labs emit.
 - **Do NOT invent** documents, permissions, de-identification sign-off, clinical validation, or gate results.
 - **Do NOT modify Phase 3's clinical validation status.** It remains 🔴 NOT VALIDATED — see [the Phase 3 hold section](#-phase-3-clinical-validation--return-after-all-phases).
 - **Do NOT change Phase 5's Exit Gate status.** It remains 🔴 OPEN, for the reasons recorded in its own gate block.
 
-## What has to happen before Phase 6 can start
+## What has to happen before Exit Gate 6 can close
 
-1. **Exit Gate 5 passes** — two weeks of ward shadow-running with manual result entry, zero missed cases, and clinician sign-off on flag quality. See [`docs/build/phase-05-dashboard-audit-mvp.md`](docs/build/phase-05-dashboard-audit-mvp.md#-exit-gate-5).
-2. **Obtain 200+ real anonymised PDFs** under the existing corpus, permission and de-identification requirements in [`docs/test-corpus-manifest.md`](docs/test-corpus-manifest.md) — written permission, a named de-identifier, storage outside git with only the manifest tracked. All five blockers there need human action. ⚠️ This shares its approval with the [Phase 3 gold set](#-phase-3-clinical-validation--return-after-all-phases): **one permission unblocks both.**
-3. **Categorise the corpus as it is collected** — native/scanned, lab/radiology/path/micro, single/multi-page — which is task 6.6 and the manifest's own instruction.
+1. **Obtain 200+ real anonymised PDFs** under the existing corpus, permission and de-identification requirements in [`docs/test-corpus-manifest.md`](docs/test-corpus-manifest.md) — written permission, a named de-identifier, storage outside git with only the manifest tracked. All five blockers there need human action. ⚠️ This shares its approval with the [Phase 3 gold set](#-phase-3-clinical-validation--return-after-all-phases): **one permission unblocks both.**
+2. **Categorise the corpus as it is collected** — native/scanned, lab/radiology/path/micro, single/multi-page — which is task 6.6 and the manifest's own instruction.
 
-## Exit Gate 6 — what it will require
+## Exit Gate 6 — where it actually stands
 
 Verbatim from [`docs/build/phase-06-document-ingestion.md`](docs/build/phase-06-document-ingestion.md):
 
-- [ ] **200 real PDFs** processed: **≥95%** produce usable text
-- [ ] Spans map correctly (spot-check the overlay on **20** documents)
-- [ ] Failures land in the review queue with page images visible
+- [ ] 🔴 **200 real PDFs** processed: **≥95%** produce usable text — **0 of 200**
+- [ ] 🔴 Spans map correctly (spot-check the overlay on **20** documents) — the overlay is built and the span invariant is proven against synthetic PDFs, but **spot-checking 20 real documents needs 20 real documents**
+- [x] ✅ Failures land in the review queue with page images visible — tested at unit level, over HTTP, and demonstrated by accident when OCR was broken for an entire run and **no document was lost**
 
-All three are measured against **real** documents. None of the three can be
-satisfied with generated files.
+**One of three.** The two open clauses are measurements over real hospital
+paperwork and cannot be satisfied with generated files.
 
 ---
 
@@ -435,6 +503,19 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-14 — Phase 6 document ingestion, built and run end to end
+
+- **⚠️ Started as a knowing exception** with Exit Gate 5 open, on the project owner's instruction — recorded above. **Exit Gate 6 stays 🔴 OPEN**: two of its three clauses are measurements over 200 real PDFs and the corpus is at **0**. Synthetic PDFs are unit-test fixtures and are **not** gate evidence.
+- **Migrations `0012` and `0013`.** 0012: `documents` (sha256 UNIQUE — dedup falls out of content addressing), `document_pages` (`is_scanned` **per page**, not per document), `document_spans` (char offsets + bbox, because *"Phase 8's span verifier is impossible without them"*). 0013: `audit_log.entity_type` gains `document`. `alembic check` reports **drift 0**.
+- **The span invariant holds** — `text_layer[char_start:char_end] == text`, asserted in memory, after a Postgres round-trip, and end to end over HTTP. Without it every citation the product ever shows would point slightly to the left of the value it claims to quote.
+- **Native path, scanned path, and the mandatory fallback all run.** Real PaddleOCR reads a scanned A4 page at **0.997** confidence. Every failure — encrypted, corrupt, timed out, OCR absent, child killed — ends with a document in the review queue with its pages rendered beside the Phase 3 manual-entry route. **The workflow never stalls because parsing failed.**
+- **🔴 The most serious finding: one unreadable PDF was taking Phase 2 and Phase 4 down with it.** A 15-megapixel render drove the worker into its memory limit; the kernel SIGKILLed the process — which also runs the SLA-timer and notification consumers. pgmq redelivered, the process died again, **16 times**, and the DLQ was never reached because the dead-letter check only ran when the handler *raised*, and a process that is killed never raises. Fixed three ways: dead-letter **on arrival** past the attempt limit; **cap renders at 4.2 MP**; and **move extraction into a child process**, so a dead child costs one document instead of the escalation ladder.
+- **The 120s budget did not fit a scanned page** — 115.4s at a 2-CPU quota, so every scan would have timed out into review and the feature would have been useless. Thread oversubscription was ruled out by measurement first (`OMP_NUM_THREADS=2` → 116.3s; it is simply CPU-bound). Worker raised to 6 CPUs: **115.4s → 38.7s**.
+- **18 defects found and fixed**, each with a regression test; the three most serious were each **proven red before being fixed**. Nine were found only by running the thing end to end — including OCR being completely broken while every unit test passed, because the unit tests stub the engine out.
+- **Gates:** ruff · black · mypy strict all clean; **1048 backend tests** and **187 frontend tests** pass; `tsc --noEmit` clean; full E2E exit 0.
+- **Deviation:** Docling replaced by PyMuPDF `find_tables()` — Docling pulls ~2.5 GB of PyTorch into an image that must run air-gapped on a CPU-only server, and its output would need fuzzy alignment back to our span map, which is the exact failure mode `native.py` exists to prevent. Recorded in the phase doc.
+- ▶ Full record, every item and every defect: [`docs/build/phase-06-verification-log.md`](docs/build/phase-06-verification-log.md).
 
 ### 2026-09-14 — NODE B provisioned (Phase 0.3), on Ashmit's machine
 

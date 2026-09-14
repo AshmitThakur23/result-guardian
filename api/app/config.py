@@ -51,6 +51,42 @@ class Settings(BaseSettings):
     # `app/routers/webhooks.py` for why it is not simply mandatory.
     webhook_secret: str = ""
 
+    # ── document ingestion (Phase 6) ──────────────────────────────
+    # Where files actually live. 6.1: "DB holds the path, never the blob."
+    # These are deployment facts -- which volume, which mount -- not clinical
+    # configuration, so they belong in the environment. The *thresholds* that
+    # decide whether a page is readable do not; they live in `system_settings`
+    # so an admin can move them without a redeploy. See
+    # `app/services/documents/settings.py`.
+    document_root: str = "/data/documents"
+    inbox_dir: str = "/data/inbox"
+    processing_dir: str = "/data/processing"
+    archive_dir: str = "/data/archive"
+    # 6.1: "multipart, max 25 MB".
+    upload_max_bytes: int = 25 * 1024 * 1024
+
+    # 6.1: "Virus scan hook (ClamAV container) **before** processing."
+    # Empty host means no scanner is deployed. That is not the same as "the
+    # file is clean", and `app/services/documents/scan.py` is careful about
+    # the difference -- it records `skipped`, never `clean`.
+    clamav_host: str = ""
+    clamav_port: int = 3310
+    clamav_timeout_s: float = 30.0
+    # When a scanner IS configured but unreachable, refuse the file rather
+    # than processing it unscanned. Set false only in a deployment that has
+    # accepted that risk in writing.
+    clamav_required: bool = True
+
+    # The watched folder is optional: a hospital that only ever uses the
+    # upload form should not have a poller walking a directory that will
+    # never exist.
+    watched_folder_enabled: bool = False
+    watched_folder_poll_s: float = 5.0
+
+    # 6.4 renders page images for the overlay and for the manual-entry
+    # fallback. 200 DPI is the plan's own floor for OCR input.
+    page_render_dpi: int = 200
+
     # ── NODE B ────────────────────────────────────────────────────
     # Use the literal LAN IP. Inside the API container, "localhost" and
     # "host.docker.internal" do not reach NODE B.

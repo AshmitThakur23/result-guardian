@@ -237,4 +237,43 @@ export const api = {
     anchor.remove();
     URL.revokeObjectURL(url);
   },
+
+  /**
+   * A multipart upload. Phase 6.1.
+   *
+   * `Content-Type` is deliberately **not** set: the browser has to write it
+   * itself so it can append the multipart boundary. Setting it by hand
+   * produces a header with no boundary and a body the server cannot parse,
+   * which surfaces as a 422 that looks like a validation bug.
+   */
+  postForm: async <T>(path: string, form: FormData): Promise<T> => {
+    const response = await fetch(`/api${path}`, {
+      method: "POST",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      body: form,
+    });
+    if (!response.ok) throw new ApiError(await toProblem(response));
+    return (await response.json()) as T;
+  },
+
+  /**
+   * Fetch a binary resource as an object URL. Phase 6.
+   *
+   * Page images are behind the same RBAC as everything else, and a plain
+   * `<img src="/api/…">` does not carry the Authorization header — so it
+   * would 401 on every page of every document. Fetching the bytes and
+   * wrapping them in a blob URL is what lets an `<img>` display an
+   * authenticated resource.
+   *
+   * **The caller must revoke the URL** when the image unmounts, or a clerk
+   * paging through a forty-page scan leaks forty page images for the life of
+   * the tab.
+   */
+  objectUrl: async (path: string): Promise<string> => {
+    const response = await fetch(`/api${path}`, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    });
+    if (!response.ok) throw new ApiError(await toProblem(response));
+    return URL.createObjectURL(await response.blob());
+  },
 };

@@ -62,6 +62,13 @@ services:
     env_file: [.env]
     environment:
       RG_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-rg_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-result_guardian}
+    # Phase 6. The API writes uploads here and serves the page images the
+    # worker renders; the worker reads the files and writes the renders. They
+    # MUST be the same volume -- two copies means the API serves a 404 for
+    # every image the worker produced, and the fallback form has nothing to
+    # show.
+    volumes:
+      - rgdocs:/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,6 +95,8 @@ services:
     env_file: [.env]
     environment:
       RG_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-rg_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-result_guardian}
+    volumes:
+      - rgdocs:/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,8 +107,35 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1.0"
-          memory: 1G
+          # ★ Raised from 2.0 for Phase 6, and the number is measured, not
+          # guessed. OCR is the only CPU-bound work this system does: one
+          # scanned A4 page at 200 DPI took **115 seconds** at a 2-CPU quota,
+          # which does not fit inside 6.5's 120-second budget once model
+          # loading is counted — so every scanned page would have timed out
+          # and gone to a human, making the whole scanned path useless.
+          #
+          # Thread oversubscription was ruled out first: the container sees
+          # `nproc` 12 regardless of the quota, but pinning OMP_NUM_THREADS to
+          # match made no difference (116.3s vs 115.4s). It is simply
+          # CPU-bound.
+          #
+          # NODE A has 8 physical / 12 logical cores, so 6 leaves ample room
+          # for Postgres, the API and the machine's owner.
+          cpus: "6.0"
+          # Raised from 1G for Phase 6, then from 3G to 4G after a real OOM.
+          #
+          # PaddleOCR loads detection and recognition models and then works on
+          # a multi-megapixel page. At 3G an 11 MP render was SIGKILLed by the
+          # OOM killer — and because extraction ran in the worker process at
+          # the time, that killed the SLA-timer and notification consumers too.
+          #
+          # Two things now stand between that and a repeat, and the memory
+          # limit is the *weaker* of them: `render.py` caps a page at 4.2 MP,
+          # and extraction runs in a child process so an OOM costs one
+          # document rather than the worker. This headroom is the belt to
+          # those braces — **do not lower it without re-running a scanned
+          # document end to end.**
+          memory: 4G
 
   caddy:
     image: caddy:2-alpine
@@ -119,6 +155,11 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  # Phase 6. Original documents, rendered page images, and the watched-folder
+  # inbox/processing/archive tree. A named volume rather than a bind mount so
+  # the files survive `docker compose down` -- these are clinical records, and
+  # `documents.storage_path` points at them.
+  rgdocs:
 
 networks:
   rg:

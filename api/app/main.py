@@ -18,6 +18,7 @@ from app.routers import (
     audit,
     auth,
     cases,
+    documents,
     encounters,
     health,
     lab_flags,
@@ -136,6 +137,10 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/api")
     app.include_router(admin.router, prefix="/api")
     app.include_router(reports.router, prefix="/api")
+    # Phase 6. Every route declares its own roles, the same way worklist,
+    # audit and admin do -- the review queue, the page images and the retry
+    # button each answer to a different set of people.
+    app.include_router(documents.router, prefix="/api")
     return app
 
 

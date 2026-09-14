@@ -8,19 +8,37 @@ import io
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.session import get_session
-from app.security import require_role
+from app.security import client_ip, require_role
 from app.services import metrics as metrics_service
 from app.services.auth import AuthenticatedUser
+from app.services.documents import intake
 from app.services.pdf import PdfBuilder
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 REPORT_ROLES = ("unit_head", "admin", "auditor")
+
+# Phase 6.1. Deliberately wider than REPORT_ROLES: the people who receive a
+# lab report are lab technicians and ward staff, not the people who read the
+# NABH metrics. An auditor is excluded — reading the record is their whole
+# remit, and uploading would put them in it.
+UPLOAD_ROLES = ("lab_tech", "doctor", "unit_head", "admin")
 
 # A year, and no further. The window is the only thing standing between this
 # endpoint and a sequential scan of every case the hospital has ever had.
@@ -83,6 +101,80 @@ def _serialise(report: metrics_service.MetricsReport) -> dict[str, Any]:
         "patient_contacts": vars(report.patient_contacts),
         "overrides": vars(report.overrides),
         "lab_flags": vars(report.lab_flags),
+    }
+
+
+@router.post(
+    "/upload",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Upload a report PDF or image. Phase 6.1.",
+)
+async def upload(
+    request: Request,
+    file: UploadFile = File(..., description="PDF, PNG, JPEG or TIFF, max 25 MB"),
+    order_id: uuid.UUID | None = Form(
+        default=None,
+        description=(
+            "Optional. Link the document to a known order. Leave it unset and "
+            "Phase 7.5 matches it; the document is readable either way."
+        ),
+    ),
+    user: AuthenticatedUser = Depends(require_role(*UPLOAD_ROLES)),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Accept a file, store it content-addressed, and queue extraction.
+
+    **202, not 201.** Nothing has been extracted yet — the document is on the
+    ``ingest`` queue and the client should poll or come back to the review
+    queue. Returning 201 would imply a finished resource.
+
+    The size limit is enforced twice: the read below is bounded, and
+    ``intake.accept_upload`` checks the length it actually got. Starlette
+    spools a large upload to a temporary file rather than refusing it, so
+    without the bound here a 2 GB POST would be written to the API
+    container's disk before anything rejected it.
+    """
+    settings = get_settings()
+
+    # One byte past the limit is enough to know it is over.
+    data = await file.read(settings.upload_max_bytes + 1)
+
+    try:
+        accepted = await intake.accept_upload(
+            session,
+            data=data,
+            filename=file.filename,
+            source_channel="upload",
+            uploaded_by=user.id,
+            actor_ip=client_ip(request),
+            order_id=order_id,
+        )
+    except intake.IntakeRejectedError as exc:
+        # 422, not 400: the request was well-formed, its content was not
+        # acceptable. The reason is written to be shown to the person who
+        # clicked upload.
+        #
+        # The literal rather than `status.HTTP_422_UNPROCESSABLE_ENTITY`:
+        # Starlette deprecated that name in favour of
+        # HTTP_422_UNPROCESSABLE_CONTENT, and the code is what goes on the
+        # wire either way. Pinning to the number rather than to whichever
+        # spelling this Starlette release prefers.
+        raise HTTPException(422, exc.reason) from exc
+
+    await session.commit()
+
+    return {
+        "document_id": str(accepted.document_id),
+        "sha256": accepted.sha256,
+        "duplicate": accepted.duplicate,
+        "size_bytes": accepted.size_bytes,
+        "mime_type": accepted.mime_type,
+        "virus_scan": accepted.scan_verdict,
+        "message": (
+            "This report was already in the system; showing the existing " "document."
+            if accepted.duplicate
+            else "Report received. Extraction has been queued."
+        ),
     }
 
 

@@ -16,6 +16,14 @@ import { cn } from "../lib/cn";
 const NAV = [
   { to: "/worklist", label: "Worklist", roles: ["doctor", "unit_head", "admin", "auditor"] },
   { to: "/patients", label: "Patients", roles: ["doctor", "unit_head", "lab_tech", "admin"] },
+  // Phase 6. "Documents" rather than "Reports": the Reports tab below is the
+  // Phase 5.6 metrics pack, and two tabs called Reports meaning different
+  // things is how a clerk ends up on the wrong screen in a hurry.
+  {
+    to: "/documents",
+    label: "Documents",
+    roles: ["doctor", "unit_head", "lab_tech", "admin", "auditor"],
+  },
   { to: "/reports", label: "Reports", roles: ["unit_head", "admin", "auditor"] },
   { to: "/audit", label: "Audit trail", roles: ["auditor", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },

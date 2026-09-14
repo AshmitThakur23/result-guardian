@@ -325,7 +325,7 @@ suppressed.
 If **delivery receipts** specifically are missing, check whether the provider
 is being refused: with `RG_WEBHOOK_SECRET` set, a callback that does not carry
 the matching `X-Webhook-Secret` header gets a 401 and the receipt is never
-recorded. See section 9.
+recorded. See section 10.
 
 ```bash
 docker compose logs api | grep -E "webhook_secret_rejected|webhook_unauthenticated" | tail
@@ -333,19 +333,106 @@ docker compose logs api | grep -E "webhook_secret_rejected|webhook_unauthenticat
 
 ---
 
-## 9. Before a pilot — settings that must be set
+## 9. An uploaded report is not being read
 
-Two settings ship with defaults that are right for a development machine and
-**wrong for a ward**. Neither stops the system working, which is exactly why
-they need a checklist entry rather than a runtime error.
+**First, the thing to be calm about.** A report that could not be read is not
+a lost result. Phase 6's fallback is mandatory: every document that fails
+lands in the review queue with its pages rendered, and the ward enters the
+result by hand exactly as they did before file upload existed. **The workflow
+does not stall because parsing failed.** So this section is about restoring a
+convenience, not about rescuing a patient's result — do that through the
+manual entry form, now, and debug afterwards.
 
-Check both, on NODE A, before the first real patient:
+### Where is it stuck?
+
+```bash
+docker compose exec postgres psql -U rg_app -d result_guardian -c "
+  SELECT status, count(*), max(received_at) AS newest
+    FROM documents WHERE deleted_at IS NULL GROUP BY status ORDER BY 2 DESC;"
+```
+
+| Status | Meaning | What to do |
+|---|---|---|
+| `received` | queued, worker has not started it | check the worker is alive — §2 |
+| `extracting` | being read right now | wait; if older than ~6 minutes see below |
+| `extracted` | read successfully | nothing |
+| `needs_review` | read, but not trusted — or encrypted | a human opens it in **Documents** |
+| `failed` | could not be read at all | same, plus the retry button |
+
+### Stuck in `extracting`
+
+A worker killed mid-extraction leaves the row saying `extracting` for ever —
+busy-looking, actually abandoned, and **invisible to the review queue**. The
+worker sweeps for these every 60 seconds and moves them to `failed`, so they
+should clear themselves. If they do not, the sweeper is not running:
+
+```bash
+docker compose logs worker | grep -E "stale_documents_recovered|stale_document_sweep_failed" | tail
+```
+
+### Every document fails at once
+
+That is an environment problem, not a document problem. Usually one of:
+
+```bash
+# Is the document volume mounted in BOTH containers, and writable?
+docker compose exec api  sh -c 'touch /data/documents/.probe && echo api ok'
+docker compose exec worker sh -c 'ls /data/documents/.probe && echo worker sees it'
+```
+
+If the worker cannot see what the API wrote, the two are not on the same
+volume — check that `rgdocs:/data` is mounted in both services in
+`docker-compose.yml`. This is the failure that makes every page image 404
+while extraction still appears to work.
+
+### Scanned pages produce no text
+
+OCR is the one part of Phase 6 that is allowed to fail without taking
+anything with it. When the engine is missing or broken, pages are still
+rendered and the document still reaches a human — it just says
+`needs_review` with "could not be read automatically".
+
+```bash
+docker compose logs worker | grep -E "ocr_engine_unavailable|ocr_engine_init_failed|ocr_failed" | tail
+```
+
+⚠️ **The OCR stack is version-sensitive.** `paddlepaddle` and `paddleocr` must
+be compatible with each other; a mismatch shows up as a model that loads and
+then raises on every page. Both are pinned in `api/pyproject.toml` for that
+reason. If OCR stops working after a rebuild, suspect the pins first.
+
+Memory is the other usual cause — the worker is limited to 3 GB and PaddleOCR
+plus a 200 DPI A4 render needs most of a gigabyte. An OOM kill looks like a
+worker that restarts silently:
+
+```bash
+docker inspect result-guardian-worker-1 --format '{{.State.OOMKilled}} {{.RestartCount}}'
+```
+
+### Retrying
+
+The **Try reading it again** button on a document re-queues it. It is refused
+while a document is `extracting` (two workers writing pages for one document
+is the race that prevents) and refused if the stored file no longer matches
+its own content hash — in which case the file changed after it was filed, and
+the right answer is to ask for it again, not to parse it.
+
+---
+
+## 10. Before a pilot — settings that must be set
+
+Three settings ship with defaults that are right for a development machine and
+**wrong for a ward**. None of them stops the system working, which is exactly
+why they need a checklist entry rather than a runtime error.
+
+Check all three, on NODE A, before the first real patient:
 
 ```bash
 docker compose exec api python -c "\
 from app.config import get_settings; s = get_settings(); \
 print('webhook_secret set:', bool(s.webhook_secret)); \
-print('auth rate limit  :', s.auth_rate_limit_per_minute)"
+print('auth rate limit  :', s.auth_rate_limit_per_minute); \
+print('virus scanner    :', s.clamav_host or 'NONE — nothing is scanned')"
 ```
 
 ### `RG_WEBHOOK_SECRET` — 🔴 must be set
@@ -426,7 +513,7 @@ a single NAT, for instance — and write down why.
 
 ---
 
-## 10. Backups
+## 11. Backups
 
 The whole system is one PostgreSQL database. There is nothing else to back up
 except the `.env` file.
@@ -451,7 +538,7 @@ match; that is expected and should be recorded.
 
 ---
 
-## 11. Who to call
+## 12. Who to call
 
 | Symptom | Severity | Who |
 |---|---|---|

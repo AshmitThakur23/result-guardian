@@ -27,6 +27,41 @@ dependencies = [
     # Phase 5.1's JWT. PyJWT rather than python-jose: fewer transitive
     # dependencies and it is the library FastAPI's own docs use.
     "pyjwt>=2.8",
+    # ── Phase 6 · document ingestion ──────────────────────────────
+    # 6.2/6.3: text per page with bounding boxes, and page rendering for the
+    # scanned path and the review overlay. The plan names PyMuPDF directly.
+    "pymupdf>=1.24",
+    # 6.2: "Corrupt PDF -> repair attempt via pikepdf". Small, and it is the
+    # only thing between a damaged file and a useless error message.
+    "pikepdf>=9.0",
+    # 6.4: OpenCV preprocessing before OCR. The headless build -- the GUI one
+    # pulls X11 libraries a server container has no use for.
+    "opencv-python-headless>=4.10",
+    "numpy>=1.26",
+    "pillow>=10.3",
+    # MIME sniffing for 6.1: "do not trust the extension".
+    "python-magic>=0.4.27",
+    # Multipart upload parsing for POST /api/reports/upload.
+    "python-multipart>=0.0.9",
+    # 6.4's OCR engine, named by the plan. CPU build: NODE A has no discrete
+    # GPU and must not need one -- RULE 2 keeps inference on NODE B, and OCR
+    # is not inference the safety property depends on.
+    #
+    # ⚠️ **Both pinned exactly**, unlike everything above, and the pins are
+    # load-bearing. paddlepaddle ships a compiled core and paddleocr ships
+    # models built against it; a mismatch does not fail at install or at
+    # import, it fails **on every page at inference time**.
+    #
+    # This is not hypothetical. paddlepaddle 3.0.0 with paddleocr 3.7.0 gave
+    # `ValueError: Type of attribute: strides is not right` when loading the
+    # PP-OCRv6 model — after constructing the engine without complaint. 3.3.1
+    # is the combination that was actually run and actually recognised text.
+    #
+    # `app/services/documents/ocr.py` degrades to `needs_review` if any of
+    # this breaks, so a bad upgrade costs accuracy, never availability. Check
+    # the runbook's §9 before changing either number.
+    "paddlepaddle==3.3.1",
+    "paddleocr==3.7.0",
 ]
 
 [project.optional-dependencies]
@@ -94,6 +129,32 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["uuid_extensions.*", "testcontainers.*"]
 ignore_missing_imports = true
+
+# Phase 6's native libraries. PyMuPDF, OpenCV, pikepdf and PaddleOCR are all
+# C extensions with partial or absent type information: PyMuPDF ships stubs
+# that mark its own constructors untyped, and PaddleOCR ships none at all.
+#
+# `disallow_untyped_calls` is turned off **only for calls into these modules**
+# — everything we write is still checked under full strict mode, and the
+# thin wrappers in `app/services/documents/` (`render_page`, `inspect`,
+# `extract_page`) are all annotated, so the untyped surface stops at the
+# library boundary rather than leaking into the pipeline.
+[[tool.mypy.overrides]]
+module = ["pymupdf.*", "fitz.*", "paddleocr.*", "paddle.*", "cv2.*", "pikepdf.*", "magic.*"]
+ignore_missing_imports = true
+disallow_untyped_calls = false
+
+# The call sites, which is where mypy actually reports an untyped call.
+[[tool.mypy.overrides]]
+module = [
+  "app.services.documents.detect",
+  "app.services.documents.native",
+  "app.services.documents.render",
+  "app.services.documents.ocr",
+  "app.services.documents.preprocess",
+  "app.services.documents.pipeline",
+]
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

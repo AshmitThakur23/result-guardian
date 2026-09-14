@@ -120,6 +120,29 @@ class QueueConsumer:
 
         entry = self.log.bind(msg_id=msg_id, attempt=read_ct)
 
+        # ★ Dead-letter BEFORE running the handler, not only after it fails.
+        #
+        # The check at the bottom of this method only runs when the handler
+        # raises. A message that **kills the process** never reaches it: the
+        # visibility timeout lapses, pgmq redelivers, and the process dies
+        # again — for ever. Phase 6 produced exactly that. A 15-megapixel
+        # scanned page drove the worker into its memory limit, and the
+        # document was redelivered **16 times**, well past MAX_ATTEMPTS, with
+        # the DLQ never once reached.
+        #
+        # That is worse than a stuck document. The worker process carries the
+        # SLA-timer and notification consumers too, so one poison document was
+        # taking Phase 2's escalation and Phase 4's messaging down with it
+        # every sixty seconds — a later phase breaking an earlier one, which
+        # is the thing this project forbids above all else.
+        #
+        # Checking on arrival closes it: whatever killed us last time, we do
+        # not run it again.
+        if read_ct > MAX_ATTEMPTS:
+            entry.error("message_exceeded_attempts_before_handling")
+            await self._to_dlq(session, msg_id, message)
+            return True
+
         # ── transaction 2: the handler's work and the acknowledgement ──
         # These two stay in ONE transaction on purpose. The business change and
         # the delete that acknowledges it must commit together or not at all,

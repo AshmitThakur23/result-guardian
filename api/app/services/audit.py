@@ -62,6 +62,13 @@ ACTION_PASSWORD_CHANGED = "auth.password_changed"
 ACTION_BREAK_GLASS = "auth.break_glass"
 ACTION_CONFIG_CHANGED = "config.changed"
 ACTION_ROSTER_CHANGED = "roster.changed"
+# Phase 6. A document is evidence, so how it entered the building and what
+# happened to it afterwards both belong in the chain.
+ACTION_DOCUMENT_UPLOADED = "document.uploaded"
+ACTION_DOCUMENT_INGESTED = "document.ingested"
+ACTION_DOCUMENT_FAILED = "document.failed"
+ACTION_DOCUMENT_RETRIED = "document.retried"
+ACTION_DOCUMENT_LINKED = "document.linked"
 
 
 def _canonical(value: Any) -> Any:

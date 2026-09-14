@@ -349,10 +349,30 @@ async def test_step_6_the_admin_fallback(session: AsyncSession) -> None:
 async def test_resolution_never_returns_silently(session: AsyncSession) -> None:
     """With literally nobody available, the result is a recorded
     ``unresolved`` rather than an exception or a quiet None. The case keeps
-    its severity, its timers and its events either way."""
+    its severity, its timers and its events either way.
+
+    ⚠️ **Every** admin has to be absent, not only this world's. The final
+    fallback step looks for *any* administrator, so the test's own admin
+    being on leave proves nothing while some other admin row exists — and one
+    always will in a real database, which is how this quietly started passing
+    for the wrong reason and then failed the moment a dev login was seeded.
+    """
     ids = await _world(session)
     for key in ("doctor", "head", "admin"):
         await _absent(session, ids[key])
+
+    others = (
+        await session.execute(
+            text(
+                "SELECT id FROM users"
+                " WHERE role = 'admin' AND is_active AND deleted_at IS NULL"
+                "   AND id <> CAST(:mine AS uuid)"
+            ),
+            {"mine": ids["admin"]},
+        )
+    ).scalars()
+    for other in others:
+        await _absent(session, str(other))
 
     resolution = await resolve_owner(session, uuid.UUID(ids["case"]))
     assert resolution.user_id is None

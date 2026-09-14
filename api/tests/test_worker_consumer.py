@@ -122,6 +122,62 @@ async def test_message_goes_to_dlq_after_max_attempts_and_is_archived() -> None:
     assert session.rollbacks == 1
 
 
+async def test_a_message_that_killed_the_process_is_dlqd_without_rerunning_it() -> None:
+    """★ A poison message that **crashes the worker** must still reach the DLQ.
+
+    The check in the failure path only runs when the handler *raises*. A
+    message that kills the process never gets there: the visibility timeout
+    lapses, pgmq redelivers, and the process dies again — for ever.
+
+    Phase 6 produced exactly that. A 15-megapixel scanned page drove the
+    worker into its memory limit and the document was redelivered **16 times**
+    — well past MAX_ATTEMPTS — with the DLQ never once reached. Worse, the
+    worker process also carries the SLA-timer and notification consumers, so
+    one unreadable document was taking Phase 2's escalation and Phase 4's
+    messaging down with it every sixty seconds. **That is a later phase
+    breaking an earlier one.**
+
+    So the arrival check exists: whatever killed us last time, do not run it
+    again.
+    """
+    handled: list[dict[str, Any]] = []
+
+    async def _recording_handler(session: Any, message: dict[str, Any]) -> None:
+        handled.append(message)
+
+    # read_ct above MAX_ATTEMPTS means previous deliveries never completed --
+    # they neither succeeded nor raised, because the process did not survive.
+    session = _FakeSession(rows=[(104, MAX_ATTEMPTS + 3, {"document_id": "abc"})])
+
+    assert await _consumer(_recording_handler)._read_once(session) is True
+
+    assert handled == [], "the handler must not run again on a poison message"
+    assert session.ran("pgmq.send")  # copied to the DLQ for the retry button
+    assert session.ran("pgmq.archive")  # original kept, never dropped
+    assert not session.ran("pgmq.delete")
+
+
+async def test_a_message_at_the_attempt_limit_still_gets_its_last_try() -> None:
+    """The arrival check must not steal an attempt.
+
+    ``read_ct == MAX_ATTEMPTS`` is the fifth delivery, and it is allowed to
+    run. Only a delivery *beyond* the limit is refused on sight — otherwise
+    the guard above would quietly turn five attempts into four.
+    """
+    handled: list[dict[str, Any]] = []
+
+    async def _recording_handler(session: Any, message: dict[str, Any]) -> None:
+        handled.append(message)
+
+    session = _FakeSession(rows=[(105, MAX_ATTEMPTS, {"document_id": "abc"})])
+
+    assert await _consumer(_recording_handler)._read_once(session) is True
+
+    assert handled == [{"document_id": "abc"}]
+    assert session.ran("pgmq.delete")
+    assert not session.ran("pgmq.archive")
+
+
 async def test_null_message_body_still_reaches_the_handler() -> None:
     """A NULL payload must not crash the loop into an infinite retry."""
     seen: list[dict[str, Any]] = []

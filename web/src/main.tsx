@@ -10,6 +10,8 @@ import { AuditTrailPage } from "./pages/AuditTrail";
 import { CaseDetailPage } from "./pages/CaseDetail";
 import { ChangePasswordPage } from "./pages/ChangePassword";
 import { DischargeGatePage } from "./pages/DischargeGate";
+import { DocumentDetailPage } from "./pages/DocumentDetail";
+import { DocumentQueuePage } from "./pages/DocumentQueue";
 import { EncounterDetailPage } from "./pages/EncounterDetail";
 import { LoginPage } from "./pages/Login";
 import { PatientDetailPage } from "./pages/PatientDetail";
@@ -125,6 +127,26 @@ const router = createBrowserRouter(
       element: (
         <Guarded roles={["doctor", "unit_head", "lab_tech", "admin"]}>
           <ResultEntryPage />
+        </Guarded>
+      ),
+    },
+
+    // Phase 6. An auditor may read the queue and the page images -- a
+    // document is part of the record -- but the upload form and the retry
+    // button are refused by the server regardless of what this route allows.
+    {
+      path: "/documents",
+      element: (
+        <Guarded roles={["doctor", "unit_head", "lab_tech", "admin", "auditor"]}>
+          <DocumentQueuePage />
+        </Guarded>
+      ),
+    },
+    {
+      path: "/documents/:documentId",
+      element: (
+        <Guarded roles={["doctor", "unit_head", "lab_tech", "admin", "auditor"]}>
+          <DocumentDetailPage />
         </Guarded>
       ),
     },

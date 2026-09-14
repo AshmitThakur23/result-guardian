@@ -100,3 +100,19 @@ def _reset_process_state() -> Any:
     yield
     login_limiter.reset()
     settings_store.invalidate()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _close_extraction_pool() -> Any:
+    """Shut Phase 6's extraction process pool down at the end of the run.
+
+    ``ProcessPoolExecutor`` leaves a manager thread alive, and if the
+    interpreter starts tearing down modules while it is still running, its
+    weakref callback raises `AttributeError: 'NoneType' object has no
+    attribute 'util'` — noise printed after the summary that looks like a
+    test failure and is not.
+    """
+    yield
+    from app.services.documents import pipeline
+
+    pipeline.shutdown_pool()

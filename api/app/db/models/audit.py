@@ -82,6 +82,9 @@ AUDIT_ENTITY_TYPES = (
     "session",
     "notification",
     "result",
+    # Phase 6. A document is evidence: how it entered the building, what was
+    # read out of it, and every retry all belong in the chain.
+    "document",
 )
 
 

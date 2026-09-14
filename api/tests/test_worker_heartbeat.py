@@ -111,9 +111,22 @@ def test_only_queues_with_a_real_handler_are_consumed() -> None:
     source = inspect.getsource(worker_main.main)
     consumed = re.findall(r'QueueConsumer\(\s*"([a-z_]+)"', source)
 
-    assert consumed == ["sla_timers", "classify", "notifications"], (
+    # Phase 6.5 added `ingest`, which now has a real handler
+    # (`worker/consumers/ingest.py`) and a real producer (the upload endpoint),
+    # so consuming it is correct. It shipped in the same commit as the
+    # endpoint for exactly this reason.
+    assert consumed == ["sla_timers", "classify", "notifications", "ingest"], (
         "a queue without a real handler is being consumed, which deletes "
         f"messages a later phase needs: {consumed}"
+    )
+
+    # The property this test is really about, stated directly so it keeps
+    # holding as phases are added: a queue with no handler must have no
+    # consumer. `extract` is Phase 7's, and Phase 7 has not been built —
+    # consuming it now would delete the messages Phase 7 is meant to process.
+    assert "extract" not in consumed, (
+        "`extract` has no handler yet; consuming it would delete Phase 7's "
+        "messages two seconds after they are enqueued"
     )
 
 
