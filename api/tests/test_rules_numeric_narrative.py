@@ -402,6 +402,80 @@ async def test_negation_scope_is_bounded_within_a_sentence(
     assert "abscess" in verdict.matched_terms
 
 
+# ── D-N1: conjunctions do not terminate negation scope ────────────────
+#
+# Found by literature research on 2026-09-14 --
+# docs/clinical-rule-research-findings.md section 5.
+#
+# Both the shipped NegEx and ConText terminate negation scope at a
+# conjunction -- `but`, `however`, `although`, `secondary to` -- and our
+# `negation_patterns` seed has no termination terms at all. Scope is counted
+# purely in words.
+#
+# The test above passes because its abscess is ~19 words from the trigger and
+# escapes the window on DISTANCE. Shorten the sentence and the same clinical
+# meaning is suppressed. This is the same defect Wu et al. 2014 ("Negation's
+# Not Solved", PLoS ONE 9(11):e112774) document for list-form negation.
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "D-N1, open: `however` does not terminate negation scope, so a "
+        "critical finding after a conjunction is suppressed when it falls "
+        "inside the word window. Adding CONJ terminators changes clinical "
+        "behaviour, so it belongs to the Phase 3.8 clinician review, not to "
+        "an engineer. strict=True means this test FAILS the day the defect "
+        "is fixed -- which is the signal to delete this marker."
+    ),
+)
+async def test_a_conjunction_terminates_negation_scope(
+    session: AsyncSession,
+) -> None:
+    """The same sentence as above, short enough that the window still reaches.
+
+    Radiologists write this shape constantly. `No evidence of X, however Y`
+    is one of the commonest ways a report carries a positive finding.
+    """
+    verdict = await classify_narrative_text(
+        session,
+        "No evidence of fracture, however a large abscess in the liver.",
+        category="radiology",
+    )
+    assert verdict.severity == SEVERITY_CRITICAL
+    assert "abscess" in verdict.matched_terms
+
+
+async def test_a_wrongly_negated_finding_still_reaches_a_human(
+    session: AsyncSession,
+) -> None:
+    """★ The safety property that makes D-N1 survivable. Must never regress.
+
+    NegEx's published precision is ~84.5% (Chapman et al. 2001), so roughly
+    one in seven findings it calls negated is actually asserted. Our engine
+    *discards* negated hits -- step 4 of the Rule C pipeline -- so that error
+    rate lands directly on suppressed findings.
+
+    **The FOLLOW_UP floor is the only thing standing between that and a
+    missed critical result.** A report whose every hit was negated still
+    returns NARR_ALL_HITS_NEGATED at FOLLOW_UP, so a human reads it.
+
+    This is load-bearing safety, not a nicety. THE ONE RULE says a later
+    phase must degrade to the previous phase and never to silence -- and
+    silence is exactly what removing this floor would produce. Whatever
+    happens to D-N1, this assertion holds.
+    """
+    verdict = await classify_narrative_text(
+        session,
+        "No evidence of fracture, however a large abscess in the liver.",
+        category="radiology",
+    )
+    # Never NORMAL, and never an auto-close. Whether the abscess is correctly
+    # detected (CRITICAL) or wrongly suppressed (FOLLOW_UP), a person looks.
+    assert verdict.severity in (SEVERITY_CRITICAL, SEVERITY_FOLLOW_UP)
+    assert verdict.severity != SEVERITY_NORMAL
+
+
 async def test_a_hedge_downgrades_rather_than_discards(
     session: AsyncSession,
 ) -> None:

@@ -86,17 +86,92 @@ Clinical Judgment or by a List?"* JACR 2021;18(2):294–297**, PMID 32783896 `[S
 — argues a list "is not meant to be definitive" and **its length should be carefully
 considered.** Directly relevant to our 18-term table.
 
-### RCR (UK) — a *different* system. Do not merge it with ACR.
+### RCR (UK) — ✅ **RETRIEVED IN FULL, and it corrects what we assumed**
 
-Lineage: BFCR(12)11 → BFCR(16)4 → **RCR/AoMRC, *Alerts and notification of imaging
-reports: Recommendations*, October 2022** `[SEARCH]`
+**RCR/AoMRC, *Alerts and notification of imaging reports: Recommendations*,
+October 2022** — 37-page PDF, text-extracted and read `[FETCHED]`
 <https://www.rcr.ac.uk/media/44sfqlbi/rcr-publications_alerts-and-notification-of-imaging-reports-recommendations_october-2022.pdf>
-· Journal version Clin Radiol 2022, PMID 36564264
 
-- **Critical** — requires *immediate emergency action*. Worked example: **tension pneumothorax**
-- **Urgent** — evaluation *within 24 hours*. Worked example: **pulmonary embolism**
-- **Unexpected significant** — unexpected, radiologist judges it significant. Example: apical lung cancer on a shoulder radiograph
-- **New in 2022 — a separate CANCER pathway.** New cancer or new recurrence is flagged on its own axis; a CRITICAL alert may be raised alone *or in combination with* a CANCER alert
+> ⚠️ **Correction to an earlier draft of this document.** The RCR categories are
+> **not** "critical / urgent / unexpected significant." That triad appears only
+> where the RCR *quotes the HSIB recommendation it was written to answer*. The
+> RCR's own answer is **three alert codes: `CANCER`, `CRITICAL`, `ADDITION`.**
+
+Verbatim (p.11):
+
+> *"The three main categories for imaging alerts are:*
+> *— New cancer diagnoses or newly detected cancer recurrences*
+> *— Critical findings that are time-critical*
+> *— Significant addenda in the report that may alter clinical management.*
+> *Individual healthcare organisations may incorporate additional imaging alerts,
+> subject to their local governance processes."*
+
+**`CANCER`** (p.14) — *"expected or unexpected imaging findings that suggest new or
+probable new cancer and new or probable new cancer recurrence."* Explicitly **not**
+disease progression: *"growing tumour or new nodules in a known cancer"* is excluded.
+And note — *"This includes expected diagnosis as the perception of what is expected
+or unexpected may not be clear."*
+
+**`CRITICAL`** (p.16) — *"diagnoses that may result in immediate or acute harm to the
+patient and therefore will require immediate or urgent clinical attention. The
+findings may be expected or unexpected."*
+
+**`ADDITION`** (p.21) — *"findings that are interpreted differently compared with a
+preceding report of the same examination that may result in immediate or acute harm…
+They may also include reports that reduce the significance of an original report."*
+
+**Combination is explicit** (p.18): *"A single CRITICAL alert can be triggered or in
+combination with a CANCER alert."* — **confirming cancer is an orthogonal axis, not
+a severity level.**
+
+### 🔴 The RCR gives NO per-category timeframes — this is the big surprise
+
+We assumed minutes/hours/days tiers. **The RCR has one trigger rule for all three
+categories: alert "immediately upon completion of the report."** The only numeric
+interval is on the **escalation** side (p.12):
+
+> *"Identify and escalate imaging alerts … that have not been reviewed and acted
+> upon (or plan to act). **A 48-hour interval before escalation is reasonable** but
+> this may vary depending on clinical urgency and should be agreed upon by the
+> healthcare organisation."*
+
+**Urgency is expressed by ADDING A CHANNEL, not by shortening a timer:**
+
+> *"If immediate intervention is required, for example, tension pneumothorax or
+> ruptured aortic aneurysm, the alert should be supplemented by **direct verbal
+> communication**."*
+
+Two further clauses that map onto our design:
+
+- **Ownership / redirect** (p.23): *"It is the responsibility of the referrer
+  receiving the radiology alert to act or **redirect** the alert accordingly… The
+  clinical team deciding to redirect a report should be clear that this action is
+  safe and appropriate."*
+- **Patient-facing embargo** (p.25): *"the system embargoes the release of alert
+  reports to the patient until the referrer reviews the report and authorises the
+  release."*
+
+### ✅ Table 1 — the RCR's 43 named critical conditions, verbatim
+
+> *"It is not intended to be definitive and may be subject to adaptation by local
+> governance."*
+
+| System | New critical conditions |
+|---|---|
+| **CNS** | Cerebral or spinal haemorrhage · Intracranial mass with significant mass effect · Herniation syndrome · Acute stroke · Intracranial infection / empyema · Unstable spine fracture · Tension pneumocephalus · **Spinal cord compression** |
+| **Neck** | Airway compression or impending obstruction · Carotid artery dissection |
+| **Thorax** | **Tension** pneumothorax · **Central** pulmonary embolism · Mediastinal emphysema · Large pericardial effusion with suspected tamponade |
+| **Abdomen** | Bowel perforation · Ischaemic bowel · High grade or closed loop bowel obstruction · Portal venous air · Acute volvulus · High grade traumatic visceral injury · Active intra-abdominal or retroperitoneal haemorrhage |
+| **Uro-genital** | Ectopic pregnancy · Placental abruption or placenta praevia · Uterine rupture · Foetal demise · Testicular or ovarian torsion |
+| **Musculoskeletal** | Necrotising fasciitis · Suspected physical abuse |
+| **Vascular** | Acute aortic dissection, injury or ruptured · Acute aortic aneurysm rupture · Suspected impending aortic aneurysm rupture · Deep vein thrombosis |
+| **General** | Significant misplacement of line, tube or other implanted devices of immediate clinical concern · Retained surgical foreign body · Foreign body with potential immediate clinical concern · Infection of immediate clinical concern e.g. open tuberculosis |
+| **Paediatrics** | All of the above where relevant · Significant congenital anomalies · Rib fracture · New fracture on follow-up from skeletal survey · Metaphyseal fracture · Slipped upper femoral epiphysis · Significant dilatation of the upper urinary tract · Pre-operative radiography changes that may affect surgical planning |
+
+**This is a real, national, enumerated list — the strongest single artefact in this
+document.** Note how many of its entries are **qualified** (*tension* pneumothorax,
+*central* PE, *high grade or closed loop* obstruction) — which our whole-word matcher
+cannot express. See §3.
 
 ### 🔴 ACR and RCR disagree, and it matters to our schema
 
@@ -325,7 +400,7 @@ against a base rate near 1 %, not against accuracy.
 
 ## 5 · Two defects in `narrative.py`, found by this research
 
-### D-N1 · No `CONJ` termination — 🟡 by reading, NOT executed
+### D-N1 · No `CONJ` termination — ✅ **CONFIRMED BY EXECUTION 2026-09-14**
 
 [`narrative.py:206-219`](../api/app/rules/narrative.py#L206-L219) counts scope in
 **words only**. There are **no termination terms in the seed at all**, while both
@@ -341,9 +416,33 @@ A critical finding is suppressed on a sentence pattern radiologists write
 constantly. **Caught by the FOLLOW_UP floor, so it reaches a human — but as
 FOLLOW_UP, not CRITICAL.**
 
-> 🟡 **This has NOT been executed.** It is a reading-level finding. Per
-> [`CLAUDE.md`](../CLAUDE.md) — *a test that has never failed is not a test* — it
-> needs a test that goes red before anyone believes it.
+> ✅ **Proven, not asserted.** `test_a_conjunction_terminates_negation_scope` in
+> [`api/tests/test_rules_numeric_narrative.py`](../api/tests/test_rules_numeric_narrative.py)
+> runs this sentence and reports **XFAIL** — the abscess really is suppressed.
+> Marked `xfail(strict=True)`, so **the day the defect is fixed the test FAILS**
+> and forces the marker's removal. CI stays green meanwhile.
+>
+> **The fix is NOT applied.** Adding `CONJ` terminators changes clinical
+> behaviour, so it belongs to the 3.8 clinician review (question 9), not to an
+> engineer.
+
+**The published spec confirms the diagnosis exactly.** Chapman's own ConText paper
+(PMC2757457) `[FETCHED]` describes NegEx's scope as:
+
+> *"a window of six tokens (where multiword concepts count as one token) following
+> the trigger term… **If any of these six tokens is a termination term** or if the
+> window includes the end of the sentence, **the scope ends at that point**."*
+
+**Our six-word window matches NegEx.** What we are missing is the other half of the
+same sentence — the termination terms **inside** that window. We implemented the
+bound and omitted the escape.
+
+### ✅ The safety floor is now locked by a passing test
+
+`test_a_wrongly_negated_finding_still_reaches_a_human` asserts that a wrongly
+suppressed critical finding still returns **FOLLOW_UP, never NORMAL**. It passes
+today and must never be weakened — it is what stops NegEx's ~15 % false-negation
+rate becoming a missed result.
 
 ### D-N2 · List-form negation escapes the window
 
@@ -912,9 +1011,10 @@ These are the reason this document exists. **None may be resolved by an engineer
 
 | Document | Why it matters | Status |
 |---|---|---|
-| **RCR/AoMRC Oct 2022 full PDF** | Reported to contain a **national, enumerated critical-findings list with standard alert codes**. A published list beats our reconstruction entirely | 🔴 **NOT RETRIEVED — highest value** |
-| **Larson 2014 full text** | The actual Category 1/2/3 table. Ours above is `[SEARCH]` reconstruction | 🔴 NOT RETRIEVED |
-| **Fleischner Society 2017** primary text | Tables now retrieved **second-hand via NCBI Bookshelf** (§5C). Still missing: footnotes, mm³ equivalents, and any prose on urgency | 🟡 **Tables obtained, paper unread** (paywalled; the one free PDF is an image-only scan) |
+| **RCR/AoMRC Oct 2022 full PDF** | The national enumerated critical-findings list with alert codes | ✅ **RETRIEVED IN FULL 2026-09-14** — see §1. Corrected our assumed categories and yielded 43 named conditions |
+| **Larson 2014 full text** | The actual ACR Category 1/2/3 table | 🔴 **NOT RETRIEVED — confirmed unobtainable.** `jacr.org` returns **HTTP 403** on fulltext, abstract and PDF; Europe PMC confirms `pmcid: null`, `isOpenAccess: "N"`. **No open-access route exists.** Needs institutional/ACR access or a purchased copy. ⚠️ **The Category 1/2/3 table in §1 is still `[SEARCH]` reconstruction — do not treat it as sourced** |
+| **Fleischner Society 2017** primary text | Tables retrieved **second-hand via NCBI Bookshelf** (§5C); footnotes, mm³ equivalents, low-/high-risk definitions and non-applicability prose still missing | 🔴 **NOT RETRIEVED — confirmed unobtainable.** Europe PMC: `pmcid: null`, `inPMC: "N"`, `isOpenAccess: "N"`. No OA mirror exists. **Full author list now confirmed** `[FETCHED]`: MacMahon H, Naidich DP, Goo JM, Lee KS, Leung ANC, Mayo JR, Mehta AC, Ohno Y, Powell CA, Prokop M, Rubin GD, Schaefer-Prokop CM, Travis WD, Van Schil PE, Bankier AA |
+| **NegEx 2001 primary** | The window-size dispute and the performance figures | 🟡 **Resolved without it.** Performance verbatim from the Europe PMC abstract `[FETCHED]`: *"specificity of 94.5% … positive predictive value of 84.5% … sensitivity of 77.8%"*. **NPV is not reported — do not assert one.** Window = **six tokens**, from Chapman's own later open-access ConText paper (PMC2757457) `[FETCHED]`: *"a window of six tokens (where multiword concepts count as one token)… If any of these six tokens is a termination term or if the window includes the end of the sentence, the scope ends at that point."* ⚠️ Same-author restatement, not the 2001 text |
 | **The hospital lab's own critical value list** | **ISO 15189 clause 5.8 / NABL require them to have one.** Replaces every `panic_thresholds` placeholder at once, and is the correct clinical *and* legal source | 🔴 **NOT REQUESTED — highest value in the whole project** |
 | **CAP Q-Probes**: Wagar 2007 (163 labs, *Arch Pathol Lab Med* 131(12):1769–75, PMID 18081434) and Howanitz 2002 (623 institutions, PMID 12033953) | The only large multi-lab consensus threshold tables identified | 🔴 Paywalled — needs institutional access |
 | **ACR ED actionable incidental findings white paper**, JACR 2023, S1546-1440(23)00123-0 | The most directly relevant paper found to our exact problem | 🔴 NOT RETRIEVED, entirely unread |
