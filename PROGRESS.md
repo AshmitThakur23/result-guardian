@@ -522,6 +522,16 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-14 — NODE B benchmarked before Phase 8, and it has less headroom than assumed
+
+- ✅ **The GPU is genuinely doing the work.** Measured on NODE B: RTX 3050, **2,939 MiB of 4,096 MiB VRAM**, 37 % utilisation while answering, model resident (`UNTIL: Forever`). 31.1 tok/s locally, **26.0 tok/s measured from NODE A** across the LAN.
+- ⚠️ **`ollama ps` reports a 29 % CPU / 71 % GPU split** — the model is 4.2 GB and the card holds 4.0 GB, so part of it runs on the CPU. **`qwen3:4b` is still the right choice** (8B does not fit at all), but this is the ceiling for this hardware and will not improve without a different card.
+- 🔴 **The Phase 8 30-second budget has only 27 % headroom, and that is measured.** A realistic request — one ~60-word retrieved chunk, *"two sentences, do not add facts"* — took **21.9 s** and 569 tokens. **Reasoning was 2,361 characters; the answer was 222.** The model spends roughly nine tenths of its output thinking and every token is discarded. 8.1 s of margin on a *short* chunk is a coincidence, not a design.
+- 🔴 **`think: false` does not work, and the usual strip silently fails.** Neither `/api/generate` nor `/api/chat` suppresses the monologue, and `/no_think` returns **empty content**. The model emits `</think>` **with no opening `<think>`**, so the paired-tag regex every tutorial uses matches nothing and passes the whole monologue through. `rsplit("</think>", 1)[1]` is what works; both are measured side by side in the phase doc.
+- ⚠️ **Asked what a critical potassium level is, the model answered "6.0 mEq/L or higher"** — fluent, plausible, and from **no source this system holds**. That is the unverified clinical claim CLAUDE.md forbids reaching a clinician, and it is the clearest argument yet for the span verifier being plain code with no AI in it.
+- ✅ **The grounded answer was faithful** — given a source chunk it added no facts and stayed inside it. The approach is sound; the **cost** is the open question. Four options are written into 8.4 for the owner to choose between, including using a non-reasoning model, since this step is phrasing retrieved text rather than reasoning.
+- **Phase 8 remains ⬜ not started.** Nothing was built; this is preparation done while the link was fresh rather than discovered halfway through 8.4.
+
 ### 2026-09-14 — 🏁 EXIT GATE 0 IS CLOSED. All four clauses verified.
 
 - ✅ **The gate that has been open since the project began is closed.** All four clauses now carry measured evidence, not intent. Phase 0 moves 🔵 → ✅.

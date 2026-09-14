@@ -114,6 +114,50 @@ kind of unverified clinical claim [`CLAUDE.md`](../../CLAUDE.md) forbids reachin
 a clinician. The model is a phrasing engine over retrieved text, never an
 authority.
 
+### 🔴 The 30-second budget has only 27 % headroom — measured, not estimated
+
+A **realistic** request was timed end to end from NODE A on 2026-09-14: one
+retrieved policy chunk (~60 words) and *"write two sentences for a doctor, do
+not add facts."*
+
+| | |
+|---|---|
+| **Elapsed** | **21.9 s** — against the 30 s budget below |
+| Tokens generated | 569 |
+| Throughput (from NODE A) | **26.0 tok/s** |
+| Reasoning output | **2,361 characters** |
+| Answer output | **222 characters** |
+
+> **The model spends roughly nine tenths of its output thinking, and every
+> token of it is discarded.** That is what the budget is actually paying for.
+
+The answer itself was faithful — it added no facts and stayed inside the source
+— so the approach is sound. The *cost* is the problem, and 8.1 s of headroom on
+a short chunk is not a margin, it is a coincidence.
+
+**Hardware context** — measured on NODE B the same day: RTX 3050, **2,939 MiB of
+4,096 MiB VRAM in use**, and `ollama ps` reports a **29 % CPU / 71 % GPU** split
+because the model is 4.2 GB and the card holds 4.0 GB. Locally NODE B sees
+31.1 tok/s; NODE A sees 26.0 across the LAN. **`qwen3:4b` is the right choice for
+this card** — 8B does not fit at all — but the partial CPU offload is why the
+throughput is what it is, and it will not improve without different hardware.
+
+**Before writing 8.4, decide which of these gives:**
+
+- [ ] **Cap the reasoning, not just the answer.** Needs a measured floor: too low
+      truncates mid-thought and returns *nothing* (proven above at 16 and 64).
+- [ ] **Raise the budget above 30 s**, and say what the UI does while waiting.
+- [ ] **Use a non-reasoning model for this task.** The generation step is
+      phrasing retrieved text, not reasoning — the thinking may be pure waste
+      here. Benchmark a non-reasoning model of similar size before committing.
+- [ ] **Accept it and generate asynchronously**, so no clinician ever waits on
+      NODE B. Fits RULE 2 best: the explanation arrives when it arrives, and its
+      absence changes nothing.
+
+⚠️ **Whatever is chosen, a timeout must degrade to "no explanation shown", never
+to a blank panel or a spinner that never resolves.** An explanation is a
+convenience; the flag beneath it is the product.
+
 - [ ] Model pulled at provisioning, `OLLAMA_KEEP_ALIVE=-1` so it stays in VRAM
 - [ ] GPU optional — 8B runs on CPU slowly. **Benchmark before promising anything.**
 - [ ] Strict JSON schema output, **temperature 0**, `format: json`, max tokens capped:
