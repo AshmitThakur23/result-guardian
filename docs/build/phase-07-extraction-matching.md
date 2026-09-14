@@ -9,6 +9,28 @@
 
 > ⚠️ **Do not start this phase until Exit Gate 6 passes.**
 
+### 🔵 STARTED 2026-09-14 as a KNOWING EXCEPTION — Exit Gate 6 is OPEN
+
+**Exit Gate 6 has not passed and cannot**, because two of its three clauses are
+measurements over **200 real PDFs** and the corpus stands at **0**. The project
+owner instructed that Phase 7 proceed. Recorded here and in
+[`PROGRESS.md`](../../PROGRESS.md) so it is a decision on the record rather than
+an oversight — the build plan's own ordering rule says otherwise, and that
+disagreement should stay visible.
+
+**🔴 Exit Gate 7 cannot close either, for the same reason.** It is measured on a
+gold set of **100 labelled real documents**, and the same missing corpus blocks
+it. Synthetic fixtures are unit-test material and **may never be counted toward
+either gate** — a test asserts this.
+
+**What this phase can honestly deliver without the corpus:** the schema, the
+extraction cascade, the normalisation tables, the matching arithmetic, the
+status-supersession rules, the review queues, and an evaluation harness that is
+**ready to run the moment real documents exist**. What it cannot deliver is the
+accuracy numbers, and those are the gate.
+
+▶ The corpus request is §4 of [`../phase-6-outstanding.md`](../phase-6-outstanding.md).
+
 **Legend:** ✅ done & verified · 🟡 written, never run · 🔵 in progress · ⬜ not started · 🔴 blocked · 🚫 out of scope
 > Tick tasks `- [ ]` → `- [x]` **as you go**, update this table, and log it in [`../../PROGRESS.md`](../../PROGRESS.md). Written is not done.
 

@@ -538,6 +538,16 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-14 — 🔵 Phase 7 started (knowing exception), 7.5 matching built
+
+- ⚠️ **Started with Exit Gate 6 OPEN, on the owner's instruction.** Two of that gate's three clauses are measurements over **200 real PDFs** and the corpus is **0**. Recorded in the phase doc too, so the disagreement with the build plan's ordering rule stays visible rather than becoming an oversight. **Exit Gate 7 cannot close either** — it is measured on **100 labelled real documents**.
+- ✅ **Migration `0014`** adds the five tables Phase 7 needs: `document_classifications`, `extraction_templates`, `loinc_terms`, `test_synonyms`, `match_decisions`. `unit_conversions` and `antibiotic_synonyms` already existed and are reused. **Round-trip 0014 → 0013 → 0014 clean; `alembic check` reports zero drift.**
+- ✅ **7.5 matching is built, and there is no AI in it.** Pure arithmetic over 7.5's signal table, thresholds passed as arguments so a hospital can retune without a code change. `match_decisions` stores **the score, the method and every candidate** — not just the winner — so a wrong match is investigable rather than merely regrettable.
+- ★ **The tie rule is the important part.** A sort always produces a winner; with two candidates at 0.90 any tie-break invents a distinction the evidence does not support and is **right about half the time**. Ties go to a human. **Verified by removing the rule and watching two tests go red** with `auto_matched` where `needs_review` belonged — the wrong-patient bug, caught.
+- ★ **Signals are never summed.** A near-identical name plus matching birthday, test and date stays at **0.70** — below the auto threshold by construction — so no pile of weak coincidences can reach an auto-match without an identifier agreeing. **A missing collection date counts as disagreement**, or a dateless result would score against every open case for that patient.
+- ✅ **15 tests.** ruff, black, mypy strict, full suite and the round-trip all clean — run with **the gate's own commands**, per the new CI rule.
+- 🔧 **Two defects in my own work, found by the linters and fixed rather than suppressed:** a bare `dict` annotation mypy rejected, and a redundant CHECK written `(A) = (B AND A)` that says the same thing as the constraint beside it in a form nobody can read.
+
 ### 2026-09-14 — 🔴 OPEN DEFECT: a deadlock in the timer/closure race, found by CI
 
 - 🔴 **CI has been red since `687bd98`, and I did not check it for eight commits.** Two separate causes, one fixed and one still open. **Everything passed locally throughout** — which is exactly why local green is not evidence.

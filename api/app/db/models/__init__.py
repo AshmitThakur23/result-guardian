@@ -26,6 +26,13 @@ from app.db.models.discharge import (
 )
 from app.db.models.documents import Document, DocumentPage, DocumentSpan
 from app.db.models.encounters import Encounter
+from app.db.models.extraction import (
+    DocumentClassification,
+    ExtractionTemplate,
+    LoincTerm,
+    MatchDecision,
+    TestSynonym,
+)
 from app.db.models.infra import SystemSetting, WorkerHealth
 from app.db.models.lab import LabFlag
 from app.db.models.notifications import Notification, PatientContact
@@ -65,12 +72,16 @@ __all__ = [
     "DischargeMedication",
     "DischargeOverride",
     "Document",
+    "DocumentClassification",
     "DocumentPage",
     "DocumentSpan",
     "DutyRoster",
     "Encounter",
     "EscalationChain",
+    "ExtractionTemplate",
     "LabFlag",
+    "LoincTerm",
+    "MatchDecision",
     "MdroRule",
     "NegationPattern",
     "Notification",
@@ -88,6 +99,7 @@ __all__ = [
     "Session",
     "SlaTimer",
     "SystemSetting",
+    "TestSynonym",
     "UnitConversion",
     "User",
     "UserAbsence",
