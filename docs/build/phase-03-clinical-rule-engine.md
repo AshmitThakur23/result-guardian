@@ -148,6 +148,16 @@ Always emit a machine-readable `reason_code`, e.g. `NUM_ABOVE_CRITICAL_HIGH`.
 - [ ] Sit with a clinician, walk every disagreement, **tune thresholds, not code**
 - [ ] Record final agreement rate in `docs/clinical-validation.md`
 
+> 📚 **Preparation for this review, 2026-09-14 — [`clinical-rule-research-findings.md`](../clinical-rule-research-findings.md).**
+> Published-literature research on our keyword table, our negation detection and our
+> panic thresholds. **It is NOT validation and it changes nothing in this phase** —
+> no rule, threshold or severity was modified. It exists to make the clinician's
+> hours count: it carries **14 specific questions** for the review, an audit showing
+> **6 of 18 keywords have no published anchor**, the finding that **no consensus
+> critical-value list exists** (so `panic_thresholds` must come from the hospital's
+> own ISO 15189 list, not from literature), and a safety note that the **FOLLOW_UP
+> floor is load-bearing** because negation's published precision is only ~84.5 %.
+
 ---
 
 ## Deviations from the build plan, and why
