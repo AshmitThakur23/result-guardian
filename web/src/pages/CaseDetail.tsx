@@ -26,6 +26,7 @@ import {
   CLOSURE_REASON_PROMPTS,
 } from "../api/types5";
 import type { ClosureReason } from "../api/types5";
+import { ExplainPanel } from "../components/ExplainPanel";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
@@ -49,10 +50,50 @@ export function CaseDetailPage() {
       <CaseHeader detail={data} />
       <Explanations explanations={data.explanations} />
       <ResultBlock detail={data} />
+      {/* Phase 8. Placed under the result and above the actions: a clinician
+          reads what happened, may ask why it matters, and then decides. Putting
+          it above the result would let generated prose frame the finding before
+          the finding has been read. */}
+      <ExplainPanel caseId={data.case_id} query={explainQuery(data)} />
       <ActionBar detail={data} />
       <Timeline detail={data} />
     </article>
   );
+}
+
+/**
+ * The retrieval query, built from **structured fields only**.
+ *
+ * 8.3 forbids the raw report text reaching the query: a report is full of the
+ * patient's name, the hospital's letterhead and the lab's phone number, and
+ * searching a guideline store with that finds documents that share a word with
+ * an address. It also keeps identifiers out of a string that may later be
+ * logged.
+ *
+ * Organism and resistance first, because those are what the antibiotic policy
+ * is indexed on; the analyte name is the fallback for a chemistry result.
+ */
+function explainQuery(detail: CaseDetail): string {
+  const parts: string[] = [];
+
+  const organism = detail.organisms[0];
+  if (organism) {
+    parts.push(organism.organism);
+    // `interpretation`, not `result` -- and the antibiotic name is nullable,
+    // because a lab can report a sensitivity row with the drug column blank.
+    const resistant = organism.sensitivities.find(
+      (cell) => cell.interpretation === "R" && cell.antibiotic,
+    );
+    if (resistant?.antibiotic) parts.push(resistant.antibiotic, "resistant");
+    if (organism.specimen_type) parts.push(organism.specimen_type);
+  }
+
+  if (parts.length === 0 && detail.analytes.length > 0) {
+    parts.push(String(detail.analytes[0].test_name ?? ""));
+  }
+  if (parts.length === 0) parts.push(String(detail.order.test_name ?? ""));
+
+  return parts.filter(Boolean).join(" ").slice(0, 300);
 }
 
 function text(value: unknown, fallback = "—"): string {

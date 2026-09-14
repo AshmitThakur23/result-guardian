@@ -1,0 +1,266 @@
+/**
+ * "Why does this matter?" — with the source, in context. Phase 8.6.
+ *
+ * ## The design problem this screen actually has
+ *
+ * Generated clinical text is **more dangerous when it looks trustworthy**. A
+ * confident paragraph in a clean panel reads as authoritative whether or not
+ * anything behind it is true, so the visual job here is the opposite of the
+ * usual one: the citation must be at least as prominent as the prose, and the
+ * prose must be visibly *subordinate* to it.
+ *
+ * Four decisions follow from that, and each is a deliberate refusal of a
+ * prettier option:
+ *
+ * 1. **The quote is highlighted inside its surrounding passage**, not shown
+ *    alone. A quote on its own still has to be taken on trust. Reading it in
+ *    place is what makes it checkable, and it is the only reason the API
+ *    returns `chunk_text` and offsets at all.
+ *
+ * 2. **The source document is named above the explanation, not under it.**
+ *    Provenance first. A reader who stops after the first line should still
+ *    know what they are reading came from the hospital's own policy.
+ *
+ * 3. **The explanation is styled as a quotation, not as a statement.** It is
+ *    somebody's paraphrase of a source, and that is what it should look like.
+ *
+ * 4. **Rejections are always shown, including zero.** "0 rejected" is the
+ *    sentence that tells a clinician the checking happened at all. Hiding it
+ *    when nothing was rejected would make the check invisible exactly when it
+ *    is working.
+ *
+ * ## Why there is no spinner-with-progress
+ *
+ * Generation takes ~14 s and the duration is genuinely unknown — a progress bar
+ * would be a lie, and one that stalls at 90 % is worse than none. The button
+ * states what is happening and how long it usually takes, which is honest and
+ * more useful than an animation.
+ */
+
+import { useState } from "react";
+
+import { useExplain } from "../api/queries8";
+import type { ExplainEvidence } from "../api/types8";
+import { Badge } from "./ui/Badge";
+import { Banner } from "./ui/Banner";
+import { Button } from "./ui/Button";
+import { Spinner } from "./ui/States";
+
+/**
+ * The passage, with the verified quote highlighted where it sits.
+ *
+ * Offsets come from the span verifier, which computed them against the
+ * *normalised* text — so the same normalised text is rendered here. Slicing the
+ * raw text with normalised offsets would highlight the wrong characters, and a
+ * highlight that is off by a few characters is worse than none: it looks like a
+ * mis-citation.
+ */
+function QuotedPassage({ evidence }: { evidence: ExplainEvidence }) {
+  const { chunk_text, char_start, char_end } = evidence;
+  const before = chunk_text.slice(0, char_start);
+  const quote = chunk_text.slice(char_start, char_end);
+  const after = chunk_text.slice(char_end);
+
+  // The verifier guarantees the offsets are valid, but a defensive fallback
+  // costs nothing and means a future change to normalisation degrades to
+  // "unhighlighted passage" rather than to a scrambled one.
+  if (!quote) {
+    return <p className="text-sm leading-relaxed text-ink-body">{chunk_text}</p>;
+  }
+
+  return (
+    <p className="text-sm leading-relaxed text-ink-body">
+      {before}
+      <mark
+        className="rounded-sm bg-brand-subtle px-0.5 font-medium text-brand-text
+                   ring-1 ring-inset ring-brand/30"
+      >
+        {quote}
+      </mark>
+      {after}
+    </p>
+  );
+}
+
+function Citation({ evidence, index }: { evidence: ExplainEvidence; index: number }) {
+  return (
+    <li className="rounded-lg border border-line bg-surface-sunken">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <span
+          aria-hidden="true"
+          className="flex size-5 shrink-0 items-center justify-center rounded-full
+                     bg-brand text-2xs font-semibold text-white"
+        >
+          {index + 1}
+        </span>
+        <span className="min-w-0 text-sm font-medium text-ink">
+          {evidence.document_title}
+        </span>
+        {evidence.section_path ? (
+          <span className="text-xs text-ink-muted">§ {evidence.section_path}</span>
+        ) : null}
+        {evidence.page_no !== null ? (
+          <span className="text-xs text-ink-muted">p. {evidence.page_no}</span>
+        ) : null}
+
+        {/* A re-typed quote is still a valid citation, but the reader is
+            entitled to know it was not copied character for character. */}
+        <span className="ml-auto">
+          {evidence.match_ratio >= 1 ? (
+            <Badge tone="normal">Exact quote</Badge>
+          ) : (
+            <Badge tone="info">
+              {`Matched ${Math.round(evidence.match_ratio * 100)}%`}
+            </Badge>
+          )}
+        </span>
+      </div>
+      <div className="px-3 py-3">
+        <QuotedPassage evidence={evidence} />
+      </div>
+    </li>
+  );
+}
+
+export function ExplainPanel({
+  caseId,
+  query,
+}: {
+  caseId: string;
+  /** Built from structured fields by the caller — never the raw report text. */
+  query: string;
+}) {
+  const explain = useExplain(caseId);
+  const [asked, setAsked] = useState(false);
+  const result = explain.data;
+
+  return (
+    <section
+      aria-labelledby="explain-heading"
+      className="rounded-lg border border-line bg-surface"
+    >
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="min-w-0">
+          <h2 id="explain-heading" className="text-sm font-semibold text-ink">
+            Why does this matter?
+          </h2>
+          <p className="mt-0.5 max-w-prose text-sm text-ink-muted">
+            Looks up the hospital's approved guidance and explains this result
+            against it. <strong className="font-medium text-ink-body">Every
+            quotation is checked against its source before you see it.</strong>
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant={asked ? "secondary" : "primary"}
+          disabled={explain.isPending}
+          onClick={() => {
+            setAsked(true);
+            explain.mutate(query);
+          }}
+        >
+          {explain.isPending ? (
+            <>
+              <Spinner />
+              Reading the guidance…
+            </>
+          ) : asked ? (
+            "Ask again"
+          ) : (
+            "Explain"
+          )}
+        </Button>
+      </header>
+
+      <div className="px-4 py-4">
+        {!asked && !explain.isPending ? (
+          <p className="text-sm text-ink-muted">
+            Nothing is sent anywhere until you ask. This usually takes about 15
+            seconds.
+          </p>
+        ) : null}
+
+        {explain.isPending ? (
+          <p className="flex items-center gap-2 text-sm text-ink-muted">
+            <Spinner />
+            Searching approved guidance, then asking the assist to summarise it.
+            Usually about 15 seconds.
+          </p>
+        ) : null}
+
+        {/* A transport failure is not the same as "no explanation available",
+            and saying so stops a network blip reading as a clinical finding. */}
+        {explain.isError ? (
+          <Banner tone="warning" title="The request did not complete">
+            The explanation could not be requested just now. Nothing about this
+            case has changed — tracking, timers and escalation are unaffected.
+          </Banner>
+        ) : null}
+
+        {result && result.explanation === null ? (
+          // `info`, never `danger`. All four null paths are normal operating
+          // states, and styling them as errors would teach a ward that the
+          // system is broken when it is behaving exactly as designed.
+          <Banner tone="info" title="No explanation shown">
+            <p>{result.note}</p>
+            {result.rejected_count > 0 ? (
+              <p className="mt-2">
+                {result.rejected_count} quotation
+                {result.rejected_count === 1 ? " was" : "s were"} rejected for
+                not appearing in the source. This is recorded.
+              </p>
+            ) : null}
+          </Banner>
+        ) : null}
+
+        {result && result.explanation !== null ? (
+          <div className="space-y-4">
+            {/* Provenance above the prose: a reader who stops after one line
+                should still know where this came from. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="brand" dot>
+                {result.evidence.length} verified{" "}
+                {result.evidence.length === 1 ? "source" : "sources"}
+              </Badge>
+              <Badge tone={result.rejected_count > 0 ? "followup" : "normal"}>
+                {result.rejected_count} rejected
+              </Badge>
+              <span className="text-xs text-ink-muted">
+                {result.sources_considered} passage
+                {result.sources_considered === 1 ? "" : "s"} considered
+              </span>
+            </div>
+
+            {/* Styled as a quotation, because that is what it is: a paraphrase
+                of the sources below, not a statement by this system. */}
+            <blockquote className="border-l-2 border-brand pl-4 text-base leading-relaxed text-ink">
+              {result.explanation}
+            </blockquote>
+
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Checked against
+              </h3>
+              <ul className="mt-2 space-y-3">
+                {result.evidence.map((evidence, index) => (
+                  <Citation
+                    key={`${evidence.chunk_id}-${index}`}
+                    evidence={evidence}
+                    index={index}
+                  />
+                ))}
+              </ul>
+            </div>
+
+            <p className="text-xs text-ink-muted">
+              Written by an assistant from the passages above and checked against
+              them. <strong className="font-medium">It is not a clinical
+              decision</strong> — the responsibility for this patient remains
+              yours.
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
