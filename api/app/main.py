@@ -20,6 +20,7 @@ from app.routers import (
     cases,
     documents,
     encounters,
+    extraction_admin,
     health,
     lab_flags,
     orders,
@@ -144,6 +145,10 @@ def create_app() -> FastAPI:
     # audit and admin do -- the review queue, the page images and the retry
     # button each answer to a different set of people.
     app.include_router(documents.router, prefix="/api")
+    # Phase 7. The queues the extraction cascade and the matcher send
+    # uncertainty to -- each route declares its own roles, since mapping a test
+    # name and filing a result against a patient are not the same permission.
+    app.include_router(extraction_admin.router, prefix="/api")
     return app
 
 

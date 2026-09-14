@@ -108,6 +108,13 @@ jobs:
       - name: coverage gate
         run: coverage report --fail-under=70
 
+      # 7.7: "Run on every PR touching extraction -- your only defence against
+      # silent regression." Exits 0 while no gold set exists, so CI stays green
+      # and nobody is tempted to invent data to turn it green; exits 1 only when
+      # real documents exist AND the measured numbers miss Exit Gate 7.
+      - name: extraction evaluation
+        run: python scripts/eval_extraction.py
+
       - name: Postgres logs on failure
         if: failure()
         working-directory: .

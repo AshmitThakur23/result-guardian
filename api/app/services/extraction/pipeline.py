@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.extraction import classify as classify_svc
 from app.services.extraction import normalise as normalise_svc
+from app.services.extraction import spans as spans_svc
 from app.services.extraction.cascade import ExtractionResult, LlmExtractor, extract
 from app.services.extraction.parse import parse_report_status
 from app.services.matching import (
@@ -59,6 +60,11 @@ class MappedAnalyte:
     unit_raw: str | None
     extraction_method: str
     extraction_confidence: float
+    #: 7.3: *"Every field carries its `document_span_id`."* None when the value
+    #: could not be located in the page text -- an absent link is honest, a
+    #: wrong one points a clinician at the wrong line of a real report.
+    document_span_id: uuid.UUID | None = None
+    source_page: int | None = None
 
     @property
     def needs_mapping_review(self) -> bool:
@@ -153,6 +159,7 @@ async def run(
     collected_at: dt.date | None = None,
     test_code: str | None = None,
     llm: LlmExtractor | None = None,
+    document_id: uuid.UUID | None = None,
 ) -> PipelineOutcome:
     """Run the whole of Phase 7 over one document's text.
 
@@ -189,6 +196,18 @@ async def run(
         mapping = await normalise_svc.map_test_name(
             session, analyte.test_name_raw, lab_name=lab_name
         )
+        # 7.3 -- resolve the span this value was read from. Only possible when
+        # the text came from a stored document; a value typed by hand has no
+        # rectangle on any page, and saying so is correct.
+        span_id: uuid.UUID | None = None
+        page_no: int | None = None
+        if document_id is not None and analyte.value is not None:
+            span_id, page_no = await spans_svc.locate_value(
+                session,
+                document_id=document_id,
+                test_name=analyte.test_name_raw,
+                value_raw=analyte.value.raw,
+            )
         mapped.append(
             MappedAnalyte(
                 test_name_raw=analyte.test_name_raw,
@@ -200,6 +219,8 @@ async def run(
                 unit_raw=analyte.unit_raw,
                 extraction_method=analyte.method,
                 extraction_confidence=analyte.confidence,
+                document_span_id=span_id,
+                source_page=page_no,
             )
         )
     unmapped = [m for m in mapped if m.needs_mapping_review]
