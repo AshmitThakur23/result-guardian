@@ -83,6 +83,26 @@ class Evidence(BaseModel):
     chunk_text: str
 
 
+class RetrievedPassage(BaseModel):
+    """Approved guidance that was found, with **no generated text attached.**
+
+    Deliberately a different type from :class:`Evidence`, and deliberately
+    without ``quoted_text`` or ``match_ratio``. Those fields mean "a model said
+    this and the verifier confirmed it"; these passages have been through no
+    model at all. Reusing ``Evidence`` here would put unverified and verified
+    material in one list under one name, which is the exact confusion the span
+    verifier exists to prevent.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    chunk_id: uuid.UUID
+    document_title: str
+    section_path: str | None
+    page_no: int | None
+    chunk_text: str
+
+
 class ExplainResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -93,8 +113,14 @@ class ExplainResponse(BaseModel):
     #: Always populated, including on success — it says how the answer was
     #: reached, not only why it failed.
     note: str
-    #: Retrieved chunks, returned even when generation failed. 8.5: *"fall back
-    #: to showing the raw retrieved chunks with no generated text."*
+    #: ★ 8.5's fallback: *"show the raw retrieved chunks with no generated
+    #: text."* Populated whenever guidance was found but no explanation is being
+    #: shown — NODE B down, the kill switch, malformed output, or every citation
+    #: rejected. The hospital's own approved text is useful on its own, and a
+    #: clinician who asked "why does this matter?" should not be sent away with
+    #: an apology when the answer is sitting in the knowledge base. Empty on
+    #: success, because `evidence` already carries the passages in context.
+    retrieved: list[RetrievedPassage] = Field(default_factory=list)
     sources_considered: int
     rejected_count: int
 
@@ -105,6 +131,20 @@ class ExplainRequest(BaseModel):
     #: Built from structured fields by the caller. 8.3 forbids the raw report
     #: text reaching the query, so this is a short phrase, not a document.
     query: str = Field(min_length=3, max_length=300)
+
+
+def _passages(chunks: list[retrieve_svc.RetrievedChunk]) -> list[RetrievedPassage]:
+    """The retrieved guidance, as itself. No model has touched any of this."""
+    return [
+        RetrievedPassage(
+            chunk_id=uuid.UUID(c.chunk_id),
+            document_title=c.document_title,
+            section_path=c.section_path,
+            page_no=c.page_no,
+            chunk_text=c.chunk_text,
+        )
+        for c in chunks
+    ]
 
 
 @router.post(
@@ -152,6 +192,7 @@ async def explain_case(
             explanation=None,
             evidence=[],
             note=NODE_B_DOWN,
+            retrieved=_passages(chunks),
             sources_considered=len(chunks),
             rejected_count=0,
         )
@@ -178,6 +219,7 @@ async def explain_case(
             explanation=None,
             evidence=[],
             note=NODE_B_DOWN,
+            retrieved=_passages(chunks),
             sources_considered=len(chunks),
             rejected_count=0,
         )
@@ -201,6 +243,8 @@ async def explain_case(
             explanation=None,
             evidence=[],
             note=ALL_REJECTED,
+            # The prose is discarded; the hospital's own approved text is not.
+            retrieved=_passages(chunks),
             sources_considered=len(chunks),
             rejected_count=len(result.rejections),
         )

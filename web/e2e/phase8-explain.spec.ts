@@ -241,6 +241,15 @@ test("with NODE B off, the panel says so and the flag is untouched", async ({
     // source" whether or not anything was cited, so a text match here would
     // find the promise rather than the evidence.
     await expect(citationsHeading(page)).toHaveCount(0);
+
+    // ★ But the guidance itself is still there. Retrieval runs entirely on
+    // NODE A, so losing NODE B costs the paraphrase and nothing else -- and
+    // the approved text is the part a clinician actually needs. This is the
+    // degradation the phase is supposed to have, asserted rather than assumed.
+    await expect(
+      page.getByRole("heading", { name: "The guidance that was found" }),
+    ).toBeVisible();
+    await expect(page.getByText(/resistance to ceftriaxone/i)).toBeVisible();
   });
 
   // ★ The whole of RULE 2 in one line: the assist went away and the clinical

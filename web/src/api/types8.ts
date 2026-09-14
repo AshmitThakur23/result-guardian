@@ -28,12 +28,35 @@ export interface ExplainEvidence {
   chunk_text: string;
 }
 
+/**
+ * Approved guidance that was found, with **nothing generated attached**.
+ *
+ * A separate type from `ExplainEvidence` on purpose: that one carries a quote a
+ * model produced and the verifier confirmed, and this one has been near no
+ * model at all. One list holding both would be the exact conflation the span
+ * verifier exists to prevent.
+ */
+export interface RetrievedPassage {
+  chunk_id: string;
+  document_title: string;
+  section_path: string | null;
+  page_no: number | null;
+  chunk_text: string;
+}
+
 export interface ExplainResponse {
   case_id: string;
   /** `null` whenever nothing survived verification. Never partial. */
   explanation: string | null;
   evidence: ExplainEvidence[];
   note: string;
+  /**
+   * The guidance itself, shown when no explanation is. A clinician who asked
+   * "why does this matter?" while NODE B is off should still get the hospital's
+   * own approved text, rather than an apology — the answer is usually in it.
+   * Empty on success, where `evidence` already carries the passages in context.
+   */
+  retrieved: RetrievedPassage[];
   sources_considered: number;
   /** How many citations the verifier threw away. Shown even when 0. */
   rejected_count: number;

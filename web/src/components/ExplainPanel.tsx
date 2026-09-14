@@ -201,16 +201,63 @@ export function ExplainPanel({
           // `info`, never `danger`. All four null paths are normal operating
           // states, and styling them as errors would teach a ward that the
           // system is broken when it is behaving exactly as designed.
-          <Banner tone="info" title="No explanation shown">
-            <p>{result.note}</p>
-            {result.rejected_count > 0 ? (
-              <p className="mt-2">
-                {result.rejected_count} quotation
-                {result.rejected_count === 1 ? " was" : "s were"} rejected for
-                not appearing in the source. This is recorded.
-              </p>
+          <div className="space-y-4">
+            <Banner tone="info" title="No explanation shown">
+              <p>{result.note}</p>
+              {result.rejected_count > 0 ? (
+                <p className="mt-2">
+                  {result.rejected_count} quotation
+                  {result.rejected_count === 1 ? " was" : "s were"} rejected for
+                  not appearing in the source. This is recorded.
+                </p>
+              ) : null}
+            </Banner>
+
+            {/* ★ The degradation that matters. With NODE B off there is no
+                paraphrase, but the hospital's own approved guidance was still
+                found on NODE A, by plain keyword search, and it is the part a
+                clinician actually needs. Sending them away with an apology
+                while the answer sits in the knowledge base would be the wrong
+                way to fail. */}
+            {result.retrieved.length > 0 ? (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  The guidance that was found
+                </h3>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Shown exactly as it appears in the source. Nothing here was
+                  written or summarised by the assist.
+                </p>
+                <ul className="mt-2 space-y-3">
+                  {result.retrieved.map((passage) => (
+                    <li
+                      key={passage.chunk_id}
+                      className="rounded-lg border border-line bg-surface-sunken"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+                        <span className="min-w-0 text-sm font-medium text-ink">
+                          {passage.document_title}
+                        </span>
+                        {passage.section_path ? (
+                          <span className="text-xs text-ink-muted">
+                            § {passage.section_path}
+                          </span>
+                        ) : null}
+                        {passage.page_no !== null ? (
+                          <span className="text-xs text-ink-muted">
+                            p. {passage.page_no}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="whitespace-pre-line px-3 py-3 text-sm leading-relaxed text-ink-body">
+                        {passage.chunk_text}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
-          </Banner>
+          </div>
         ) : null}
 
         {result && result.explanation !== null ? (
@@ -252,15 +299,24 @@ export function ExplainPanel({
               </ul>
             </div>
 
-            <p className="text-xs text-ink-muted">
-              Written by an assistant from the passages above and checked against
-              them. <strong className="font-medium">It is not a clinical
-              decision</strong> — the responsibility for this patient remains
-              yours.
-            </p>
           </div>
         ) : null}
       </div>
+
+      {/* 8.6 requires this to be **persistent**, so it sits outside every
+          branch above rather than inside the success one. A disclaimer that
+          appears only when there is an explanation is absent in exactly the
+          states a reader is most likely to misread — and it would be the one
+          thing on screen that changed depending on whether the AI was up. */}
+      <footer className="border-t border-line px-4 py-3">
+        <p className="text-xs text-ink-muted">
+          <strong className="font-medium text-ink-body">Information only.</strong>{" "}
+          Retrieved from hospital-approved guidelines.{" "}
+          <strong className="font-medium text-ink-body">
+            The treating doctor decides.
+          </strong>
+        </p>
+      </footer>
     </section>
   );
 }

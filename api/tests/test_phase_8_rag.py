@@ -487,3 +487,52 @@ async def test_the_kill_switch_stops_generation(
     # ★ Retrieval still ran, and says so. The switch removes the *generation*,
     # not the system's ability to find the guidance.
     assert body["sources_considered"] > 0
+
+
+@pytest.mark.asyncio
+async def test_the_guidance_is_still_returned_when_generation_fails(
+    client: httpx.AsyncClient, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★ 8.5's fallback: no explanation, but the guidance is still shown.
+
+    NODE B being off removes the paraphrase. It does not remove the hospital's
+    own approved text, which was found on NODE A by plain keyword search and is
+    the part a clinician actually needs. Returning an apology while the answer
+    sits in the knowledge base would be the wrong way to fail, and the response
+    model documented this fallback for a while before any field carried it.
+
+    The passages come back as `retrieved`, never as `evidence`: `evidence`
+    means "a model said this and the verifier confirmed it", and these have been
+    near no model at all.
+    """
+
+    async def _node_b_is_down(**kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(explain_router.generate_svc, "generate", _node_b_is_down)
+
+    ids = await build_world(session)
+    headers = await bearer(client, ids, "doctor")
+    await _seed_document(session, approved=True)
+    await session.commit()
+
+    response = await client.post(
+        f"/api/cases/{uuid.uuid4()}/explain",
+        headers=headers,
+        json={"query": "Escherichia coli ceftriaxone urine"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["explanation"] is None
+    assert body["note"] == explain_router.NODE_B_DOWN
+
+    # ★ The guidance survived the failure.
+    assert body["retrieved"], "NODE B went down and took the guidance with it"
+    assert "ceftriaxone" in body["retrieved"][0]["chunk_text"].lower()
+    assert body["retrieved"][0]["document_title"]
+
+    # ...and is not being passed off as a verified citation.
+    assert body["evidence"] == []
+    assert "quoted_text" not in body["retrieved"][0]
+    assert "match_ratio" not in body["retrieved"][0]

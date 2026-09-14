@@ -16,12 +16,12 @@
 
 | § | Node | State | Note |
 |---|---|---|---|
-| 8.1 Knowledge base ingestion | A | ✅ **schema done** | `kb_documents` / `kb_chunks`, migration `0016`. **Approval is a column and retrieval filters on it** — an unapproved guideline is invisible. 🔴 No content loaded; chunker not written |
+| 8.1 Knowledge base ingestion | A | ✅ **done — text**  | `kb_documents` / `kb_chunks`, migration `0016`. **Approval is a column and retrieval filters on it** — an unapproved guideline is invisible, proven by E2E as well as unit test. Section-aware chunker written: 400–600 tokens, 15 % overlap, **never splits a table row**. Identifier scan at ingest. 🔴 **The only content loaded is a labelled demo fixture** (`api/scripts/seed_kb_demo.py`) — no real guidance, no antibiogram. 🔴 **8.2's PDF path is not written**: ingestion takes text, so a PDF guideline cannot be loaded yet |
 | 8.2 Indexes | A | ✅ **done** | HNSW `(m=16, ef_construction=64)` + GIN on `tsv`, kept in step by a trigger so a chunk written by any route is indexed the same way |
 | 8.3 Retrieval | A | ✅ **done** | Keyword + vector, RRF `k=60`. **Degrades to keyword-only with no embedder** — ranking suffers, guidance does not. Query built from structured fields, so a patient name cannot reach it |
 | 8.4 Generation — NODE B ★ | B | ✅ **done** | `rsplit` on `</think>`, not a paired-tag regex. **Every failure path returns `None`** — timeout, refusal, malformed JSON, unreachable node all mean *no explanation*, flag untouched |
 | 8.5 Span verifier ★ | A | ✅ **done** | **Plain code, no AI, no import path to NODE B.** Fuzzy 0.95 for typography, never paraphrase. Min 20 chars. All citations failing rejects the **whole** response. Proven by disabling it — 3 tests went red |
-| 8.6 UI | A | ⬜ not started | Needs 8.1 content to show anything |
+| 8.6 UI | A | 🔵 **core done & verified; 3 items open** | `ExplainPanel.tsx`. **The verified quote is highlighted inside its surrounding passage** using the verifier's own offsets, so a clinician checks it rather than trusts it; provenance sits **above** the prose; rejections shown **including zero**; disclaimer persistent in every state. **With NODE B off the approved guidance is still shown** — retrieval is all NODE A, so the outage costs the paraphrase and nothing else. Proven end to end against a live NODE B: the E2E asserts the highlighted text is actually present in a `kb_chunks` row, not merely that something got styled. ★ Two real defects found and fixed here — **the admin kill switch did not stop generation**, and **a dead NODE B took the retrieved guidance down with it**. 🔴 Open: source click-through (blocked on 8.2's PDF path), `ai_feedback` (table does not exist; **8.7 needs it**), and response caching |
 | 8.7 Evaluation | A | 🔴 blocked | Needs clinician time — same input as Exit Gate 3 |
 | **Exit Gate 8** | A + B | 🔴 **CANNOT CLOSE** | Needs a clinician's judgement on generated explanations |
 
@@ -261,14 +261,14 @@ if zero evidence items survive → reject the whole response
 
 ## 8.6 UI
 
-- [ ] **"Explain" button** on the case detail page — **on demand only, never auto-run**
-- [ ] Response panel: action / reason / summary, then evidence cards
-- [ ] Each evidence card shows source document, section, page, and the **highlighted quoted span**
-- [ ] Click-through to the source document at that page
-- [ ] Persistent disclaimer: *"Information only. Retrieved from hospital-approved guidelines. The treating doctor decides."*
-- [ ] When NODE B is unreachable: panel shows retrieved chunks with a plain notice, **button is not hidden**
-- [ ] Feedback buttons (helpful / not helpful / wrong) → **`ai_feedback`** table
-- [ ] Cache responses per `(case_id, engine_version)`
+- [x] **"Explain" button** on the case detail page — **on demand only, never auto-run**. ✅ Enforced by the hook, not only by the button: `useExplain` is a **mutation**, so there is no mount-time fetch, no refetch-on-focus and no retry, each of which would spend ~14 s of NODE B's GPU on an answer nobody asked for
+- [x] Response panel: explanation, then evidence cards. ✅ Provenance is rendered **above** the prose, and the prose is styled as a **quotation** — it is a paraphrase of a source, not a statement by this system. ⚠️ *Deviation:* the "action / reason" line is **not** repeated here; it is the rule engine's output and already sits above this panel in `ResultBlock`. Restating it inside an AI panel would attach the flag's authority to generated text
+- [x] Each evidence card shows source document, section, page, and the **highlighted quoted span** — ✅ highlighted **inside its surrounding passage**, using the verifier's own offsets, so the quote is checkable rather than merely displayed. E2E asserts the highlighted text is genuinely present in a `kb_chunks` row
+- [ ] 🔴 **Click-through to the source document at that page** — not built. There is no viewer route for a KB document, and `kb_documents` stores no file: 8.1 ingests **text**, so there is no page image to open. Blocked behind 8.2's PDF path
+- [x] Persistent disclaimer: *"Information only. Retrieved from hospital-approved guidelines. The treating doctor decides."* — ✅ verbatim, and **outside every conditional branch**, so it is present in all states. A disclaimer that appeared only alongside a successful explanation would be missing in exactly the states a reader is most likely to misread
+- [x] ★ When NODE B is unreachable: panel shows retrieved chunks with a plain notice, **button is not hidden** — ✅ **and this was a real gap**: the response model documented the fallback but no field carried it, so a dead NODE B took the guidance down with it. `retrieved` is a **separate type** from `evidence` (no `quoted_text`, no `match_ratio`) because those fields mean "a model said this and the verifier confirmed it". Proven red-then-green, and asserted in the E2E
+- [ ] 🔴 **Feedback buttons (helpful / not helpful / wrong) → `ai_feedback`** — not built; the table does not exist in any migration. Needed for 8.7's usefulness rating, so it is a prerequisite for the gate rather than a nicety
+- [ ] 🔴 **Cache responses per `(case_id, engine_version)`** — not built. Every click is a fresh ~14 s call. Acceptable while one person demonstrates it; **not** acceptable on a ward, where re-opening a case re-bills the GPU
 
 ## 8.7 Evaluation
 
