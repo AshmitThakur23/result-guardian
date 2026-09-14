@@ -311,6 +311,23 @@ than resetting. Either way the condition is detected and reported; but it means
 **"NODE B is off" and "NODE B is unreachable" look identical at this boundary**,
 which is the same ambiguity noted when the two machines were on different networks.
 
+### ✅ And it recovered on its own — the gate closes on both edges
+
+NODE B restarted Ollama; **nothing was done on NODE A.** Within ~6 s:
+
+```json
+{"status":"ok","db":"ok","worker_heartbeat_age_s":6,
+ "llm":{"reachable":true,"host":"172.25.54.48:11434",
+        "model":"qwen3:4b","latency_ms":32},
+ "degraded_features":[]}
+```
+
+`qwen3:4b` and `mistral:7b` both served again, confirmed **from inside the API
+container**. **Degradation and recovery are both automatic** — no restart, no
+config change, no manual re-enable. A transient NODE B outage costs prose
+generation for its duration and nothing else, which is precisely what
+[the degradation ladder](99-gaps-timeline-degradation.md) promises.
+
 ---
 
 **Cross-ref:** [01-tech-stack-and-repo-layout.md](01-tech-stack-and-repo-layout.md) · [architecture/00-two-node-topology.md](../architecture/00-two-node-topology.md)

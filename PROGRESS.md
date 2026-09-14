@@ -16,17 +16,23 @@
 > `RG_LLM_BASE_URL=http://172.25.54.48:11434`.
 > See [ADR 0006](docs/adr/0006-node-roles-corrected.md), which supersedes ADR 0005.
 >
-> **🔴 ONE ACTION BLOCKS EVERY CROSS-NODE CHECK, AND IT RUNS ON NODE B.**
-> Both nodes are now on the **same subnet** (`172.25.48.0/20`, gw `172.25.48.1`) —
-> addressing and the network are **not** the problem. `Test-NetConnection
-> 172.25.54.48 -Port 11434` from NODE A is still `False` because **two
-> auto-created `ollama.exe` inbound *Block* rules** sit on NODE B, and in Windows
-> Firewall **a Block rule beats an Allow rule**. Remove them, *then* allow 11434
-> from `172.25.52.148` only — both commands in
-> [`docs/network-runbook.md`](docs/network-runbook.md).
-> ⛔ **Never diagnose this with `ping`** — Windows blocks inbound ICMP, so it
-> false-negatives on a working network. That false negative is what made this look
-> like a network problem for a day.
+> **🏁 EXIT GATE 0 IS CLOSED — 2026-09-14. All four clauses verified.**
+> The two nodes are **connected**: `172.25.52.148` ⇄ `172.25.54.48` on
+> `172.25.48.0/20`, **32–36 ms**, proven from **inside the API container** — the
+> only path that counts, because `localhost` and `host.docker.internal` mean the
+> wrong machine in there.
+>
+> **RULE 2 is proven, not asserted.** Ollama was deliberately stopped on NODE B
+> with both machines on one LAN: `/api/health` stayed **200**, `degraded_features`
+> was **exactly `["llm_generation"]`**, the **entire backend suite stayed green**,
+> and the worker kept logging `sla_timers` and `classify` **message_handled**
+> throughout. It recovered on its own in ~6 s with **no action on NODE A**.
+>
+> ⛔ **Never diagnose the link with `ping`** — Windows blocks inbound ICMP, so it
+> false-negatives on a working network. That false negative cost this project a day.
+> Use `Test-NetConnection -Port`, and read the new **"a config value is not
+> verified until something has READ it"** rule in [`CLAUDE.md`](CLAUDE.md) before
+> trusting any address in a doc.
 >
 > **🏁 CI is GREEN — all 3 jobs (2026-09-12, run `34670777455`).** All nine defects D1–D9
 > are **verified**, not merely fixed. The NODE A Postgres image builds and runs with
@@ -171,7 +177,7 @@
 | Phase | Node | Status | Exit gate | Notes |
 |---|---|---|---|---|
 | — Knowledge base | — | ✅ **done** | n/a | 20 docs extracted from both PDFs, 2026-09-11 |
-| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | 🔵 **in progress** | 🔴 **OPEN** | **3 of 4 gate clauses verified 2026-09-14.** Full stack now runs on NODE A — health 200, `db: ok`, heartbeat 1s, migrations at `0013`. NODE B ✅ provisioned (`172.25.54.48`). **Both nodes are now on one subnet** — addressing is settled. 🔴 **Remaining blocker: two `ollama.exe` inbound *Block* rules on NODE B** (a Block rule beats an Allow rule), so TCP:11434 from NODE A is still refused. One elevated command on NODE B closes it. [network-runbook](docs/network-runbook.md) |
+| [0 · Foundation](docs/build/phase-00-foundation.md) | A + B | ✅ **done** | ✅ **PASSED 2026-09-14** | **All 4 clauses verified.** Full stack on NODE A — health 200, `db: ok`, heartbeat, migrations `0013`. **Both nodes connected** (`172.25.52.148` ⇄ `172.25.54.48`, 32–36 ms), proven from inside the API container. **RULE 2 closed by the deliberate test**: Ollama stopped on NODE B → health still **200**, only `llm_generation` degraded, **whole suite green**, and **SLA timers + classification kept firing**. Recovered automatically in ~6 s with no action on NODE A |
 | [1 · Data model + discharge gate ★](docs/build/phase-01-data-model-discharge-gate.md) | A | ✅ **done — all code sections** | ✅ **PASSED** | **This is the product, and it works.** 1.1–1.5 + 1.8 all ✅. 1.6 corpus + 1.7 vendor stay 🔴 (human/calendar; gate Phases 6 and 9, not Phase 2) |
 | [2 · Durable timers](docs/build/phase-02-durable-timers.md) | A | ✅ **done** | ✅ **PASSED** | 2.1–2.5 all built, audited and pushed (`13a7151`). Chaos test: 50 cases, 2 restarts, exactly 50 flags. Sweep-only recovery proven |
 | [3 · Clinical rule engine](docs/build/phase-03-clinical-rule-engine.md) | A | 🛑 **ON HOLD — code done + audited (3.1–3.7)** | 🔴 **OPEN** | 3 of 4 gate clauses proven end to end. **3.8 needs a clinician and has not had one — there is no agreement rate.** [clinical-validation.md](docs/clinical-validation.md). Not pushed |
@@ -515,6 +521,11 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 ## 📓 Session log
 
 Newest first. One line per completed unit of work.
+
+### 2026-09-14 — 🏁 EXIT GATE 0 IS CLOSED. All four clauses verified.
+
+- ✅ **The gate that has been open since the project began is closed.** All four clauses now carry measured evidence, not intent. Phase 0 moves 🔵 → ✅.
+- ✅ **And it recovered on its own — the gate closes on both edges.** NODE B restarted Ollama and **nothing was done on NODE A**: within ~6 s, `reachable: true`, **32 ms**, `degraded_features: []`, with `qwen3:4b` and `mistral:7b` both served again — confirmed **from inside the API container**. **Degradation and recovery are both automatic:** no restart, no config change, no manual re-enable. A transient NODE B outage costs prose generation for its duration and nothing else, exactly as the degradation ladder promises.
 
 ### 2026-09-14 — ✅ RULE 2 PROVEN BY THE DELIBERATE TEST. Exit Gate 0 clause 4 closed properly.
 

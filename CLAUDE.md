@@ -390,7 +390,14 @@ The two root PDFs are **archive**. Everything in them is in `docs/`. Don't re-ex
 
 ## 📌 Current state
 
-**Phase 0 — 🔵 in progress.** Exit Gate 0 is 🔴 **OPEN**.
+**Phase 0 — ✅ DONE. Exit Gate 0 is ✅ CLOSED, 2026-09-14 — all four clauses verified.**
+
+The two nodes are **connected and the link is proven**: NODE A `172.25.52.148` ⇄
+NODE B `172.25.54.48`, 32–36 ms, verified **from inside the API container**.
+**RULE 2 was closed by the deliberate test** — Ollama stopped on NODE B with both
+machines on one LAN: health stayed **200**, only `llm_generation` degraded, the
+**whole backend suite stayed green**, and **Phase 2's SLA timers and Phase 3's
+classification kept firing throughout**. Recovery was automatic in ~6 s.
 
 **2026-09-11 — 13 defects found in the scaffold and fixed.** Eight by reading, **five more only by running the linters** — including pre-existing unsorted imports in `alembic/env.py` that would have failed CI regardless. **All five CI gates now pass locally** (ruff · black · mypy strict · 25 tests · coverage 79%, raised from 51% **with tests, not by lowering the gate**). Three defects are ✅ verified; five stay 🟡 pending Docker.
 
