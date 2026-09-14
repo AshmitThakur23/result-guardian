@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP, permitted for NODE A and for nothing else.
+
+  Android 9 (API 28) blocks plaintext traffic by default, and that default is
+  correct. This file narrows the exemption to one address rather than turning
+  the protection off wholesale with `android:usesCleartextTraffic="true"`,
+  which would let the app talk to any http:// host on any network it ever joins.
+
+  ⚠️ This is a REAL exemption, not a formality. Patient data crosses the Wi-Fi
+  unencrypted. It is acceptable on an isolated ward VLAN and NOT acceptable on
+  shared or campus Wi-Fi. Phase 10.1 replaces Caddy's `:80` with a hospital
+  hostname and provisions TLS; at that point this file is DELETED and the
+  Capacitor `server.url` becomes `https://`. Narrowing the hole is a stopgap,
+  closing it is the plan.
+
+  ⚠️ The address is a DHCP lease. NODE A is 172.25.52.148 because that is what
+  the campus router handed it, and a reconnect can change it — at which point
+  the app stops reaching the server until this file, capacitor.config.ts and the
+  APK are all rebuilt. A reservation or a hostname is required before any real
+  deployment.
+-->
+<network-security-config>
+    <!-- Everything not named below keeps Android's default: no cleartext. -->
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- NODE A. includeSubdomains is meaningless for a literal IP and is
+             deliberately omitted rather than set to a value that reads as if it
+             did something. -->
+        <domain>172.25.52.148</domain>
+    </domain-config>
+</network-security-config>
