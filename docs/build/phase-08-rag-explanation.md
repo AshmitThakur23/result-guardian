@@ -27,6 +27,35 @@
 
 ---
 
+### 🔵 STARTED 2026-09-15 as a KNOWING EXCEPTION — Exit Gate 7 is OPEN
+
+Exit Gate 7 cannot close: its clauses are measured over **100 labelled real
+documents** and the corpus is **0**, the same blocker holding Exit Gates 6 and 7.
+The project owner instructed that Phase 8 proceed. Recorded here so it is a
+decision on the record rather than an oversight.
+
+**🔴 Exit Gate 8 cannot close either.** It needs a clinician's judgement on
+generated explanations, which is the same missing input as Exit Gate 3.
+
+**What this phase can honestly deliver:** the knowledge store with approval
+gating, hybrid retrieval, generation on NODE B, and — the part that matters —
+**the span verifier, which is plain code and needs no corpus at all**. What it
+cannot deliver is a measured hallucination rate over real guidance.
+
+### ⚠️ Vector search degrades to keyword search — a recorded deviation
+
+8.3 specifies **bge-m3 embeddings on NODE A's CPU**. Installing torch plus the
+model is ~5 GB, which is not available on this machine over the campus link.
+
+So `kb_chunks.embedding` is **nullable**, and retrieval runs hybrid when an
+embedder exists and **keyword-only when it does not**. That is THE ONE RULE
+applied to Phase 8: a missing model costs *ranking quality*, never *guidance*.
+Making the column NOT NULL would have turned an absent model into an absent
+feature.
+
+▶ The embedder is a drop-in: install it, run the re-embed job, and the vector
+half activates with no code change.
+
 ## 8.1 Knowledge base ingestion — NODE A
 
 - [ ] **`kb_documents`** — id, title, publisher (WHO/ICMR/hospital), doc_type, version, effective_from, effective_to, source_url_or_path, sha256, approved_by, approved_at

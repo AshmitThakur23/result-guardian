@@ -34,6 +34,7 @@ from app.db.models.extraction import (
     TestSynonym,
 )
 from app.db.models.infra import SystemSetting, WorkerHealth
+from app.db.models.knowledge import AiRejection, KbChunk, KbDocument
 from app.db.models.lab import LabFlag
 from app.db.models.notifications import Notification, PatientContact
 from app.db.models.orders import Order
@@ -60,6 +61,7 @@ from app.db.models.rules_config import (
 from app.db.models.timers import SlaTimer
 
 __all__ = [
+    "AiRejection",
     "AntibioticSynonym",
     "AuditAnchor",
     "AuditLog",
@@ -79,6 +81,8 @@ __all__ = [
     "Encounter",
     "EscalationChain",
     "ExtractionTemplate",
+    "KbChunk",
+    "KbDocument",
     "LabFlag",
     "LoincTerm",
     "MatchDecision",

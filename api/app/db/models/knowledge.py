@@ -179,6 +179,16 @@ class KbChunk(UUIDPkMixin, TimestampMixin, Base):
         CheckConstraint("char_start >= 0", name="ck_kb_chunks_span_nonneg"),
         Index("ix_kb_chunks_document", "kb_document_id"),
         Index("ix_kb_chunks_tsv", "tsv", postgresql_using="gin"),
+        # 8.2's index, declared here as well as created in the migration so
+        # `alembic check` sees model and database agree. m=16 and
+        # ef_construction=64 are the phase doc's own numbers.
+        Index(
+            "ix_kb_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
 
