@@ -27,6 +27,7 @@ and retried by things that assume GETs are free.
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -37,6 +38,7 @@ from app.config import Settings, get_settings
 from app.db.session import get_session
 from app.security import client_ip, require_role
 from app.services import audit as audit_service
+from app.services import settings_store
 from app.services.auth import AuthenticatedUser
 from app.services.rag import generate as generate_svc
 from app.services.rag import ingest as ingest_svc
@@ -130,6 +132,27 @@ async def explain_case(
             evidence=[],
             note=NO_GUIDANCE,
             sources_considered=0,
+            rejected_count=0,
+        )
+
+    # ── ★ the kill switch, checked before NODE B is dialled ──────────
+    #
+    # Phase 5 gives an admin a way to turn inference off in one click "at 3am",
+    # and until 2026-09-15 this endpoint did not consult it: the switch dimmed
+    # the health badge while the Explain button went on calling NODE B. A lever
+    # that does not disconnect the thing it names is worse than no lever, and
+    # nothing would have shown it — the answers kept arriving.
+    #
+    # Resolved from the table so the switch takes effect on the next request
+    # rather than the next restart, and reported as NODE_B_DOWN because from
+    # the clinician's side it is the same fact: no assist, flag unaffected.
+    if not await settings_store.llm_enabled(session, env_default=settings.llm_enabled):
+        return ExplainResponse(
+            case_id=case_id,
+            explanation=None,
+            evidence=[],
+            note=NODE_B_DOWN,
+            sources_considered=len(chunks),
             rejected_count=0,
         )
 
@@ -236,12 +259,32 @@ async def explain_case(
 # ── the knowledge base itself ─────────────────────────────────────────
 
 
+#: Mirrors `ck_kb_documents_publisher` and `ck_kb_documents_doc_type`.
+#:
+#: These are deliberately **not** config tables. The project convention is
+#: "configuration lives in tables", and it applies to things an admin tunes —
+#: thresholds, delays, keywords. These two are a closed vocabulary that the
+#: database enforces with a `CHECK`, and duplicating them here is what turns a
+#: typo into a 422 that names the five valid values instead of a 500 with a
+#: constraint name in the log. If the `CHECK` ever gains a value, this tuple is
+#: the other half of that migration.
+Publisher = Literal["who", "icmr", "hospital", "nlem", "other"]
+DocType = Literal[
+    "guideline", "sop", "antibiogram", "antibiotic_policy", "formulary", "protocol"
+]
+
+
 class IngestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=3, max_length=300)
-    publisher: str
-    doc_type: str
+    #: Validated against the same vocabulary the database enforces, so an
+    #: unknown value is rejected at the edge with a message that says what is
+    #: allowed. Before this, `publisher: str` let any string through to the
+    #: `CHECK`, which raised an unhandled `IntegrityError` — a 500 for what is
+    #: plainly a bad request, found by the Phase 8 E2E spec on 2026-09-15.
+    publisher: Publisher
+    doc_type: DocType
     document_text: str = Field(min_length=50)
     version: str = Field(default="1", max_length=64)
     source_ref: str | None = Field(default=None, max_length=500)

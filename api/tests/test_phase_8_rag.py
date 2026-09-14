@@ -14,14 +14,22 @@ confident, and from no source this system holds.
 
 from __future__ import annotations
 
+import re
 import uuid
+from typing import get_args
 
+import httpx
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.routers import explain as explain_router
+from app.services import settings_store
 from app.services.rag import retrieve as retrieve_svc
 from app.services.rag import verify as verify_svc
 from app.services.rag.generate import parse_response, visible_text
+
+from ._phase5 import bearer, build_world
 
 POLICY = (
     "Escherichia coli isolated from urine at greater than 100,000 CFU/mL with "
@@ -358,3 +366,124 @@ def test_malformed_output_is_none_not_an_exception() -> None:
     assert parse_response("I'm sorry, I can't help with that.") is None
     assert parse_response("{not json at all}") is None
     assert parse_response('{"evidence": []}') is None
+
+
+# ── the ingest endpoint's vocabulary ──────────────────────────────────
+
+
+def _check_vocabulary(definition: str) -> set[str]:
+    """Pull the allowed values out of a `= ANY (ARRAY[...])` CHECK definition."""
+    return set(re.findall(r"'([a-z_]+)'::character varying", definition))
+
+
+@pytest.mark.asyncio
+async def test_ingest_vocabulary_matches_the_database(session: AsyncSession) -> None:
+    """★ The API's `Literal`s and the table's `CHECK`s say the same thing.
+
+    Read from `pg_constraint` rather than written out again here, so this fails
+    if either side drifts. A value the API accepts and the database refuses is
+    a 500; a value the database allows and the API refuses is a document nobody
+    can upload — and both are silent until somebody tries.
+    """
+    rows = (
+        await session.execute(
+            text(
+                # `AS definition`, not `AS def` -- the row is read as an
+                # attribute and `r.def` is a syntax error in Python.
+                "SELECT conname, pg_get_constraintdef(oid) AS definition "
+                "  FROM pg_constraint "
+                " WHERE conrelid = 'kb_documents'::regclass AND contype = 'c'"
+            )
+        )
+    ).fetchall()
+    defs = {r.conname: r.definition for r in rows}
+
+    # Read off the **request model's own fields**, not the standalone aliases.
+    # Checking `explain_router.Publisher` would pass even if `IngestRequest`
+    # went back to a bare `str` -- which is exactly what happened when this
+    # test was first written, and it passed against the unfixed code.
+    fields = explain_router.IngestRequest.model_fields
+    assert _check_vocabulary(defs["ck_kb_documents_publisher"]) == set(
+        get_args(fields["publisher"].annotation)
+    )
+    assert _check_vocabulary(defs["ck_kb_documents_doc_type"]) == set(
+        get_args(fields["doc_type"].annotation)
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_publisher_is_a_422_not_a_500(
+    client: httpx.AsyncClient, session: AsyncSession
+) -> None:
+    """★ A bad value is a bad request, not a crash.
+
+    `publisher` was an unvalidated `str`, so anything the `CHECK` refused came
+    back as an unhandled `IntegrityError` — a 500, with the reason visible only
+    in the container log. An admin who typed "NICE" instead of "nice" was told
+    the server was broken.
+
+    **Signed in as a real admin**, because authorisation runs before validation:
+    an anonymous call is refused at the door and never reaches the field this
+    test is about. The first draft allowed a 401 here and passed against the
+    unfixed code, proving nothing.
+    """
+    ids = await build_world(session)
+    headers = await bearer(client, ids, "admin")
+
+    response = await client.post(
+        "/api/kb/documents",
+        headers=headers,
+        json={
+            "title": "A document with a publisher nobody has heard of",
+            "publisher": "NICE",
+            "doc_type": "guideline",
+            "document_text": "x" * 60,
+        },
+    )
+    assert response.status_code == 422, response.text
+
+    # The message has to name what is allowed, or the admin is left guessing.
+    assert "hospital" in response.text
+
+
+@pytest.mark.asyncio
+async def test_the_kill_switch_stops_generation(
+    client: httpx.AsyncClient, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★ Turning the AI off actually disconnects NODE B.
+
+    Until 2026-09-15 `/explain` never read the kill switch. An admin could
+    switch inference off, watch the health badge go grey, and the Explain
+    button would carry on calling NODE B — because the only thing reading the
+    switch was the liveness probe. Found by the Phase 8 E2E spec, which set the
+    switch and then waited for a message that never came.
+
+    `generate` is replaced with something that raises, so if the switch is ever
+    bypassed again this fails loudly instead of quietly returning a real answer
+    that happens to look fine.
+    """
+
+    async def _must_not_be_called(**kwargs: object) -> object:
+        raise AssertionError("NODE B was called with the kill switch engaged")
+
+    monkeypatch.setattr(explain_router.generate_svc, "generate", _must_not_be_called)
+
+    ids = await build_world(session)
+    headers = await bearer(client, ids, "admin")
+    await _seed_document(session, approved=True)
+    await settings_store.set_value(session, "llm_enabled", False)
+    await session.commit()
+
+    response = await client.post(
+        f"/api/cases/{uuid.uuid4()}/explain",
+        headers=headers,
+        json={"query": "Escherichia coli ceftriaxone urine"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["explanation"] is None
+    assert body["note"] == explain_router.NODE_B_DOWN
+    # ★ Retrieval still ran, and says so. The switch removes the *generation*,
+    # not the system's ability to find the guidance.
+    assert body["sources_considered"] > 0
