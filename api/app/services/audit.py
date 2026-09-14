@@ -70,6 +70,12 @@ ACTION_DOCUMENT_FAILED = "document.failed"
 ACTION_DOCUMENT_RETRIED = "document.retried"
 ACTION_DOCUMENT_LINKED = "document.linked"
 
+# Phase 8. Generating an explanation is a read, but not an ordinary one: it
+# sends retrieved guidance to NODE B and shows generated prose to a clinician.
+# Auditing it is how "which explanations were shown, and were their citations
+# verified" stays answerable after the fact.
+ACTION_EXPLANATION_SHOWN = "explanation.shown"
+
 
 def _canonical(value: Any) -> Any:
     """Normalise a value into something ``json.dumps`` hashes reproducibly."""

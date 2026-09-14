@@ -48,9 +48,12 @@ NUM_PREDICT = 2048
 #: would make the same case explain differently on two viewings.
 TEMPERATURE = 0.0
 
-#: Generous, because 8.4's own measurement is 21.9 s for a realistic request.
-#: Exceeding it is not an error — it is "no explanation this time".
-TIMEOUT_S = 45.0
+#: Measured, not guessed: `mistral:7b` returned a complete answer with a
+#: verbatim quote in **17.5 s** on 2026-09-15. 60 s leaves room for a longer
+#: source or a busier GPU without being so generous that a wedged request holds
+#: a clinician's screen. Exceeding it is not an error — it is "no explanation
+#: this time", and the flag underneath is untouched.
+TIMEOUT_S = 60.0
 
 _SYSTEM = (
     "You explain laboratory and radiology findings to doctors, using ONLY the "

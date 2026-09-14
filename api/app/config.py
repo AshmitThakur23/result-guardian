@@ -94,6 +94,20 @@ class Settings(BaseSettings):
     llm_enabled: bool = True
     llm_timeout_s: float = 30.0
     llm_model: str = "qwen3:4b"
+
+    #: The model Phase 8 uses to *phrase* retrieved guidance. Separate from
+    #: `llm_model` above, which names what the health probe reports.
+    #:
+    #: ⚠️ **Not qwen3, and the reason is measured.** qwen3 is a reasoning model:
+    #: asked for two sentences over one short source it spent **2,048 tokens and
+    #: 82.5 s thinking**, hit the token cap mid-monologue, and returned no JSON
+    #: at all. `mistral:7b` — already resident on NODE B — did the same job in
+    #: **17.5 s** with a clean answer and a verbatim quote.
+    #:
+    #: The generation step is *phrasing text that has already been retrieved*.
+    #: Reasoning is not merely unnecessary for it; it is 4.7x the cost for a
+    #: worse result. Measured 2026-09-15 against the live NODE B.
+    llm_generation_model: str = "mistral:7b"
     # The probe is cached so /api/health never pays for a network round trip
     # more than once per window, and never blocks on NODE B.
     llm_probe_cache_s: float = 30.0

@@ -20,6 +20,7 @@ from app.routers import (
     cases,
     documents,
     encounters,
+    explain,
     extraction_admin,
     health,
     lab_flags,
@@ -149,6 +150,9 @@ def create_app() -> FastAPI:
     # uncertainty to -- each route declares its own roles, since mapping a test
     # name and filing a result against a patient are not the same permission.
     app.include_router(extraction_admin.router, prefix="/api")
+    # Phase 8. Retrieval and generation, behind the span verifier -- nothing
+    # reaches a clinician without having been checked against its source.
+    app.include_router(explain.router, prefix="/api")
     return app
 
 

@@ -3,7 +3,7 @@
 > **Read this first, every session.** It is the resume point.
 > Updating it after every unit of work is mandatory — see the protocol in [`CLAUDE.md`](CLAUDE.md).
 
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 
 > ## ▶ RESUME HERE
 >
@@ -200,8 +200,8 @@
 | [4 · Ownership + escalation ★](docs/build/phase-04-ownership-escalation.md) | A | ✅ **done + audited** | ✅ **PASSED** | 4.1–4.7 built; 6 defects found and fixed. ⚠️ Started with Exit Gate 3 open — a knowing exception, see above. Not pushed |
 | [5 · Dashboard, closure, audit ★](docs/build/phase-05-dashboard-audit-mvp.md) | A | ✅ **done + audited (5.1–5.7)** | 🔴 **OPEN** | 🏁 **MVP code complete.** Audit found 31 unauthenticated endpoints and a chain-forking concurrency bug; both fixed with regression tests. Gate needs 2 weeks of ward shadow-running and a clinician sign-off — neither can be produced by code. Not pushed |
 | [6 · Document ingestion](docs/build/phase-06-document-ingestion.md) | A | ✅ **done + run end to end (6.1–6.5)** | 🔴 **OPEN** | Upload → pgmq → worker → text + spans; native **and** scanned, real OCR at 0.997. **18 defects found**, 9 only by the end-to-end run — including one unreadable PDF crash-looping the worker and taking Phase 2's timers with it. Gate needs **200 real PDFs; corpus is 0**. ▶ [verification log](docs/build/phase-06-verification-log.md) |
-| [7 · Extraction + matching](docs/build/phase-07-extraction-matching.md) | A (+B) | ⬜ not started | ⬜ | 3 wks |
-| [8 · RAG explanation](docs/build/phase-08-rag-explanation.md) | A + B | ⬜ not started | ⬜ | 3 wks. First phase that uses NODE B |
+| [7 · Extraction + matching](docs/build/phase-07-extraction-matching.md) | A (+B) | 🔵 **code done — 7.1–7.7** | 🔴 **CANNOT CLOSE** | Started 2026-09-14 as a **knowing exception**, Exit Gate 6 open. Migration `0014` adds 5 tables; round-trip clean, drift 0. **7.5 matching contains no AI** — pure arithmetic, thresholds as arguments. **Ties go to a human** (verified by removing the rule: 2 tests went red with `auto_matched` where `needs_review` belonged). **Signals are never summed**; a missing collection date counts as disagreement. 15 tests. 🔴 Still open: template editor UI, `document_span_id` plumbing, LOINC release not loaded. Gate measured on **100 labelled real documents; corpus is 0** |
+| [8 · RAG explanation](docs/build/phase-08-rag-explanation.md) | A + B | 🔵 **core built — 8.1–8.5** | 🔴 **CANNOT CLOSE** | Started 2026-09-15 as a **knowing exception**, Exit Gate 7 open. Migration `0016`: `kb_documents`/`kb_chunks`, HNSW + GIN. Retrieval RRF `k=60`, **degrades to keyword-only with no embedder**. ★ **Span verifier is plain code with no import path to NODE B** — fuzzy 0.95 for typography not paraphrase, min 20 chars, all-citations-fail rejects the **whole** response; **proven by disabling it — 3 tests went red**. Every rejection is a row in `ai_rejections`, invented text kept verbatim. 18 tests. 🔴 Still open: **no KB content loaded, chunker not written**, 8.6 UI not started. Gate needs a clinician |
 | [9 · Hospital integration](docs/build/phase-09-hospital-integration.md) | A | 🔴 blocked | ⬜ | 3–5 wks. ⛔ gated by hospital IT / HIS vendor |
 | [10 · Security + production](docs/build/phase-10-security-production.md) | A + B | ⬜ not started | ⬜ | 3 wks + external test turnaround |
 

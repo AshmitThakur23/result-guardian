@@ -45,6 +45,7 @@ This directory is the **source of truth**. It was extracted at full fidelity fro
 | [phase-04-ownership-escalation.md](build/phase-04-ownership-escalation.md) | Roster, owner resolution, notifications, 5-rung ladder, **alert fatigue** |
 | [phase-05-dashboard-audit-mvp.md](build/phase-05-dashboard-audit-mvp.md) | 🏁 **MVP.** Auth, dashboard, closure, hash-chained audit, metrics |
 | [phase-06-document-ingestion.md](build/phase-06-document-ingestion.md) | Upload, OCR, spans with bboxes |
+| [phase-06-verification-log.md](build/phase-06-verification-log.md) | ★ **What actually ran, and what it proved.** Every build item with its evidence, every verification command with its real result, and all 18 defects with how each was found |
 | [phase-07-extraction-matching.md](build/phase-07-extraction-matching.md) | Templates-before-LLM, LOINC, **no-AI patient matching** |
 | [phase-08-rag-explanation.md](build/phase-08-rag-explanation.md) | KB, hybrid retrieval, NODE B generation, **span verifier** |
 | [phase-09-hospital-integration.md](build/phase-09-hospital-integration.md) | HL7 v2, FHIR R4, master data, reconciliation |
@@ -57,8 +58,14 @@ This directory is the **source of truth**. It was extracted at full fidelity fro
 
 | File | Covers |
 |---|---|
+| [phase-6-outstanding.md](phase-6-outstanding.md) | ★ **Everything still owed from Phases 0–6, in one place.** Sixteen items, each marked 🔧 engineering / 🧑‍⚕️ human input / ⚖️ owner decision. The register to return to after Phase 8 |
 | [clinical-validation.md](clinical-validation.md) | **Has a clinician checked the rule engine? No.** Phase 3.8's status, why Exit Gate 3 is open, and what a hospital must do to close it |
 | [clinical-validation-protocol.md](clinical-validation-protocol.md) | **How Exit Gate 3 gets closed.** Import schema for real results, de-identification, reviewer identity, disagreement handling, and the agreement arithmetic — fixed in advance |
+| [clinical-rule-research-findings.md](clinical-rule-research-findings.md) | Published-literature basis for the narrative keywords and negation detection (ACR, RCR). **Not clinical validation — it closes no gate**, and no rule was changed as a result |
+| [real-world-validation-request.md](real-world-validation-request.md) | The package that asks a hospital for what only a hospital can give |
+| [test-corpus-manifest.md](test-corpus-manifest.md) | Task 1.6 — the de-identified corpus. **0 of 200+ collected**; blocks Exit Gates 6 and 7 |
+| [integration-spec.md](integration-spec.md) | Task 1.7 — the HIS/LIS vendor questionnaire. **Every answer still unanswered**; blocks Phase 9 |
+| [runbook.md](runbook.md) | Day-to-day operations: restart, worker health, firing a stuck timer, what to do when NODE B is down. **Every command in it was run against the live stack** |
 | [network-runbook.md](network-runbook.md) | Getting NODE A and NODE B talking |
 
 ---
