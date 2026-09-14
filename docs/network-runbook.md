@@ -58,6 +58,27 @@
 > `ping` remains a reasonable first check only where the far side is Linux, or where ICMP is
 > known to be permitted.
 
+> ### ✅ RESOLVED 2026-09-14 18:33 — NODE B's firewall no longer blocks ollama.exe
+>
+> Both auto-created Block rules were removed and the Phase 10.1 allow rule is in place,
+> scoped to NODE A's address only:
+>
+> ```
+> ollama inbound Block rules : 0
+> Result Guardian NODE B     : Enabled=True Action=Allow Direction=Inbound Profile=Any
+>                              TCP 11434, RemoteAddress 172.25.52.148   <- NODE A only
+> netstat                    : TCP 0.0.0.0:11434 LISTENING  (+ [::]:11434)
+> /api/tags on 172.25.54.48  : qwen3:4b, mistral:7b
+> ```
+>
+> `OLLAMA_HOST` needed no change — Ollama was already bound to `0.0.0.0`, not localhost.
+>
+> **Still to do, from NODE A:** `Test-NetConnection 172.25.54.48 -Port 11434` must return
+> `True`. Only that proves the path end to end; NODE B cannot test its own inbound rule,
+> because a request from NODE B to its own address never crosses the firewall.
+>
+> <details><summary>The original diagnosis, kept for the record</summary>
+>
 > ### 🔴 THE ACTUAL BLOCKER: NODE B's firewall is set to BLOCK ollama.exe
 >
 > Two rules on NODE B, created by Windows when Ollama first tried to listen and the prompt was
@@ -90,6 +111,8 @@
 > ```
 >
 > Then, **from NODE A**: `Test-NetConnection 172.25.54.48 -Port 11434` → must be `True`.
+>
+> </details>
 
 ## ~~🔴 The two machines are on DIFFERENT NETWORKS~~ — RESOLVED 2026-09-14
 

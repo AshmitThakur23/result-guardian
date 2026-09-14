@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
 | 0.2 Containers — NODE A | A | 🟡 **database ✅, full stack not yet** | **Postgres image builds and runs** — verified on NODE A and in CI (all 6 extensions, pgmq round-trip). `api`/`worker`/`caddy` compose stack still never brought up together |
-| 0.3 NODE B provisioning | **B** | 🟡 **ran; 2 items open** | ✅ Provisioned on NODE B 2026-09-14 — **192.168.0.168**, `qwen3:4b` cached, keep-alive pinned, LAN-bound. 🔴 Firewall rule + from-NODE-A check outstanding |
+| 0.3 NODE B provisioning | **B** | 🟡 **1 item open** | ✅ Provisioned 2026-09-14 — **172.25.54.48**, `qwen3:4b` + `mistral:7b`, keep-alive pinned, bound `0.0.0.0:11434`, **firewall rule applied and scoped to NODE A**. 🔴 Only the from-NODE-A reachability check remains |
 | 0.4 Network runbook | — | ✅ **done** | NODE B = **192.168.0.168** recorded. **NODE A's IP still needed** — it gates NODE B's firewall rule |
 | 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
@@ -130,7 +130,7 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 - [x] `OLLAMA_HOST=0.0.0.0:11434` — verified: `http://192.168.0.168:11434/api/tags` → HTTP 200
 - [x] `OLLAMA_KEEP_ALIVE=-1` — verified by `ollama ps` reporting **`UNTIL: Forever`**
 - [x] `OLLAMA_NUM_PARALLEL=2`, `OLLAMA_MAX_LOADED_MODELS=1`
-- [ ] 🔴 **Firewall: TCP 11434 from NODE A's IP only** — **NOT DONE.** NODE A's IP is unknown and the script refuses `0.0.0.0/0` by design
+- [x] ✅ **Firewall: TCP 11434 from NODE A's IP only** — applied on NODE B 2026-09-14 18:33. Two auto-created `ollama.exe` **Block** rules removed first (Block beats Allow in Windows Firewall), then `Result Guardian NODE B` created: Enabled, Inbound, Allow, TCP 11434, **RemoteAddress `172.25.52.148` only**
 - [x] Model pulled and cached at provisioning time, never at first request — `qwen3:4b` (2.33 GB) cached to `D:`
 - [x] No volumes mounted, no database, no logs containing prompt content — Ollama only
 - [ ] 🔴 **Verify from NODE A:** `curl http://192.168.0.168:11434/api/tags` — needs NODE A
