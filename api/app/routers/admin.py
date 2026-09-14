@@ -929,6 +929,10 @@ async def set_kill_switch(
     )
     await session.commit()
     settings_store.invalidate()
+    # Drop the probe's cached switch value so the change is visible on the very
+    # next /api/health in this process, rather than up to KILL_SWITCH_CACHE_S
+    # later. Other processes pick it up via that TTL.
+    request.app.state.llm_probe.invalidate_kill_switch()
 
     probe = await request.app.state.llm_probe.status()
     return NodeBStatusOut(

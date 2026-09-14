@@ -22,12 +22,15 @@ import type { Page } from "@playwright/test";
 // @ts-expect-error -- plain ESM helper, deliberately untyped
 import { query, seedGatedEncounter } from "./seed.mjs";
 import { apiAuth, signInAsDoctor } from "./auth";
+import { withNodeBDisabled } from "./nodeb";
 
 interface Seed {
   encounterId: string;
   doctorId: string;
   /** Phase 5.1: every screen is behind a login. */
   doctorCode: string;
+  /** Admin account, for the RULE 2 kill switch. */
+  adminCode: string;
   patientName: string;
   orderA: string;
   orderB: string;
@@ -399,24 +402,28 @@ test.describe("what the rule engine will not do", () => {
     // comparisons; the inference node is not consulted and does not need to
     // exist. The health endpoint reports it unreachable and the whole flow
     // still completes.
-    const health = await (await request.get("/api/health")).json();
-    expect(health.status).toBe("ok");
-    expect(health.llm.reachable).toBe(false);
-
+    // ★ Was `expect(health.llm.reachable).toBe(false)` — asserting a condition
+    // it never created. True only while the two machines happened to be on
+    // different networks, so it proved nothing and went red the day the link
+    // was fixed. Now the kill switch makes it true on purpose.
     const data = seed();
-    await prescribe(request, data, "Monocef");
-    await discharge(request, data);
-    await openEntry(page, data, data.orderA);
 
-    await page.getByRole("button", { name: "Add an organism" }).click();
-    await page.getByLabel("Organism", { exact: true }).fill("Escherichia coli");
-    await page.getByLabel("Colony count").fill(">100,000 CFU/mL");
-    await page.getByLabel("Specimen").fill("urine");
-    await page.getByLabel("Antibiotic 1 for organism 1").fill("Ceftriaxone");
-    await page.getByRole("radio", { name: "R for Ceftriaxone" }).check();
-    await page.getByRole("button", { name: "Save result" }).click();
-    await expect(page.getByText(/result recorded/i)).toBeVisible();
+    await withNodeBDisabled(request, data.adminCode, async () => {
+      await prescribe(request, data, "Monocef");
+      await discharge(request, data);
+      await openEntry(page, data, data.orderA);
 
-    expect(await classified(newestResultFor(data.orderA))).toBe("critical");
+      await page.getByRole("button", { name: "Add an organism" }).click();
+      await page.getByLabel("Organism", { exact: true }).fill("Escherichia coli");
+      await page.getByLabel("Colony count").fill(">100,000 CFU/mL");
+      await page.getByLabel("Specimen").fill("urine");
+      await page.getByLabel("Antibiotic 1 for organism 1").fill("Ceftriaxone");
+      await page.getByRole("radio", { name: "R for Ceftriaxone" }).check();
+      await page.getByRole("button", { name: "Save result" }).click();
+      await expect(page.getByText(/result recorded/i)).toBeVisible();
+
+      // The whole point: a CRITICAL classification, reached with inference off.
+      expect(await classified(newestResultFor(data.orderA))).toBe("critical");
+    });
   });
 });

@@ -18,12 +18,15 @@ import type { APIRequestContext } from "@playwright/test";
 // @ts-expect-error -- plain ESM helper, deliberately untyped
 import { query, seedGatedEncounter } from "./seed.mjs";
 import { apiAuth, signInAsDoctor } from "./auth";
+import { withNodeBDisabled } from "./nodeb";
 
 interface Seed {
   encounterId: string;
   doctorId: string;
   /** Phase 5.1: every screen is behind a login. */
   doctorCode: string;
+  /** Admin account, for the RULE 2 kill switch. */
+  adminCode: string;
   unitHeadId: string;
   attendingName: string;
   otherName: string;
@@ -393,22 +396,26 @@ test.describe("the backend does not trust the browser", () => {
 
 test.describe("NODE B is not required", () => {
   test("the whole Phase 1 flow completes with the LLM unreachable", async ({ page }) => {
-    const health = await (await page.request.get("/api/health")).json();
-
-    // The precondition this whole suite has been running under.
-    expect(health.status).toBe("ok");
-    expect(health.db).toBe("ok");
-    expect(health.llm.reachable).toBe(false);
-    expect(health.degraded_features).toEqual(["llm_generation"]);
-
-    // And with it unreachable, a discharge still completes and still tracks.
+    // ★ This spec used to assert `llm.reachable === false` as "the precondition
+    // this whole suite has been running under". That precondition was an
+    // accident of infrastructure -- the two machines were on different networks
+    // -- so the test passed for months without ever creating the condition it
+    // names. Connecting NODE B on 2026-09-14 turned it red, which is exactly
+    // backwards: fixing the link should not break the suite.
+    //
+    // It now switches inference off deliberately, using the product's own admin
+    // kill switch, and restores it afterwards. The assertion holds whether
+    // NODE B is up, down, or absent.
     const data = seed();
-    await dischargeThroughTheUi(page, data);
-    expect(
-      query(
-        `SELECT count(*) FROM pending_cases WHERE encounter_id = '${data.encounterId}'`,
-      ),
-    ).toBe("2");
+
+    await withNodeBDisabled(page.request, data.adminCode, async () => {
+      await dischargeThroughTheUi(page, data);
+      expect(
+        query(
+          `SELECT count(*) FROM pending_cases WHERE encounter_id = '${data.encounterId}'`,
+        ),
+      ).toBe("2");
+    });
   });
 });
 

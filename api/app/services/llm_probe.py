@@ -20,13 +20,16 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
+from app.services import settings_store
 
 log = structlog.get_logger(__name__)
 
@@ -53,13 +56,86 @@ class LlmStatus:
         return out
 
 
+# How long the resolved kill-switch value is trusted before re-reading the
+# table. The admin endpoint promises the switch "takes effect within 10
+# seconds", so this must stay comfortably under that.
+KILL_SWITCH_CACHE_S = 5.0
+
+
 class LlmProbe:
     """Cached, non-blocking reachability check for NODE B."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        sessionmaker: Callable[[], AsyncSession] | None = None,
+    ) -> None:
         self._settings = settings
         self._cached: LlmStatus | None = None
         self._lock = asyncio.Lock()
+        # Resolving the kill switch needs the database, because the switch is
+        # configuration and **configuration lives in tables, never in code**.
+        # Optional so unit tests can build a probe with no database at all.
+        self._sessionmaker = sessionmaker
+        self._enabled_cached: bool | None = None
+        self._enabled_at: float = 0.0
+
+    async def _enabled(self) -> bool:
+        """Is inference allowed right now?
+
+        ⚠️ **This used to read ``settings.llm_enabled`` directly, and that was a
+        defect worth remembering.** ``Settings`` is loaded from the environment
+        **once, at process start**; the admin kill switch writes to the
+        ``system_settings`` table. So the switch updated the database, the admin
+        screen dutifully displayed "off" — and inference carried on running,
+        because nothing connected the two. An administrator turning AI off at
+        3 a.m. would have been told it was off while it was not.
+
+        Found 2026-09-14 by driving the real endpoint and watching
+        ``/api/health`` never change.
+
+        The table is read at most every ``KILL_SWITCH_CACHE_S`` seconds, and a
+        database failure falls back to the environment value rather than
+        raising — this function is on the health path and **must never be able
+        to take NODE A down**.
+        """
+        if self._sessionmaker is None:
+            return self._settings.llm_enabled
+
+        now = time.monotonic()
+        if (
+            self._enabled_cached is not None
+            and (now - self._enabled_at) < KILL_SWITCH_CACHE_S
+        ):
+            return self._enabled_cached
+
+        try:
+            async with self._sessionmaker() as session:
+                resolved = await settings_store.llm_enabled(
+                    session, env_default=self._settings.llm_enabled
+                )
+        except Exception as exc:
+            log.warning("kill_switch_lookup_failed", error=str(exc))
+            return (
+                self._enabled_cached
+                if self._enabled_cached is not None
+                else (self._settings.llm_enabled)
+            )
+
+        self._enabled_cached = resolved
+        self._enabled_at = now
+        return resolved
+
+    def invalidate_kill_switch(self) -> None:
+        """Drop the cached switch value so the next read hits the table.
+
+        Called by the admin endpoint the moment the switch is flipped, so the
+        change is visible immediately in *this* process rather than up to
+        ``KILL_SWITCH_CACHE_S`` later. Other processes pick it up via the TTL,
+        which is why the TTL is the guarantee and this is only an optimisation.
+        """
+        self._enabled_cached = None
+        self._enabled_at = 0.0
 
     @property
     def _host(self) -> str:
@@ -82,7 +158,8 @@ class LlmProbe:
     async def status(self) -> LlmStatus:
         """Return NODE B's state. Never raises, never blocks on the network."""
         # Admin kill switch: forces the degraded path without touching the LAN.
-        if not self._settings.llm_enabled:
+        # Resolved from the table, not from the process's start-up environment.
+        if not await self._enabled():
             return self._disabled_status()
 
         if self._is_fresh(self._cached):

@@ -12,8 +12,10 @@ from __future__ import annotations
 import asyncio
 
 import httpx
+import pytest
 
 from app.config import Settings
+from app.services import llm_probe
 from app.services.llm_probe import LlmProbe
 
 
@@ -44,6 +46,110 @@ async def test_probe_honours_kill_switch_without_network_call() -> None:
     status = await probe.status()
     assert status.reachable is False
     assert status.error == "disabled_by_kill_switch"
+
+
+# ── the kill switch actually reaching the runtime ─────────────────────
+#
+# Found 2026-09-14 by driving the real admin endpoint against the real stack:
+# POST /api/admin/node-b/kill-switch wrote llm_enabled=false to the table, the
+# admin screen reported "off" -- and /api/health went on saying
+# reachable: true, degraded_features: [] indefinitely. The endpoint's own
+# summary promises the switch "takes effect within 10 seconds".
+#
+# Cause: the probe read `settings.llm_enabled`, which is loaded from the
+# environment ONCE at process start, while the switch writes to the
+# `system_settings` table. Nothing connected the two. An administrator turning
+# AI off at 3am would have been told it was off while it kept running.
+#
+# CLAUDE.md: configuration lives in tables, never in code -- and a value in a
+# table that nothing reads is the same defect as a value in code.
+
+
+class _FakeSession:
+    """Just enough to satisfy ``async with sessionmaker() as session``."""
+
+    async def __aenter__(self) -> _FakeSession:
+        return self
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+async def test_the_kill_switch_in_the_table_beats_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """★ The regression test for the defect above.
+
+    Environment says enabled, table says disabled. The table must win.
+    Without the fix the probe never consults the table at all, tries the
+    network, and reports a connection error instead of the kill switch.
+    """
+    seen: list[bool] = []
+
+    async def _disabled_in_the_table(session: object, *, env_default: bool) -> bool:
+        seen.append(env_default)
+        return False
+
+    monkeypatch.setattr(llm_probe.settings_store, "llm_enabled", _disabled_in_the_table)
+
+    probe = LlmProbe(
+        _settings(llm_enabled=True),  # the ENVIRONMENT says on
+        sessionmaker=lambda: _FakeSession(),  # type: ignore[arg-type,return-value]
+    )
+    status = await probe.status()
+
+    assert status.reachable is False
+    # The discriminating assertion: not merely unreachable, but unreachable
+    # *for this reason*. A network error here would mean the switch was ignored.
+    assert status.error == "disabled_by_kill_switch"
+    assert seen == [True], "the environment value must be passed as the fallback"
+
+
+async def test_a_database_failure_never_takes_the_health_endpoint_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RULE 2's floor. Resolving the switch is on the health path, so it must
+    degrade to the environment value rather than raise."""
+
+    async def _boom(session: object, *, env_default: bool) -> bool:
+        raise RuntimeError("database is on fire")
+
+    monkeypatch.setattr(llm_probe.settings_store, "llm_enabled", _boom)
+
+    probe = LlmProbe(
+        _settings(llm_enabled=False),
+        sessionmaker=lambda: _FakeSession(),  # type: ignore[arg-type,return-value]
+    )
+    status = await probe.status()  # must not raise
+
+    assert status.reachable is False
+    assert status.error == "disabled_by_kill_switch"  # fell back to the env value
+
+
+async def test_flipping_the_switch_is_visible_immediately_in_this_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The admin endpoint invalidates the cached value, so an admin who flips
+    the switch sees the change on the very next request rather than up to
+    KILL_SWITCH_CACHE_S later."""
+    enabled = {"value": False}
+
+    async def _from_the_table(session: object, *, env_default: bool) -> bool:
+        return enabled["value"]
+
+    monkeypatch.setattr(llm_probe.settings_store, "llm_enabled", _from_the_table)
+
+    probe = LlmProbe(
+        _settings(llm_enabled=True),
+        sessionmaker=lambda: _FakeSession(),  # type: ignore[arg-type,return-value]
+    )
+    assert (await probe.status()).error == "disabled_by_kill_switch"
+
+    # Table flips back on. Without invalidation the cached "off" would stand.
+    enabled["value"] = True
+    probe.invalidate_kill_switch()
+    status = await probe.status()
+    assert status.error != "disabled_by_kill_switch"
 
 
 async def test_probe_caches_so_health_does_not_hammer_the_lan() -> None:

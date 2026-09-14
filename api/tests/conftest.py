@@ -84,8 +84,27 @@ class _StubStatus:
 
 
 class _StubProbe:
+    """Stands in for ``LlmProbe`` so tests never touch the LAN.
+
+    It must keep the **whole** shape the application calls, not just the part
+    a given test happens to exercise. When ``invalidate_kill_switch`` was added
+    to the real probe on 2026-09-14, this stub lacked it and the admin
+    kill-switch tests failed with ``AttributeError`` — the test double had
+    silently drifted from the thing it doubles.
+
+    ``invalidated`` is recorded rather than discarded so a test can assert the
+    endpoint actually drops the cached value; without that call an admin waits
+    up to ``KILL_SWITCH_CACHE_S`` for a switch the UI already says is off.
+    """
+
+    def __init__(self) -> None:
+        self.invalidated = 0
+
     async def status(self) -> _StubStatus:
         return _StubStatus()
+
+    def invalidate_kill_switch(self) -> None:
+        self.invalidated += 1
 
 
 @pytest.fixture(autouse=True)

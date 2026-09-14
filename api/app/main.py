@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.db.session import dispose_engine
+from app.db.session import dispose_engine, get_sessionmaker
 from app.errors import register_exception_handlers
 from app.logging import RequestIdMiddleware, configure_logging
 from app.routers import (
@@ -42,7 +42,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(settings.log_level)
 
     # One probe instance for the process so the 30s cache is actually shared.
-    app.state.llm_probe = LlmProbe(settings)
+    # The sessionmaker is what lets it resolve the admin kill switch from the
+    # table -- without it the switch writes to the database and nothing reads
+    # it, which was a real defect until 2026-09-14.
+    app.state.llm_probe = LlmProbe(settings, sessionmaker=get_sessionmaker())
 
     log.info(
         "api_starting",
