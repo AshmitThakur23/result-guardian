@@ -127,6 +127,20 @@ actually read it.**
   machine. A host-level success does not prove the application's path.
 - When a doc asserts a config value, **re-read the live value before trusting the
   doc.** A runbook that says "already set" is a claim, not a measurement.
+- **Scope is not the mechanism.** On NODE B, `OLLAMA_MODELS` sat at **Machine
+  scope for four days** while the server went on reading `C:\Users\asus\.ollama`
+  — `server-1.log`, 2026-09-11, `total blobs: 0`. `ollama app.exe --hide
+  --fast-startup` hands its child a sanitised environment. **Setting a variable
+  somewhere more authoritative does not make a process read it**, and
+  recommending a higher scope after that failure would be repeating a fix this
+  repository had already disproven. (I made exactly that mistake on 2026-09-15;
+  NODE B pushed back with the log and was right.)
+- **Check that something *starts* at all before checking how it starts.** Every
+  autostart mechanism on NODE B was searched on 2026-09-15 — `HKCU\Run`,
+  `HKLM\Run`, `WOW6432Node`, both Startup folders, scheduled tasks, services —
+  and **Ollama was in none of them**. It was a manual `ollama serve`. So the
+  failure after a reboot was not "the config reverted" but **connection
+  refused** — a different and worse problem than the one being investigated.
 
 ## 🔁 End-of-phase sweep — MANDATORY before calling any phase complete
 
