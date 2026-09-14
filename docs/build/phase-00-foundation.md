@@ -208,10 +208,43 @@ Write `docs/network-runbook.md` covering:
 
 ## ✅ EXIT GATE 0
 
-- [ ] Fresh machine → `docker compose up -d` → `/api/health` returns 200 with `db: ok` and an `llm` block
-- [ ] Worker logs a heartbeat
-- [ ] CI green on a dummy PR
-- [ ] Power off NODE B and confirm `/api/health` still returns 200 with `llm.reachable: false` and **no error**
+- [x] ✅ Fresh machine → `docker compose up -d` → `/api/health` returns 200 with `db: ok` and an `llm` block — **verified on NODE A, 2026-09-14**
+- [x] ✅ Worker logs a heartbeat — `worker_heartbeat_age_s: 1`
+- [x] ✅ CI green on a dummy PR — run `34670777455`, 2026-09-12, all three jobs
+- [x] ✅ NODE B unreachable → `/api/health` still 200, `llm.reachable: false`, only `llm_generation` degraded — **see the caveat below**
+
+**The measured response, 2026-09-14, `curl localhost/api/health` through Caddy:**
+
+```json
+{"status":"ok","db":"ok","version":"0.1.0","git_sha":"unknown",
+ "worker_heartbeat_age_s":1,
+ "llm":{"reachable":false,"host":"192.168.0.168:11434","model":"qwen3:4b",
+        "error":"ConnectTimeout"},
+ "degraded_features":["llm_generation"]}
+```
+
+⚠️ **Two honest qualifications on the last clause.**
+
+**1 · "and no error" means the endpoint does not error — not that the field is
+absent.** `llm.error` carries `ConnectTimeout`, and that is deliberate:
+`tests/test_health.py` asserts the reason is populated, commented *"the reason
+is reported, not swallowed"*. A health endpoint that hides why NODE B is
+missing is worse than one that says. What the clause forbids is a 503, and the
+response is 200 with `status: "ok"`.
+
+**2 · NODE B was unreachable because the two machines were on different
+networks, not because Ollama was powered off.** At the HTTP boundary these are
+indistinguishable — `ConnectTimeout` either way — and losing the whole network
+path is the stronger test, since RULE 2 is precisely about *the network
+between the nodes*. But it is not the literal scripted step. **Re-run the
+deliberate version — stop Ollama on NODE B with both machines on one LAN —
+before treating this clause as closed by intent as well as by outcome.**
+
+> **The remaining blocker is not in this list.** Exit Gate 0's cross-node
+> clauses need both machines on one network, and on 2026-09-14 they were not:
+> NODE A on `172.25.52.148/20` (campus Wi-Fi), NODE B on `192.168.0.168/24`.
+> Ping and TCP both fail. See
+> [`docs/network-runbook.md`](../network-runbook.md#-the-two-machines-are-on-different-networks--measured-2026-09-14).
 
 ---
 

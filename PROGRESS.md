@@ -504,6 +504,14 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-14 — Exit Gate 0: three of four clauses verified on NODE A
+
+- **Full stack up on NODE A and healthy.** `docker compose up -d` → `alembic current` at `0013` → `curl localhost/api/health` through Caddy → **200**, `db: "ok"`, `worker_heartbeat_age_s: 1`. That closes gate clauses 1 and 2, and finishes the "stack never run" caveat that has sat in this file since Phase 0.
+- **RULE 2 demonstrated at the HTTP boundary.** With NODE B unreachable: still **200**, `status: "ok"`, `llm.reachable: false`, `degraded_features: ["llm_generation"]` and nothing else. The whole 1048-test backend suite also passes with NODE B unreachable, which is the same property asserted much more broadly.
+- ⚠️ **But not the literal test, and it matters.** NODE B was unreachable because the two machines were **on different networks**, not because Ollama was stopped. At the HTTP boundary those are indistinguishable, and losing the network path is arguably the stronger test — RULE 2 is about the network between nodes — but the deliberate "stop Ollama" run still has to happen. Recorded in the gate itself, not just here.
+- 🔴 **The two machines are on different networks — this, not the firewall rule, is the blocker.** NODE A `172.25.52.148/20` gw `172.25.48.1` (SSID `Studentwifi_5G`); NODE B `192.168.0.168/24` gw `192.168.0.1`. `ping` and TCP:11434 both fail. **A firewall rule scoped to NODE A's current address would achieve nothing and would be stale** — NODE A was on `192.168.0.156` earlier the same day and has since moved to campus Wi-Fi. Campus SSIDs also usually run client isolation, which this runbook already calls *"the single most common wasted hour"*. Options and their trade-offs recorded in [`docs/network-runbook.md`](docs/network-runbook.md).
+- **Clarified an ambiguity in gate clause 4.** *"and no error"* means the endpoint does not error — not that `llm.error` is absent. `tests/test_health.py` deliberately asserts the reason **is** populated (*"the reason is reported, not swallowed"*). A health endpoint that hides why NODE B is missing is worse than one that says so.
+
 ### 2026-09-14 — Phase 6 document ingestion, built and run end to end
 
 - **⚠️ Started as a knowing exception** with Exit Gate 5 open, on the project owner's instruction — recorded above. **Exit Gate 6 stays 🔴 OPEN**: two of its three clauses are measurements over 200 real PDFs and the corpus is at **0**. Synthetic PDFs are unit-test fixtures and are **not** gate evidence.
