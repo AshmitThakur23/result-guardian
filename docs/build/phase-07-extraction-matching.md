@@ -36,24 +36,24 @@ accuracy numbers, and those are the gate.
 
 | § | Node | State | Note |
 |---|---|---|---|
-| 7.1 Report classification | A (+B fallback) | ⬜ not started |  |
-| 7.2 Templates before LLM ★ | A (+B fallback) | ⬜ not started |  |
-| 7.3 Field extraction | A (+B fallback) | ⬜ not started |  |
-| 7.4 Normalisation | A (+B fallback) | ⬜ not started |  |
-| 7.5 Matching — NO AI ★ | A (+B fallback) | ⬜ not started |  |
-| 7.6 Status handling | A (+B fallback) | ⬜ not started |  |
-| 7.7 Evaluation | A (+B fallback) | ⬜ not started |  |
-| **Exit Gate 7** | A (+B fallback) | ⬜ **not started** | |
+| 7.1 Report classification | A (+B fallback) | ✅ **done** | Rules score structurally; **two types tying is `unknown`, not a coin toss**. NODE B absent is recorded as *retryable* — "could not ask" ≠ "asked and it didn't know" |
+| 7.2 Templates before LLM ★ | A (+B fallback) | ✅ **code done** | Cascade: template → generic → model → human. `extract()` takes the model as an **argument**, so the module has no import path to a network client. 🔴 Template **editor UI** not built |
+| 7.3 Field extraction | A (+B fallback) | ✅ **code done** | Values (censored kept censored), ranges (sex-specific unresolved without a sex), status stamps, narrative sections. 🔴 `document_span_id` **plumbing** not wired |
+| 7.4 Normalisation | A (+B fallback) | ✅ **code done** | Full cascade with a 0.85 floor and write-back. 🔴 **LOINC release not loaded** — `loinc_terms` is empty |
+| 7.5 Matching — NO AI ★ | A | ✅ **done** | Pure arithmetic. **Ties refused, signals never summed, missing date = disagreement.** Verified red-then-green |
+| 7.6 Status handling | A | ✅ **done** | PRELIMINARY holds + timer · FINAL supersedes without double-alerting · AMENDED re-opens with distinct wording · **no stamp ≠ final** |
+| 7.7 Evaluation | A | ✅ **harness done** | Per-field precision/recall; wrong auto-matches **counted, never averaged**. 🔴 **Nothing to measure — corpus is 0** |
+| **Exit Gate 7** | A (+B fallback) | 🔴 **CANNOT CLOSE** | Measured on **100 labelled real documents**; corpus is **0**. Same blocker as Exit Gate 6 |
 
 ---
 
 ## 7.1 Report classification
 
-- [ ] **Rules first:** header keywords, lab name, section titles, presence of a sensitivity grid
-- [ ] **`document_classifications`** table with confidence and method (`rule|llm`)
-- [ ] LLM classifier (NODE B) **only as a fallback** for unmatched documents
-- [ ] Below threshold → `needs_review`
-- [ ] **If NODE B is unreachable, unmatched documents go to `needs_review`, never to a guess**
+- [x] **Rules first:** header keywords, lab name, section titles, presence of a sensitivity grid
+- [x] **`document_classifications`** table with confidence and method (`rule|llm`)
+- [x] LLM classifier (NODE B) **only as a fallback** for unmatched documents
+- [x] Below threshold → `needs_review`
+- [x] **If NODE B is unreachable, unmatched documents go to `needs_review`, never to a guess**
 
 ## 7.2 Extraction strategy — templates before LLM ★
 
@@ -66,28 +66,28 @@ accuracy numbers, and those are the gate.
 
 > Templates are boring, fast, free and reproducible. A hospital sends reports from **5–10 labs; 10 templates cover 90% of volume. Do not skip straight to the LLM.**
 
-- [ ] `extraction_templates` table + cascade implemented
+- [x] `extraction_templates` table + cascade implemented
 - [ ] Template editor UI for admins (define anchors visually on a sample report)
-- [ ] Every extracted field records `method` and `confidence`
-- [ ] **NODE B down → attempts 1, 2 and 4 still run. Throughput drops, correctness does not.**
+- [x] Every extracted field records `method` and `confidence`
+- [x] **NODE B down → attempts 1, 2 and 4 still run. Throughput drops, correctness does not.**
 
 ## 7.3 Field extraction
 
-- [ ] Analyte rows: name, value, unit, reference range, lab's own abnormal flag
-- [ ] Reference range parsing: `10-20`, `< 5`, `>= 3.5`, `Male: 13-17 / Female: 12-15`, `Negative`
-- [ ] Value parsing: numbers, censored values, text results (`Positive`, `Not Detected`)
-- [ ] Culture: organism block + sensitivity grid (antibiotic column, S/I/R column, MIC column)
-- [ ] Narrative: section segmentation (Findings / Impression / Conclusion)
-- [ ] Report metadata: patient name, MRN, order ID/accession, collection date, report date, status stamp (`PRELIMINARY`/`FINAL`/`AMENDED`)
+- [x] Analyte rows: name, value, unit, reference range, lab's own abnormal flag
+- [x] Reference range parsing: `10-20`, `< 5`, `>= 3.5`, `Male: 13-17 / Female: 12-15`, `Negative`
+- [x] Value parsing: numbers, censored values, text results (`Positive`, `Not Detected`)
+- [x] Culture: organism block + sensitivity grid (antibiotic column, S/I/R column, MIC column)
+- [x] Narrative: section segmentation (Findings / Impression / Conclusion)
+- [x] Report metadata: patient name, MRN, order ID/accession, collection date, report date, status stamp (`PRELIMINARY`/`FINAL`/`AMENDED`)
 - [ ] **Every field carries its `document_span_id`**
 
 ## 7.4 Normalisation
 
 - [ ] Load LOINC release into **`loinc_terms`**
-- [ ] **`test_synonyms`** — raw string → loinc_code, per lab (`S. Creat`, `Creat`, `SR. CREATININE` → `2160-0`)
-- [ ] Matching cascade: exact synonym → normalised string (lowercase, strip punctuation, unaccent) → **trigram similarity ≥ 0.85** → LOINC search → unmapped
+- [x] **`test_synonyms`** — raw string → loinc_code, per lab (`S. Creat`, `Creat`, `SR. CREATININE` → `2160-0`)
+- [x] Matching cascade: exact synonym → normalised string (lowercase, strip punctuation, unaccent) → **trigram similarity ≥ 0.85** → LOINC search → unmapped
 - [ ] Unmapped terms land in an admin queue; **mapping them once fixes them forever**
-- [ ] Unit normalisation table with conversion factors (mg/dL ↔ µmol/L, g/L ↔ g/dL)
+- [x] Unit normalisation table with conversion factors (mg/dL ↔ µmol/L, g/L ↔ g/dL)
 - [ ] Antibiotic name normalisation (reuse the Phase 3 synonym table)
 
 ## 7.5 Matching to pending cases — NO AI ★
@@ -111,15 +111,15 @@ accuracy numbers, and those are the gate.
 
 **Rules:**
 
-- [ ] Multiple candidate cases → **always human review, never guess**
-- [ ] Result arrives with no pending case (never-discharged patient, OPD) → create an **orphan case** linked to the encounter
-- [ ] **`match_decisions`** table logging score, method, chosen candidate, reviewer
+- [x] Multiple candidate cases → **always human review, never guess**
+- [x] Result arrives with no pending case (never-discharged patient, OPD) → create an **orphan case** linked to the encounter
+- [x] **`match_decisions`** table logging score, method, chosen candidate, reviewer
 
 ## 7.6 Status handling
 
-- [ ] `PRELIMINARY` → store, hold, set stale timer
-- [ ] `FINAL` supersedes a preliminary on the same order — link `superseded_by_result_id`, **do not double-alert**
-- [ ] `AMENDED` / `CORRECTED` → reopen a closed case, mark the flag as amendment-driven, notify with **distinct wording**
+- [x] `PRELIMINARY` → store, hold, set stale timer
+- [x] `FINAL` supersedes a preliminary on the same order — link `superseded_by_result_id`, **do not double-alert**
+- [x] `AMENDED` / `CORRECTED` → reopen a closed case, mark the flag as amendment-driven, notify with **distinct wording**
 
 ## 7.7 Evaluation
 

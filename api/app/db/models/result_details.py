@@ -103,8 +103,22 @@ class ResultAnalyte(Base, UUIDPkMixin, TimestampMixin, ActorMixin, SoftDeleteMix
 
     source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source_bbox: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    #: 7.3: *"Every field carries its `document_span_id`."* Nullable,
+    #: because a value the model tier produced genuinely has no span --
+    #: recording that honestly beats inventing coordinates for it.
+    document_span_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("document_spans.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    #: 7.2: every extracted field records how it was obtained.
+    extraction_method: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    extraction_confidence: Mapped[Decimal | None] = mapped_column(
+        Numeric(4, 3), nullable=True, index=False
+    )
 
     __table_args__ = (
+        Index("ix_result_analytes_span", "document_span_id"),
         CheckConstraint("seq >= 0", name="ck_result_analytes_seq_non_negative"),
         Index("ix_result_analytes_result_id_seq", "result_id", "seq"),
         # Phase 7.3 looks analytes up by code once it has one. Partial,
