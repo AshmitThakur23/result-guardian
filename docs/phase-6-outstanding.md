@@ -25,14 +25,23 @@ a register that only lists successes teaches nothing on the second reading.
 
 ## 🔴 P0 — the one thing that is actually broken
 
-### 1 · 🔧 The timer/closure deadlock — CI is red because of this
+### 1 · 🔧 The timer/closure deadlock — intermittent, ~9 %, and CI is currently GREEN
 
 | | |
 |---|---|
 | **Found** | CI run `34850577216`, 2026-09-14. **1 failed, 1048 passed** |
 | **Test** | `tests/test_timer_lifecycle.py::test_closing_a_case_while_its_timer_fires_is_safe` |
 | **Error** | `asyncpg.exceptions.DeadlockDetectedError`, on `mark_fired`'s `UPDATE sla_timers SET status='fired'` |
+| **Incidence** | **1 failure in ~11 CI runs (≈9 %).** The `test` job passed in every other red run — those were lint. Not reproduced locally in 25 consecutive runs |
 | **Severity** | **Real, not a test artefact.** Closing a case at the moment its SLA timer fires is an ordinary production event, and this is the exact Phase 2 path that exists to keep it safe |
+
+> ⚠️ **CI is green as of `0ce8a10` — 1052 passed, 1 xfailed — and that proves
+> nothing here.** At ~9 % incidence, two green runs are the expected outcome
+> whether or not anything was fixed. **This item stays open until the cause is
+> understood, not until the light goes green.**
+>
+> Do not close it on a run of passes. A flake that is "fixed" by being observed
+> less often comes back on the day it matters.
 
 **What has been ruled out** — record this so nobody repeats it:
 

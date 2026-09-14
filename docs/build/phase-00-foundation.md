@@ -18,7 +18,7 @@
 | 0.5 App skeleton | A | ✅ **done** | 67 routes live; `/api/health` and `/api/version` answer; probe cached and non-blocking; structlog, RFC 7807, CORS all in place |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
 | 0.7 Worker skeleton | A | ✅ **done** | 6 pgmq queues drained live, 4 `pg_cron` jobs active, heartbeat under 10 s, `SIGTERM` handled, retry/backoff/DLQ proven in Phase 6 |
-| 0.8 CI | — | 🔴 **red** | Jobs are correct (`ruff`, `black`, `mypy`, `pytest`, coverage ≥70 %, image build). **Failing on one test** — the timer/closure deadlock, recorded as an open defect in [`PROGRESS.md`](../../PROGRESS.md) and in the [deferred register](../phase-6-outstanding.md) |
+| 0.8 CI | — | ✅ **green** | All four jobs pass (`0ce8a10`): lint, test (**1052 passed, 1 xfailed**), web, build. ⚠️ **A timer/closure deadlock remains open** — it hit once in ~11 runs (≈9 %), so green is not evidence it is gone. [Register §1](../phase-6-outstanding.md) |
 | **Exit Gate 0** | A + B | ✅ **PASSED 2026-09-14** | All four clauses verified. **RULE 2 closed by the deliberate test** — Ollama stopped on NODE B with both machines on one LAN: health stayed **200**, only `llm_generation` degraded, the whole suite stayed green, and SLA timers plus classification kept firing throughout. Recovery automatic in ~6 s |
 
 **🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**

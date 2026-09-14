@@ -27,8 +27,10 @@
 > it replaces every `panic_thresholds` placeholder), and **book a clinician**
 > (Exit Gate 3 has no agreement rate).
 >
-> 🔴 **One thing is genuinely broken: CI is red** on a timer/closure deadlock.
-> Real, open, and §1 of that register.
+> ⚠️ **CI is GREEN again** (`0ce8a10` — 1052 passed, 1 xfailed), **and the timer
+> deadlock is still open.** It hit **once in ~11 runs (≈9 %)**, so a couple of
+> passes is the expected outcome either way. §1 of that register stays open until
+> the cause is understood, not until the light goes green.
 
 > **🏁 EXIT GATE 0 IS CLOSED — 2026-09-14. All four clauses verified.**
 > The two nodes are **connected**: `172.25.52.148` ⇄ `172.25.54.48` on
