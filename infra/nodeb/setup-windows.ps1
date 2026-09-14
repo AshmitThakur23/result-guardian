@@ -113,9 +113,31 @@ try {
     exit 1
 }
 
-$ip = (Get-NetIPAddress -AddressFamily IPv4 |
-       Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
-       Select-Object -First 1 -ExpandProperty IPAddress)
+# Pick the IP of the adapter that is actually UP and carries a default route.
+#
+# The naive version -- first non-loopback, non-link-local address -- reported a
+# stale static IP on a DISCONNECTED Ethernet adapter on 2026-09-14. It even
+# answered /api/tags, because a request from this machine to its own address
+# never leaves the box. NODE A could not have reached it. Filter on adapter
+# status and a gateway, not on the address alone.
+$cfg = Get-NetIPConfiguration |
+       Where-Object { $_.NetAdapter.Status -eq "Up" -and $_.IPv4DefaultGateway } |
+       Select-Object -First 1
+$ip = $cfg.IPv4Address.IPAddress
+
+if (-not $ip) {
+    Write-Warn2 "No connected adapter with a default route. Check the network."
+    $ip = "<NO_ROUTE>"
+} else {
+    Write-Ok "LAN IP $ip via $($cfg.InterfaceAlias) (gateway $($cfg.IPv4DefaultGateway.NextHop))"
+    $stale = Get-NetIPAddress -AddressFamily IPv4 |
+             Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" -and
+                            $_.IPAddress -ne $ip }
+    foreach ($s in $stale) {
+        $st = (Get-NetAdapter -InterfaceIndex $s.InterfaceIndex -EA SilentlyContinue).Status
+        if ($st -ne "Up") { Write-Warn2 "Ignoring $($s.IPAddress) on '$($s.InterfaceAlias)' - adapter is $st" }
+    }
+}
 
 Write-Host "`n=== NODE B READY ===" -ForegroundColor Green
 Write-Host "  This machine's LAN IP : $ip"

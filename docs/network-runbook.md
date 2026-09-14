@@ -8,7 +8,88 @@
 | Role | Machine | IP | Status |
 |---|---|---|---|
 | **NODE A** — core | Abhinendra's laptop (`LAPTOP-06ER0HBM`, Windows 11) | **172.25.52.148** /20, gw `172.25.48.1`, SSID `Studentwifi_5G` — measured 2026-09-14 | ✅ Full stack runs; `/api/health` → 200, `db: ok`, worker heartbeat 1s, migrations at `0013` |
-| **NODE B** — inference | Ashmit's machine (`LAPTOP-5JCGN9SJ`) | **192.168.0.168** /24, gw `192.168.0.1` | ✅ **provisioned 2026-09-14.** RTX 3050, 4 GB VRAM — verified with `nvidia-smi`. Ollama `v0.15.2` serving `qwen3:4b`. ⚠️ **firewall rule still outstanding** |
+| **NODE B** — inference | Ashmit's machine (`LAPTOP-5JCGN9SJ`) | **172.25.54.48** /20, gw `172.25.48.1`, SSID `Studentwifi_5G` — measured 2026-09-14 (was `192.168.0.168` on a home network) | ✅ **provisioned 2026-09-14.** RTX 3050, 4 GB VRAM. Ollama `v0.15.2` serving `qwen3:4b` + `mistral:7b`. ⚠️ **firewall rule still outstanding** |
+
+> ### ✅ Both nodes are on the same subnet right now
+>
+> `172.25.48.0/20` covers `172.25.48.0`–`172.25.63.255`, so NODE A `.52.148` and NODE B `.54.48`
+> share a subnet and a gateway. **Addressing is not the blocker** — the only open question is
+> whether this network permits peer traffic.
+
+> ### 🔴 Re-read NODE B's IP after every network change
+>
+> It is DHCP. Get it with the adapter filter, **not** the first address:
+>
+> ```powershell
+> Get-NetIPConfiguration | Where-Object { $_.NetAdapter.Status -eq 'Up' -and $_.IPv4DefaultGateway } |
+>   Select-Object InterfaceAlias, @{n='IP';e={$_.IPv4Address.IPAddress}}
+> ```
+>
+> **Why not simply the first address:** on 2026-09-14 a *disconnected* Ethernet adapter still
+> held a stale static `172.18.30.66`, and the naive pick returned it. It even answered
+> `/api/tags` — because a request from NODE B to its own address never leaves the machine.
+> NODE A could not have reached it. `setup-windows.ps1` was fixed to filter on adapter status.
+
+> ### ✅ `Studentwifi_5G` permits peer traffic — measured 2026-09-14, no hotspot needed
+>
+> Despite campus wifi being listed as "not usable" below, **this one is not isolating clients.**
+> From NODE B, TCP to NODE A succeeded on both ports the stack listens on:
+>
+> ```
+> Test-NetConnection 172.25.52.148 -Port 80    -> TcpTestSucceeded : True
+> Test-NetConnection 172.25.52.148 -Port 8000  -> TcpTestSucceeded : True
+> ```
+>
+> A phone hotspot is therefore **not required** for the cross-node checks or for Phase 8.
+
+> ### 🔴 Do NOT diagnose this with `ping` — it gives a false negative
+>
+> `ping 172.25.52.148` from NODE B got **no reply**, while TCP to the same host on the same
+> network succeeded. **Windows blocks inbound ICMP by default**, so a silent ping says nothing
+> about whether the network works — and the fallback chain's "test with ping" advice will send
+> you to a hotspot you do not need.
+>
+> **Windows-to-Windows, test the port you actually care about:**
+>
+> ```powershell
+> Test-NetConnection <OTHER_NODE_IP> -Port 11434     # from NODE A, to NODE B
+> ```
+>
+> `ping` remains a reasonable first check only where the far side is Linux, or where ICMP is
+> known to be permitted.
+
+> ### 🔴 THE ACTUAL BLOCKER: NODE B's firewall is set to BLOCK ollama.exe
+>
+> Two rules on NODE B, created by Windows when Ollama first tried to listen and the prompt was
+> dismissed, **explicitly block it inbound on the Public profile**:
+>
+> ```
+> DisplayName : ollama.exe   Direction: Inbound   Action: Block   Enabled: True   Profile: Public
+>   TCP Query User{0C9F6AB2-...}C:\users\asus\appdata\local\programs\ollama\ollama.exe
+>   UDP Query User{62B02A10-...}C:\users\asus\appdata\local\programs\ollama\ollama.exe
+> ```
+>
+> **In Windows Firewall a Block rule beats an Allow rule**, so adding the Phase 10.1 allow rule
+> on its own changes nothing. The blocks must be removed first. NODE B's wifi profile is also
+> `Public`, where the default inbound action is to deny.
+>
+> **Fix — run on NODE B in an elevated PowerShell:**
+>
+> ```powershell
+> # 1. remove the two auto-created Block rules
+> Get-NetFirewallApplicationFilter |
+>   Where-Object { $_.Program -like "*ollama*" } |
+>   Get-NetFirewallRule |
+>   Where-Object { $_.Direction -eq "Inbound" -and $_.Action -eq "Block" } |
+>   Remove-NetFirewallRule
+>
+> # 2. allow 11434 from NODE A's address ONLY (never 0.0.0.0/0 - Phase 10.1)
+> New-NetFirewallRule -DisplayName "Result Guardian NODE B" `
+>     -Direction Inbound -Protocol TCP -LocalPort 11434 `
+>     -RemoteAddress 172.25.52.148 -Action Allow -Profile Any
+> ```
+>
+> Then, **from NODE A**: `Test-NetConnection 172.25.54.48 -Port 11434` → must be `True`.
 
 ## 🔴 The two machines are on DIFFERENT NETWORKS — measured 2026-09-14
 
@@ -55,7 +136,7 @@ with `ping` before trusting it.
 `.env`, and correct for option 1):
 
 ```bash
-RG_LLM_BASE_URL=http://192.168.0.168:11434
+RG_LLM_BASE_URL=http://172.25.54.48:11434
 ```
 
 > 🔴 **NODE B's firewall rule has NOT been applied**, and should not be applied
