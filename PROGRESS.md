@@ -538,6 +538,18 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-15 — 🔵 Phase 8 core built: retrieval, generation, and the span verifier
+
+- ⚠️ **Started with Exit Gate 7 OPEN, on the owner's instruction** — the corpus is still 0. **Exit Gate 8 cannot close either**, since it needs a clinician's judgement on generated explanations.
+- ★ **8.5, the span verifier, contains no AI and never will.** A guard implemented with the thing it guards against is not a guard, so every decision is string comparison and the module has no import path to NODE B. It exists because of something **measured, not feared**: asked what a critical potassium level is, the live `qwen3:4b` answered *"6.0 mEq/L or higher"* — fluent, confident, and from **no source this system holds**.
+- ✅ **Strict where it can afford to be.** Fuzzy 0.95 is for a re-typed dash, **not for paraphrase**; a quote under 20 characters verifies against nothing (*"the"* is in every document ever written); a chunk from a document whose approval was revoked between retrieval and verification is refused at **both** ends. **If every citation fails, the whole response is rejected** — not shown with fewer citations, because an explanation whose evidence all failed is confident prose with nothing behind it.
+- ✅ **Every rejection is a row in `ai_rejections`, invented text kept verbatim.** A verifier that silently discards is indistinguishable from a model that never hallucinates. **Proven by disabling the verifier — three tests went red**, including the fabricated-quote one.
+- ✅ **Retrieval degrades to keyword-only** when no embedder is installed. THE ONE RULE for one query: a missing model costs ranking quality, never guidance. Recorded as a deliberate deviation — bge-m3 plus torch is ~5 GB and unavailable over the campus link; the embedder is a drop-in with no code change.
+- ✅ **Generation strips reasoning with `rsplit`**, because the model emits `</think>` with **no opening tag** and the usual regex matches nothing. Every failure path returns `None`: a timeout, a refusal, malformed JSON and an unreachable node all mean *no explanation shown*, with the flag beneath untouched.
+- 🔧 **Two real defects in my own work.** The relevance floor was applied to the **fused RRF score**, which is meaningless — RRF is built from rank alone, so a perfect keyword hit and a useless one both score 1/61. Floors now sit on each half's own scale. And the chunk lookup bound a hand-built Postgres array literal that asyncpg cannot adapt; an expanding bindparam is the form that works.
+- 🔴 **A third defect only CI could catch.** The test fixture set `approved_by` from `(SELECT id FROM users LIMIT 1)` — fine on a seeded developer database, NULL on CI's empty one, which left a non-NULL `approved_at` beside a NULL approver and `ck_kb_documents_approval_complete` refused it. **The constraint was right and the fixture was borrowing state it did not own.** Local runs could not have found this.
+- ✅ **18 tests.** ruff, black, mypy strict, alembic check, the full suite and **CI** all green.
+
 ### 2026-09-14 — 🔵 Phase 7 started (knowing exception), 7.5 matching built
 
 - ⚠️ **Started with Exit Gate 6 OPEN, on the owner's instruction.** Two of that gate's three clauses are measurements over **200 real PDFs** and the corpus is **0**. Recorded in the phase doc too, so the disagreement with the build plan's ordering rule stays visible rather than becoming an oversight. **Exit Gate 7 cannot close either** — it is measured on **100 labelled real documents**.

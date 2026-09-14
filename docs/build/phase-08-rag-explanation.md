@@ -16,14 +16,14 @@
 
 | § | Node | State | Note |
 |---|---|---|---|
-| 8.1 Knowledge base ingestion | A + B | ⬜ not started |  |
-| 8.2 Indexes | A + B | ⬜ not started |  |
-| 8.3 Retrieval | A + B | ⬜ not started |  |
-| 8.4 Generation — NODE B ★ | A + B | ⬜ not started |  |
-| 8.5 Span verifier ★ | A + B | ⬜ not started |  |
-| 8.6 UI | A + B | ⬜ not started |  |
-| 8.7 Evaluation | A + B | 🔴 blocked | needs clinician time |
-| **Exit Gate 8** | A + B | ⬜ **not started** | |
+| 8.1 Knowledge base ingestion | A | ✅ **schema done** | `kb_documents` / `kb_chunks`, migration `0016`. **Approval is a column and retrieval filters on it** — an unapproved guideline is invisible. 🔴 No content loaded; chunker not written |
+| 8.2 Indexes | A | ✅ **done** | HNSW `(m=16, ef_construction=64)` + GIN on `tsv`, kept in step by a trigger so a chunk written by any route is indexed the same way |
+| 8.3 Retrieval | A | ✅ **done** | Keyword + vector, RRF `k=60`. **Degrades to keyword-only with no embedder** — ranking suffers, guidance does not. Query built from structured fields, so a patient name cannot reach it |
+| 8.4 Generation — NODE B ★ | B | ✅ **done** | `rsplit` on `</think>`, not a paired-tag regex. **Every failure path returns `None`** — timeout, refusal, malformed JSON, unreachable node all mean *no explanation*, flag untouched |
+| 8.5 Span verifier ★ | A | ✅ **done** | **Plain code, no AI, no import path to NODE B.** Fuzzy 0.95 for typography, never paraphrase. Min 20 chars. All citations failing rejects the **whole** response. Proven by disabling it — 3 tests went red |
+| 8.6 UI | A | ⬜ not started | Needs 8.1 content to show anything |
+| 8.7 Evaluation | A | 🔴 blocked | Needs clinician time — same input as Exit Gate 3 |
+| **Exit Gate 8** | A + B | 🔴 **CANNOT CLOSE** | Needs a clinician's judgement on generated explanations |
 
 ---
 
