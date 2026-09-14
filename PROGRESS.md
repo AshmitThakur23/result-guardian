@@ -16,6 +16,20 @@
 > `RG_LLM_BASE_URL=http://172.25.54.48:11434`.
 > See [ADR 0006](docs/adr/0006-node-roles-corrected.md), which supersedes ADR 0005.
 >
+> **📋 EVERYTHING STILL OWED FROM PHASES 0–6 IS IN ONE FILE:**
+> **[`docs/phase-6-outstanding.md`](docs/phase-6-outstanding.md)** — the register to
+> return to **after Phase 8**. Sixteen items, each marked 🔧 engineering,
+> 🧑‍⚕️ human input or ⚖️ owner decision, with how it was found and what would
+> close it. **Nothing in it blocks Phase 7 or Phase 8.**
+>
+> The two with the longest lead times, and therefore the real critical path:
+> **ask the lab for their ISO 15189 critical value list** (one conversation, and
+> it replaces every `panic_thresholds` placeholder), and **book a clinician**
+> (Exit Gate 3 has no agreement rate).
+>
+> 🔴 **One thing is genuinely broken: CI is red** on a timer/closure deadlock.
+> Real, open, and §1 of that register.
+
 > **🏁 EXIT GATE 0 IS CLOSED — 2026-09-14. All four clauses verified.**
 > The two nodes are **connected**: `172.25.52.148` ⇄ `172.25.54.48` on
 > `172.25.48.0/20`, **32–36 ms**, proven from **inside the API container** — the

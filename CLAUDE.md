@@ -44,6 +44,36 @@
 - **Never tick something because it was typed.** Written ≠ done. If it has not run, it is 🟡, not ✅.
 - **If work was done but not logged, treat it as not done** — go verify it before claiming it.
 
+## 🚦 CI is the gate. A local pass is not a pass.
+
+> **Added 2026-09-14 after eight commits were pushed onto a red CI** without
+> anyone looking. Everything passed locally the whole time — which is exactly
+> what made it invisible.
+
+**Run the gate the way the gate runs it, and then go and look at the gate.**
+
+The lint break was not subtle. Locally: `ruff check app worker tests`. In CI:
+`ruff check .` over the whole of `api/` — which includes `scripts/`. **A narrower
+check than the gate's is not a check**, and it will keep reporting success while
+the gate keeps reporting failure.
+
+**After every push:**
+
+```bash
+gh run list --limit 3          # did it go red?
+gh run view <id> --log-failed  # why, specifically
+```
+
+- **Never push twice without looking.** One red run is a mistake; eight is a habit.
+- **Never say "everything is green" from a local run.** Say which suite, run
+  where. "1048 tests pass locally, CI not yet checked" is honest; "everything is
+  green" is not.
+- **A red CI blocks the phase**, whatever the phase doc says. The gate's clauses
+  and the build's health are different claims — say both, and do not let one
+  stand in for the other.
+- **The commands in CI are the source of truth for how to verify.** Read
+  `.github/workflows/ci.yml` before claiming a check passed.
+
 ## ⚙️ A config value is not verified until something has READ it
 
 > **Added 2026-09-14 after the same defect appeared three times in one day.**

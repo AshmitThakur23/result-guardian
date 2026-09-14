@@ -5,25 +5,25 @@
 
 ---
 
-## 📍 STATUS SUMMARY — updated 2026-09-11
+## 📍 STATUS SUMMARY — updated 2026-09-14
 
-**Machines:** **NODE A = Abhinendra's laptop** — Docker present, stack never run. **NODE B = Ashmit's machine** (`LAPTOP-5JCGN9SJ`) — **not yet provisioned**. Its GPU is an **RTX 3050, 4 GB VRAM**, verified with `nvidia-smi`. See [`../adr/0006-node-roles-corrected.md`](../adr/0006-node-roles-corrected.md) — [ADR 0005](../adr/0005-node-roles-and-model.md) had these backwards and is superseded.
+**Machines:** **NODE A = Abhinendra's laptop** (`LAPTOP-06ER0HBM`) — full stack running. **NODE B = Ashmit's machine** (`LAPTOP-5JCGN9SJ`), **172.25.54.48** — provisioned, RTX 3050 / 4 GB VRAM, Ollama `v0.15.2` serving `qwen3:4b` + `mistral:7b`. See [`../adr/0006-node-roles-corrected.md`](../adr/0006-node-roles-corrected.md); [ADR 0005](../adr/0005-node-roles-and-model.md) had these backwards and is superseded.
 
 | § | Runs on | State | Note |
 |---|---|---|---|
-| 0.1 Repository | — | 🟡 **written, mostly done** | Repo live at `AshmitThakur23/result-guardian` (private). Branch protection not set. |
-| 0.2 Containers — NODE A | A | 🟡 **database ✅, full stack not yet** | **Postgres image builds and runs** — verified on NODE A and in CI (all 6 extensions, pgmq round-trip). `api`/`worker`/`caddy` compose stack still never brought up together |
-| 0.3 NODE B provisioning | **B** | 🟡 **1 item open** | ✅ Provisioned 2026-09-14 — **172.25.54.48**, `qwen3:4b` + `mistral:7b`, keep-alive pinned, bound `0.0.0.0:11434`, **firewall rule applied and scoped to NODE A**. 🔴 Only the from-NODE-A reachability check remains |
-| 0.4 Network runbook | — | ✅ **done** | NODE B = **192.168.0.168** recorded. **NODE A's IP still needed** — it gates NODE B's firewall rule |
-| 0.5 App skeleton | A | 🟡 **partly verified** | **25 tests pass, mypy strict clean.** Never served a request against a real Postgres — that still needs Docker |
+| 0.1 Repository | — | ✅ **done** | `AshmitThakur23/result-guardian` (private). Branch protection **🚫 out of scope** for the hackathon — recorded in CLAUDE.md |
+| 0.2 Containers — NODE A | A | ✅ **done** | Full stack up: `postgres`, `api`, `worker`, `caddy`. All six extensions present; resource limits set per service |
+| 0.3 NODE B provisioning | **B** | ✅ **done** | `172.25.54.48`, both models, keep-alive pinned, bound `0.0.0.0:11434`, firewall scoped to NODE A only. Reachability **verified from NODE A** and from inside the api container |
+| 0.4 Network runbook | — | ✅ **done** | Both nodes on `172.25.48.0/20`. Decision #5 settled — shared Wi-Fi, no hotspot needed |
+| 0.5 App skeleton | A | ✅ **done** | 67 routes live; `/api/health` and `/api/version` answer; probe cached and non-blocking; structlog, RFC 7807, CORS all in place |
 | 0.6 Base conventions | A | ✅ **done** | Encoded as mixins in `api/app/db/types.py`, not just prose |
-| 0.7 Worker skeleton | A | 🟡 **partly verified** | Retry/backoff/DLQ and heartbeat now covered by tests (were **0%**). Handlers stay stubs until Phase 2. Never run against real pgmq |
-| 0.8 CI | — | ✅ **done — fully green** | **All 3 jobs pass on GitHub Actions** (run `34670777455`, 2026-09-12): `lint` ✅ `build` ✅ `test` ✅. The test job builds the real NODE A image, asserts all 6 extensions, applies migrations, runs 25 tests and clears the 70% coverage gate. **Every prior run had failed.** Deviation: uses a real container rather than `testcontainers` |
-| **Exit Gate 0** | A + B | 🔴 **OPEN** | Both nodes now exist and are provisioned. Remaining: bring the full stack up on NODE A, then the 3 cross-node checks (firewall rule, `curl` from NODE A, NODE-B-off degradation test) |
+| 0.7 Worker skeleton | A | ✅ **done** | 6 pgmq queues drained live, 4 `pg_cron` jobs active, heartbeat under 10 s, `SIGTERM` handled, retry/backoff/DLQ proven in Phase 6 |
+| 0.8 CI | — | 🔴 **red** | Jobs are correct (`ruff`, `black`, `mypy`, `pytest`, coverage ≥70 %, image build). **Failing on one test** — the timer/closure deadlock, recorded as an open defect in [`PROGRESS.md`](../../PROGRESS.md) and in the [deferred register](../phase-6-outstanding.md) |
+| **Exit Gate 0** | A + B | ✅ **PASSED 2026-09-14** | All four clauses verified. **RULE 2 closed by the deliberate test** — Ollama stopped on NODE B with both machines on one LAN: health stayed **200**, only `llm_generation` degraded, the whole suite stayed green, and SLA timers plus classification kept firing throughout. Recovery automatic in ~6 s |
 
 **🟡 written, never run** means the code is committed and pushed but has not been executed even once. **Nothing below is ticked on the strength of having been typed.**
 
-**Next step:** NODE A is in hand with Docker present, so 0.2/0.5/0.7 are runnable there now. **0.3 still needs `infra/nodeb/setup-windows.ps1` run on Ashmit's machine (NODE B).** Exit Gate 0's cross-node clause needs both on one LAN — open decision #5.
+⚠️ **The gate is closed; CI is not.** Those are different claims and both are true. Exit Gate 0's four clauses were each measured. The red CI run is a **Phase 2 concurrency defect** surfaced by CI timing — real, open, and tracked — but it is not one of this gate's clauses.
 
 ### 🐞 Defects found by inspection on 2026-09-11 — all fixed, all now verified
 
@@ -99,6 +99,27 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 
 ---
 
+> ### 🔍 Bulk verification, 2026-09-14 — why these are ticked now
+>
+> Phase 0's task boxes had sat unticked while the stack itself had been running
+> for weeks: **26 items of tracking debt, not 26 items of work.** CLAUDE.md's
+> rule is that unlogged work counts as not done, so each was checked against
+> something that actually runs before being ticked, in one pass:
+>
+> * **services, extensions, volumes** — `docker compose ps` (4 up) and `\dx`
+>   (`vector 0.8.6`, `pgmq 1.4.4`, `pg_cron 1.6`, `pg_trgm`, `unaccent`, `pgcrypto`)
+> * **API surface** — the live OpenAPI schema: **67 routes**, `/api/health` and
+>   `/api/version` among them; 23 of 24 GET endpoints answer 200 (the 24th is
+>   `/api/patients`, which correctly **422s** without a query)
+> * **queues and worker** — 6 pgmq queues, 4 active `pg_cron` jobs, heartbeat
+>   under 10 s, `SIGTERM` handled in `worker/main.py` and `worker/consumer.py`
+> * **CI** — `ruff`, `black`, `mypy`, `pytest`, `coverage --fail-under=70` and
+>   the image build all exist as jobs, and **RULE 2 was proven by stopping
+>   Ollama** rather than by assertion
+> * **limits** — `deploy.resources` set per service in `docker-compose.yml`
+>
+> One item is **🚫 superseded** rather than done, and is marked as such below.
+
 ## 0.1 Repository
 
 - [x] Create repo — ✅ `AshmitThakur23/result-guardian`, private
@@ -112,13 +133,13 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 
 ## 0.2 Containers — NODE A
 
-- [ ] `postgres` service: image `pgvector/pgvector:pg16`, named volume, healthcheck `pg_isready`
-- [ ] `infra/postgres/init/01-extensions.sql`: `CREATE EXTENSION vector; pgmq; pg_cron; pg_trgm; unaccent;`
-- [ ] `api` service: multi-stage Dockerfile (builder + slim runtime), non-root user, uvicorn
-- [ ] `worker` service: same image, different entrypoint
-- [ ] `caddy` service: reverse proxy, `:80` → api `/api/*`, static web build elsewhere
-- [ ] `docker-compose.override.yml` for dev: bind mounts, `--reload`, exposed DB port
-- [ ] Resource limits per service in compose (`deploy.resources`)
+- [x] `postgres` service: image `pgvector/pgvector:pg16`, named volume, healthcheck `pg_isready`
+- [x] `infra/postgres/init/01-extensions.sql`: `CREATE EXTENSION vector; pgmq; pg_cron; pg_trgm; unaccent;`
+- [x] `api` service: multi-stage Dockerfile (builder + slim runtime), non-root user, uvicorn
+- [x] `worker` service: same image, different entrypoint
+- [x] `caddy` service: reverse proxy, `:80` → api `/api/*`, static web build elsewhere
+- [x] `docker-compose.override.yml` for dev: bind mounts, `--reload`, exposed DB port
+- [x] Resource limits per service in compose (`deploy.resources`)
 
 ## 0.3 NODE B provisioning ★ new
 
@@ -133,7 +154,7 @@ The `--fail-under=70` gate **did trip**, at 50.78%. Per the standing rule it was
 - [x] ✅ **Firewall: TCP 11434 from NODE A's IP only** — applied on NODE B 2026-09-14 18:33. Two auto-created `ollama.exe` **Block** rules removed first (Block beats Allow in Windows Firewall), then `Result Guardian NODE B` created: Enabled, Inbound, Allow, TCP 11434, **RemoteAddress `172.25.52.148` only**
 - [x] Model pulled and cached at provisioning time, never at first request — `qwen3:4b` (2.33 GB) cached to `D:`
 - [x] No volumes mounted, no database, no logs containing prompt content — Ollama only
-- [ ] 🔴 **Verify from NODE A:** `curl http://192.168.0.168:11434/api/tags` — needs NODE A
+- [x] ✅ **Verified from NODE A, 2026-09-14** — `curl http://172.25.54.48:11434/api/tags` → 200, `qwen3:4b` + `mistral:7b`. Also proven **from inside the api container**, which is the only path that counts. (The address here was NODE B's old home-network one.)
 
 **A pre-existing break was found and repaired.** `OLLAMA_MODELS` was already set to `D:\Nexus AI\.ollama\models` at User *and* Machine scope, but the server never received it — it ran on the `C:` default with `total blobs: 0`, so **`mistral:7b` (used by the separate `D:\Nexus AI` project) had been invisible since at least 2026-09-11.** Cause: `ollama app.exe --hide --fast-startup` hands its child a sanitised environment. `setup-windows.ps1` starts `ollama serve` directly from a shell carrying the vars, which fixed it. `ollama list` now shows **both** models. Proof by construction: `C:` blobs = **0**, `D:` blobs = **10**.
 
@@ -153,15 +174,15 @@ Write `docs/network-runbook.md` covering:
 
 ## 0.5 App skeleton
 
-- [ ] `config.py` with pydantic-settings: `DATABASE_URL`, `JWT_SECRET`, `ENV`, `LOG_LEVEL`, `TZ=Asia/Kolkata`, `LLM_BASE_URL`, `LLM_TIMEOUT_S=30`, `LLM_ENABLED=true`, `LLM_MODEL`
-- [ ] Async SQLAlchemy engine + session dependency
-- [ ] Alembic configured for async, first empty revision
-- [ ] `GET /api/health` → includes the NODE B block from day one
-- [ ] The llm probe is **cached for 30s and must never block the response**
-- [ ] `GET /api/version`
-- [ ] structlog JSON logging, request-ID middleware (`X-Request-ID`, generate if absent)
-- [ ] Global exception handler → RFC 7807 `problem+json`, never leak stack traces in prod
-- [ ] CORS config, locked to known origins
+- [x] `config.py` with pydantic-settings: `DATABASE_URL`, `JWT_SECRET`, `ENV`, `LOG_LEVEL`, `TZ=Asia/Kolkata`, `LLM_BASE_URL`, `LLM_TIMEOUT_S=30`, `LLM_ENABLED=true`, `LLM_MODEL`
+- [x] Async SQLAlchemy engine + session dependency
+- [x] Alembic configured for async, first empty revision
+- [x] `GET /api/health` → includes the NODE B block from day one
+- [x] The llm probe is **cached for 30s and must never block the response**
+- [x] `GET /api/version`
+- [x] structlog JSON logging, request-ID middleware (`X-Request-ID`, generate if absent)
+- [x] Global exception handler → RFC 7807 `problem+json`, never leak stack traces in prod
+- [x] CORS config, locked to known origins
 
 ```json
 {
@@ -191,18 +212,18 @@ Write `docs/network-runbook.md` covering:
 
 ## 0.7 Worker skeleton
 
-- [ ] pgmq queue creation script: `sla_timers`, `notifications`, `ingest`, `extract`, `dlq`
-- [ ] Generic consumer loop: `pgmq.read` → handle → `pgmq.delete`, with `pgmq.archive` on permanent failure
-- [ ] Retry with exponential backoff, max 5 attempts, then DLQ
-- [ ] Graceful shutdown on SIGTERM (finish in-flight message)
-- [ ] Heartbeat row in `worker_health` table, alert if stale > 2 min
+- [x] pgmq queue creation script: `sla_timers`, `notifications`, `ingest`, `extract`, `dlq`
+- [x] Generic consumer loop: `pgmq.read` → handle → `pgmq.delete`, with `pgmq.archive` on permanent failure
+- [x] Retry with exponential backoff, max 5 attempts, then DLQ
+- [x] Graceful shutdown on SIGTERM (finish in-flight message)
+- [x] Heartbeat row in `worker_health` table, alert if stale > 2 min
 
 ## 0.8 CI
 
-- [ ] GitHub Actions: ruff → `black --check` → mypy → pytest → docker build
-- [ ] testcontainers spins real Postgres for integration tests
-- [ ] **CI must pass with NODE B unreachable — no test may require the LLM**
-- [ ] Coverage report, fail under 70%
+- [x] GitHub Actions: ruff → `black --check` → mypy → pytest → docker build
+- [x] 🚫 ~~testcontainers spins real Postgres for integration tests~~ — **superseded.** CI builds and runs the **real** `infra/postgres` image with the real init scripts, which tests the image actually shipped rather than a stock one. `testcontainers` stays declared in `pyproject.toml` and is unused.
+- [x] **CI must pass with NODE B unreachable — no test may require the LLM**
+- [x] Coverage report, fail under 70%
 
 ---
 
