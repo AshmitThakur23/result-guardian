@@ -538,6 +538,15 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-15 — ✅ Ollama now starts at login on NODE B, verified by restart. Reboot test still owed.
+
+- 🔴 **The finding that prompted this: nothing started Ollama at boot at all.** All six mechanisms were searched on NODE B — `HKCU\Run`, `HKLM\Run`, `WOW6432Node\Run`, both Startup folders, scheduled tasks, Windows services. **Ollama was in none of them.** What had been keeping it alive was a manual `ollama serve` in a shell that happened to carry the right variables. So the failure after a reboot was never "the models reverted to `C:`" — it was **connection refused, no server at all**.
+- ⛔ **The registry could not have fixed it, and that was already proven here.** `OLLAMA_MODELS` sat at **Machine** scope for four days while the tray app went on reading `C:\Users\asus\.ollama\models`; `server-1.log` (2026-09-11) records `total blobs: 0`. `ollama app.exe --hide --fast-startup` hands its child a sanitised environment. **Scope is not the mechanism** — the variables have to be set in the same shell that launches the server, which is what [`infra/nodeb/start-ollama.bat`](infra/nodeb/start-ollama.bat) does.
+- ✅ **Shortcut to that script placed in `shell:startup`** (minimised, per-user). Nothing installed, nothing elevated; deleting the shortcut undoes it completely. The script is **tracked in the repo**, not a local copy, so it survives a re-clone.
+- ✅ **Verified by actually taking Ollama down and bringing it back through the shortcut** — not by reading the registry. Port confirmed refusing first; then `ollama list` showed **both** `qwen3:4b` and `mistral:7b`, `ollama ps` showed `UNTIL: Forever` (the only honest proof `KEEP_ALIVE=-1` reached the process), and port 11434 was listening on all interfaces. Cold load **6.1 s**, warm query **0.2 s**.
+- ✅ **Cross-node facts unchanged and re-measured**: NODE B `172.25.54.48` (Wi-Fi, gw `172.25.48.1`) — still what NODE A holds; firewall rule `Result Guardian NODE B` enabled, TCP 11434, remote scoped to `172.25.52.148` **only**; **0** inbound Block rules for `ollama.exe`.
+- 🟡 **The real reboot test has NOT been run** — it needs the owner to restart the machine, and it must not happen during the demo. Until it does, login-time startup is verified by simulation only. **`qwen3:4b` was not deleted**; it is the evidence behind the model switch.
+
 ### 2026-09-15 — 🔵 Phase 8 core built: retrieval, generation, and the span verifier
 
 - ⚠️ **Started with Exit Gate 7 OPEN, on the owner's instruction** — the corpus is still 0. **Exit Gate 8 cannot close either**, since it needs a clinician's judgement on generated explanations.
