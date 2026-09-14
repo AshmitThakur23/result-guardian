@@ -516,6 +516,13 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-14 — 🟢 THE TWO NODES ARE CONNECTED. Measured on NODE A, all three layers.
+
+- ✅ **NODE A → NODE B works end to end.** `Test-NetConnection 172.25.54.48 -Port 11434` → **`TcpTestSucceeded: True`** (`PingSucceeded: False`, as expected — Windows blocks inbound ICMP). From **inside the API container** — the only path that actually counts — `httpx.get('http://172.25.54.48:11434/api/tags')` → **HTTP 200**, `qwen3:4b` 2.5 GB + `mistral:7b` 4.37 GB. And the application's own view: `curl localhost/api/health` → **`"llm":{"reachable":true,"latency_ms":36}`** with **`"degraded_features":[]`** — empty for the first time in this project.
+- **What actually unblocked it:** NODE B removed the two auto-created `ollama.exe` inbound **Block** rules (a Block rule beats an Allow rule) and added the Phase 10.1 allow rule scoped to `172.25.52.148` only — `e523ee8`. `OLLAMA_HOST` needed no change; Ollama was already bound to `0.0.0.0`.
+- ⚠️ **A stale-config defect was found doing this, and it would have wasted another hour.** `.env` still carried `RG_LLM_BASE_URL=http://192.168.0.168:11434` — NODE B's old *home-network* address — so the first health check after the firewall fix still returned `reachable: false` with `ConnectTimeout`, **looking exactly like a firewall that had not worked**. The runbook asserted `.env` was "already set"; it was not. Fixed, containers recreated, then `reachable: true`. ▶ **A config file is not verified until something has read it** — same class of defect as NODE B's stale IP answering `/api/tags` to itself.
+- 🔴 **Exit Gate 0 clause 4 is STILL only closed by outcome, not by the literal step.** The deliberate version — **stop Ollama on NODE B while NODE A watches, both machines on one LAN** — is now **possible for the first time** and has **not been run**. Ashmit is standing by. Until it runs, the clause stays qualified in the phase doc.
+
 ### 2026-09-14 — D-N1 proven by execution, and the RCR national list retrieved in full
 
 - ✅ **D-N1 is no longer a reading-level claim — it is an executed, reproducing defect.** `test_a_conjunction_terminates_negation_scope` in `api/tests/test_rules_numeric_narrative.py` runs `No evidence of fracture, however a large abscess in the liver.` and reports **XFAIL**: the abscess really is suppressed. Marked **`xfail(strict=True)`**, so **the day the defect is fixed the test FAILS and forces the marker's removal** — CI stays green meanwhile, and the defect cannot quietly stop being tracked. **The fix is deliberately NOT applied:** adding `CONJ` terminators changes clinical behaviour and belongs to the 3.8 clinician review, not to an engineer.

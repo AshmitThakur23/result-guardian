@@ -73,9 +73,24 @@
 >
 > `OLLAMA_HOST` needed no change — Ollama was already bound to `0.0.0.0`, not localhost.
 >
-> **Still to do, from NODE A:** `Test-NetConnection 172.25.54.48 -Port 11434` must return
-> `True`. Only that proves the path end to end; NODE B cannot test its own inbound rule,
-> because a request from NODE B to its own address never crosses the firewall.
+> ### ✅ CONFIRMED FROM NODE A — the path works, all three layers
+>
+> ```
+> Test-NetConnection 172.25.54.48 -Port 11434     TcpTestSucceeded : True
+>                                                 PingSucceeded    : False  (expected)
+> docker compose exec api  -> httpx GET /api/tags HTTP 200, qwen3:4b + mistral:7b
+> curl localhost/api/health                       "reachable":true, latency_ms 36,
+>                                                 "degraded_features":[]
+> ```
+>
+> ⚠️ **One defect found doing this: `.env` still held NODE B's OLD address**
+> (`192.168.0.168`), so the first health check after the firewall fix reported
+> `ConnectTimeout` and looked exactly like a firewall that had not worked. This runbook
+> asserted `.env` was "already set" — it was not. **A config file is not verified until
+> something has read it.** Fixed to `http://172.25.54.48:11434`, containers recreated.
+>
+> 🔴 **Still outstanding:** the deliberate RULE 2 test — stop Ollama on NODE B while
+> NODE A watches. Now possible for the first time; not yet run.
 >
 > <details><summary>The original diagnosis, kept for the record</summary>
 >

@@ -240,11 +240,41 @@ between the nodes*. But it is not the literal scripted step. **Re-run the
 deliberate version — stop Ollama on NODE B with both machines on one LAN —
 before treating this clause as closed by intent as well as by outcome.**
 
-> **The remaining blocker is not in this list.** Exit Gate 0's cross-node
-> clauses need both machines on one network, and on 2026-09-14 they were not:
-> NODE A on `172.25.52.148/20` (campus Wi-Fi), NODE B on `192.168.0.168/24`.
-> Ping and TCP both fail. See
-> [`docs/network-runbook.md`](../network-runbook.md#-the-two-machines-are-on-different-networks--measured-2026-09-14).
+### 🟢 The two nodes are CONNECTED — measured on NODE A, 2026-09-14
+
+The blocker recorded here previously (different networks) is resolved, and so is
+the one that replaced it (NODE B's `ollama.exe` inbound Block rules, cleared in
+`e523ee8`). **The full path now works, proven at all three layers:**
+
+```
+Test-NetConnection 172.25.54.48 -Port 11434        <- NODE A host
+  PingSucceeded    : False    (expected - Windows blocks inbound ICMP)
+  TcpTestSucceeded : True
+  SourceAddress    : 172.25.52.148
+
+docker compose exec api python -c "httpx.get(...)"  <- INSIDE the container,
+  HTTP 200  ->  qwen3:4b 2.5 GB, mistral:7b 4.37 GB     the only path that counts
+
+curl localhost/api/health                           <- the application's own view
+  {"status":"ok","db":"ok","worker_heartbeat_age_s":0,
+   "llm":{"reachable":true,"host":"172.25.54.48:11434",
+          "model":"qwen3:4b","latency_ms":36},
+   "degraded_features":[]}
+```
+
+**36 ms across the two nodes, and `degraded_features` empty for the first time.**
+
+⚠️ **A stale-config defect was found and fixed in the process.** `.env` still
+carried `RG_LLM_BASE_URL=http://192.168.0.168:11434` — NODE B's old home-network
+address — so the first health check after the firewall fix still reported
+`reachable: false` with a `ConnectTimeout`, and looked exactly like a firewall
+that had not worked. The runbook asserted `.env` was "already set"; it was not.
+**A config file is not verified until something has read it.**
+
+> 🔴 **Clause 4 is still closed by outcome, not by the literal step.** The
+> deliberate version — **stop Ollama on NODE B while NODE A watches, both
+> machines on one LAN** — is now *possible* for the first time and has **not yet
+> been run.** Until it is, this clause stays qualified.
 
 ---
 
