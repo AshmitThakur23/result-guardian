@@ -33,8 +33,29 @@ POLICY = (
 async def _seed_document(
     session: AsyncSession, *, approved: bool, chunk_text: str = POLICY
 ) -> tuple[uuid.UUID, uuid.UUID]:
-    """One document and one chunk. ``approved`` decides visibility."""
+    """One document and one chunk. ``approved`` decides visibility.
+
+    Creates its own approver rather than borrowing ``(SELECT id FROM users
+    LIMIT 1)``. That shortcut passed locally and failed on CI, where the users
+    table is empty: it left `approved_by` NULL beside a non-NULL `approved_at`,
+    and `ck_kb_documents_approval_complete` correctly refused a half-written
+    approval. The constraint was right; the fixture was borrowing state it did
+    not own.
+    """
     tag = uuid.uuid4().hex[:12]
+    approver_id = (
+        await session.execute(
+            text(
+                "INSERT INTO users "
+                "  (id, employee_code, full_name, role, is_active, "
+                "   created_at, updated_at) "
+                "VALUES (gen_random_uuid(), :code, 'KB Approver', 'admin', true, "
+                "        now(), now()) "
+                "RETURNING id"
+            ),
+            {"code": f"KB-{tag}"},
+        )
+    ).scalar_one()
     doc_id = (
         await session.execute(
             text(
@@ -43,7 +64,7 @@ async def _seed_document(
                 "   approved_by, approved_at, created_at, updated_at) "
                 "VALUES (gen_random_uuid(), :title, 'hospital', "
                 "        'antibiotic_policy', '1', :sha, "
-                "        CASE WHEN :ok THEN (SELECT id FROM users LIMIT 1) END, "
+                "        CASE WHEN :ok THEN CAST(:approver AS uuid) END, "
                 "        CASE WHEN :ok THEN now() END, now(), now()) "
                 "RETURNING id"
             ),
@@ -51,6 +72,7 @@ async def _seed_document(
                 "title": f"Antibiotic Policy {tag}",
                 "sha": tag.ljust(64, "0"),
                 "ok": approved,
+                "approver": str(approver_id),
             },
         )
     ).scalar_one()
