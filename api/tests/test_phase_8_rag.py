@@ -474,8 +474,11 @@ async def test_the_kill_switch_stops_generation(
     await settings_store.set_value(session, "llm_enabled", False)
     await session.commit()
 
+    # A real case: the endpoint now refuses an unknown one with a 404 before
+    # doing any work, so a random UUID here would test the guard rather than
+    # the kill switch.
     response = await client.post(
-        f"/api/cases/{uuid.uuid4()}/explain",
+        f"/api/cases/{ids['case']}/explain",
         headers=headers,
         json={"query": "Escherichia coli ceftriaxone urine"},
     )
@@ -517,7 +520,7 @@ async def test_the_guidance_is_still_returned_when_generation_fails(
     await session.commit()
 
     response = await client.post(
-        f"/api/cases/{uuid.uuid4()}/explain",
+        f"/api/cases/{ids['case']}/explain",
         headers=headers,
         json={"query": "Escherichia coli ceftriaxone urine"},
     )
@@ -536,3 +539,115 @@ async def test_the_guidance_is_still_returned_when_generation_fails(
     assert body["evidence"] == []
     assert "quoted_text" not in body["retrieved"][0]
     assert "match_ratio" not in body["retrieved"][0]
+
+
+# ── 8.3 a question typed by a person ──────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_natural_language_question_still_finds_the_guidance(
+    session: AsyncSession,
+) -> None:
+    """★ A question phrased as a question must not retrieve nothing.
+
+    `websearch_to_tsquery` joins bare terms with AND. That is right for the
+    structured query the panel builds, and wrong for a clinician typing "why
+    does ceftriaxone resistance matter" — which requires the policy to contain
+    the words "why", "does" and "matter". No policy does, so the whole question
+    retrieved **nothing** and the panel said "no approved guidance" while the
+    guidance sat one row away.
+
+    Found by the Phase 8 Guidance E2E on 2026-09-15, immediately after the
+    free-text question box was added and before anybody had typed a real
+    sentence into it.
+    """
+    await _seed_document(session, approved=True)
+
+    strict = await retrieve_svc.keyword_search(
+        session, "Escherichia coli ceftriaxone urine"
+    )
+    assert strict, "the structured query should still match on AND"
+
+    asked = await retrieve_svc.keyword_search(
+        session, "why does ceftriaxone resistance matter"
+    )
+    assert asked, "a question phrased as a question retrieved nothing"
+
+
+@pytest.mark.asyncio
+async def test_the_forgiving_pass_does_not_match_everything(
+    session: AsyncSession,
+) -> None:
+    """★ Widening the query must not turn retrieval into "always something".
+
+    The OR fallback exists so a question is not defeated by the word "why". If
+    it also matched documents sharing no clinical term, the relevance floor
+    would be the only thing between a clinician and a confident answer built on
+    an unrelated policy — and "no guidance" would stop being sayable at all.
+    """
+    await _seed_document(session, approved=True)
+
+    assert (
+        await retrieve_svc.keyword_search(
+            session, "what should I tell the patient about the report"
+        )
+        == []
+    ), "a question made only of scaffolding words matched a document"
+
+    assert (
+        await retrieve_svc.keyword_search(session, "why does the roof leak")
+    ) == [], "an unrelated question matched clinical guidance"
+
+    # ★ The one that actually regressed. Every word here is furniture except
+    # "organism" and "guideline", which a clinical corpus is full of. The first
+    # OR fallback returned the antibiotic policy for this and NODE B was duly
+    # called on it -- caught by the Phase 8 E2E, not by this file.
+    assert (
+        await retrieve_svc.keyword_search(
+            session, "zzzqqq no such organism anywhere in any guideline"
+        )
+        == []
+    ), "a nonsense query matched on generic words and would have called NODE B"
+
+
+@pytest.mark.asyncio
+async def test_explaining_a_case_that_does_not_exist_is_a_404(
+    client: httpx.AsyncClient, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """★ An unknown case is refused before any work is done.
+
+    This endpoint used to accept any UUID. It ran retrieval, spent ~14 s of
+    NODE B's GPU, and then returned **500** from inside the verifier, because
+    `ai_rejections.case_id` references `pending_cases` and a rejected citation
+    cannot be recorded against a case that is not there.
+
+    It surfaced as a *flaky* E2E — one run in three — because it only fires
+    when the model happens to write a citation that fails verification, which
+    varies run to run. A missing existence check plus a non-deterministic model
+    is how a real defect hides as a flake, and CLAUDE.md is explicit that a
+    flake gets found rather than papered over.
+
+    `generate` is replaced with something that raises, so this also proves the
+    refusal happens **before** NODE B is dialled rather than after.
+    """
+
+    async def _must_not_be_called(**kwargs: object) -> object:
+        raise AssertionError("NODE B was called for a case that does not exist")
+
+    monkeypatch.setattr(explain_router.generate_svc, "generate", _must_not_be_called)
+
+    ids = await build_world(session)
+    headers = await bearer(client, ids, "doctor")
+    await _seed_document(session, approved=True)
+    await session.commit()
+
+    response = await client.post(
+        f"/api/cases/{uuid.uuid4()}/explain",
+        headers=headers,
+        json={"query": "Escherichia coli ceftriaxone urine"},
+    )
+
+    assert response.status_code == 404, response.text
+    # Not a 500, and not a cheerful 200 either -- a caller asking about a case
+    # that is not there has made a mistake and is entitled to be told.
+    assert response.status_code != 500

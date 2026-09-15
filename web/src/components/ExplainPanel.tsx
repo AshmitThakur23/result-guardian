@@ -71,9 +71,15 @@ function QuotedPassage({ evidence }: { evidence: ExplainEvidence }) {
   return (
     <p className="text-sm leading-relaxed text-ink-body">
       {before}
+      {/* Two channels, not one. `ring-brand/30` used to be the only outline and
+          it compiled to nothing -- a bare `var(--rg-*)` colour cannot synthesise
+          alpha -- so the "highlight" was a background wash alone. The underline
+          is the non-colour channel: it survives greyscale printing, a mono
+          ward printer, and a reader who cannot distinguish the wash. */}
       <mark
         className="rounded-sm bg-brand-subtle px-0.5 font-medium text-brand-text
-                   ring-1 ring-inset ring-brand/30"
+                   underline decoration-brand decoration-2 underline-offset-2
+                   ring-1 ring-inset ring-brand-line"
       >
         {quote}
       </mark>
@@ -84,12 +90,12 @@ function QuotedPassage({ evidence }: { evidence: ExplainEvidence }) {
 
 function Citation({ evidence, index }: { evidence: ExplainEvidence; index: number }) {
   return (
-    <li className="rounded-lg border border-line bg-surface-sunken">
+    <li className="rounded border border-line bg-surface-sunken">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
         <span
           aria-hidden="true"
           className="flex size-5 shrink-0 items-center justify-center rounded-full
-                     bg-brand text-2xs font-semibold text-white"
+                     bg-brand text-xs font-semibold text-ink-inverse"
         >
           {index + 1}
         </span>
@@ -150,7 +156,7 @@ export function ExplainPanel({
   return (
     <section
       aria-labelledby="explain-heading"
-      className="rounded-lg border border-line bg-surface"
+      className="rounded border border-line bg-surface"
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">
@@ -182,51 +188,89 @@ export function ExplainPanel({
         </Button>
       </header>
 
-      <div className="px-4 py-4">
+      <div className="space-y-4 px-4 py-4">
+        {/* ★ The pre-ask state says what is *about* to happen, in the space it
+            was already occupying. One muted sentence in a 200px panel told a
+            reader almost nothing; the thing worth being explicit about, before
+            anyone presses the button, is the boundary — what gets searched,
+            what gets checked, and what does not change. */}
+        {!asked && !explain.isPending ? (
+          <div className="rounded border border-dashed border-line bg-surface-sunken px-3 py-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-body">
+              What happens when you ask
+            </h3>
+            <ul className="mt-2 space-y-1 text-sm text-ink-muted">
+              <li>Nothing is sent anywhere until you ask.</li>
+              <li>
+                It searches the hospital's own approved guidance — never this
+                patient's report.
+              </li>
+              <li>
+                It quotes that guidance, and every quotation is checked against
+                its source before you see it.
+              </li>
+              <li>It usually takes about 15 seconds.</li>
+              <li>
+                Nothing about this case changes either way — tracking, timers
+                and escalation are unaffected.
+              </li>
+            </ul>
+          </div>
+        ) : null}
+
         {/* ★ Ask something specific.
             The endpoint has always accepted a free-text query; only the UI
             hardcoded one built from the structured fields. Worth being plain
             about what this searches: it searches the hospital's **approved
             guidance**, not this patient's report. A question the guidance does
             not cover returns "no approved guidance", which is the honest
-            answer and not a failure. */}
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-ink-body">
-            Ask something specific{" "}
-            <span className="font-normal normal-case text-ink-muted">
-              (optional)
-            </span>
-          </span>
-          <div className="mt-1 flex flex-wrap gap-2">
-            <input
-              value={ownQuestion}
-              onChange={(event) => setOwnQuestion(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !explain.isPending) ask();
-              }}
-              maxLength={300}
-              placeholder={query}
-              className="min-w-[14rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink"
-            />
-            {ownQuestion ? (
-              <Button size="sm" variant="secondary" onClick={() => setOwnQuestion("")}>
-                Reset
-              </Button>
-            ) : null}
-          </div>
-          <span className="mt-1 block text-xs text-ink-muted">
-            Searches the hospital's approved guidance — not this patient's
-            report. Leave it blank to use{" "}
-            <span className="font-mono">{query}</span>.
-          </span>
-        </label>
+            answer and not a failure.
 
-        {!asked && !explain.isPending ? (
-          <p className="mt-4 text-sm text-ink-muted">
-            Nothing is sent anywhere until you ask. This usually takes about 15
-            seconds.
-          </p>
-        ) : null}
+            Behind a disclosure, because as the first thing in the body it made
+            an evidence panel read as a search box — and nobody has asked
+            anything yet. Native `<details>`: keyboard-operable and announced by
+            screen readers with no JS and no dependency.
+
+            `open` by default is deliberate, not a default left alone. The
+            caveat sentence below is the one that draws the line between the
+            guidance and the patient's own report, and it is asserted visible on
+            the case page by `e2e/phase8-guidance.spec.ts`. A closed disclosure
+            hides it — from the test, and from the reader it was written for. */}
+        <details open>
+          <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-ink-body marker:text-ink-muted">
+            Ask something specific instead
+          </summary>
+          <label className="mt-2 block">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-body">
+              Ask something specific{" "}
+              <span className="font-normal normal-case text-ink-muted">
+                (optional)
+              </span>
+            </span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input
+                value={ownQuestion}
+                onChange={(event) => setOwnQuestion(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !explain.isPending) ask();
+                }}
+                maxLength={300}
+                placeholder={query}
+                className="min-w-[14rem] flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink"
+              />
+              {ownQuestion ? (
+                <Button size="sm" variant="secondary" onClick={() => setOwnQuestion("")}>
+                  Reset
+                </Button>
+              ) : null}
+            </div>
+            <span className="mt-1 block text-xs text-ink-muted">
+              Searches the hospital's approved guidance — not this patient's
+              report. Leave it blank to use{" "}
+              <span className="font-mono">{query}</span>.
+            </span>
+          </label>
+        </details>
 
         {explain.isPending ? (
           <p className="flex items-center gap-2 text-sm text-ink-muted">
@@ -280,7 +324,7 @@ export function ExplainPanel({
                   {result.retrieved.map((passage) => (
                     <li
                       key={passage.chunk_id}
-                      className="rounded-lg border border-line bg-surface-sunken"
+                      className="rounded border border-line bg-surface-sunken"
                     >
                       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
                         <span className="min-w-0 text-sm font-medium text-ink">
@@ -326,11 +370,43 @@ export function ExplainPanel({
               </span>
             </div>
 
-            {/* Styled as a quotation, because that is what it is: a paraphrase
-                of the sources below, not a statement by this system. */}
-            <blockquote className="border-l-2 border-brand pl-4 text-base leading-relaxed text-ink">
-              {result.explanation}
-            </blockquote>
+            {/* Decision 3 in the header docstring says the prose must be
+                visibly *subordinate* to the citation. A left-ruled `text-base`
+                blockquote said the opposite: that is pull-quote styling, the
+                house style for the most important sentence on a page, and it
+                made the generated paraphrase the loudest thing in the panel.
+
+                So: a labelled `<figure>`, caption ABOVE the prose — it has to
+                be read before the sentence it qualifies, not after it — and the
+                prose itself at `text-sm text-ink-body`, which is
+                typographically lighter than the `text-sm font-medium text-ink`
+                citation titles beneath it. The reading order and the visual
+                weight now agree with the docstring. */}
+            <figure className="rounded border border-line bg-surface-sunken px-3 py-3">
+              <figcaption className="flex items-start gap-1.5 text-xs text-ink-muted">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="mt-0.5 size-3.5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="8" cy="8" r="6.25" />
+                  <path d="M8 7.25v4" />
+                  <path d="M8 4.75h.01" />
+                </svg>
+                <span>
+                  Summarised by the assist from the sources below — not a
+                  clinical statement.
+                </span>
+              </figcaption>
+              <p className="mt-2 text-sm leading-relaxed text-ink-body">
+                {result.explanation}
+              </p>
+            </figure>
 
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">

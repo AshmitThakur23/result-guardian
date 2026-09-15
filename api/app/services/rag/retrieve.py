@@ -31,6 +31,7 @@ not disappear.** THE ONE RULE, at the level of a single query.
 from __future__ import annotations
 
 import dataclasses
+import re
 import uuid
 from collections.abc import Awaitable, Callable
 
@@ -53,6 +54,28 @@ KEEP = 5
 #: results came back. The first draft of this module made exactly that mistake.
 KEYWORD_FLOOR = 0.01
 VECTOR_FLOOR = 0.30
+
+#: The bar the **OR fallback** must clear. Higher than `KEYWORD_FLOOR` on
+#: purpose: the strict pass has already required every term to be present, so a
+#: weak score there still means a real match. In the OR pass a single shared
+#: word returns a row, and most shared words are furniture.
+#:
+#: **Measured, not guessed** — against the seeded antibiotic policy, 2026-09-15:
+#:
+#:   | query                                        | top ts_rank_cd |
+#:   |----------------------------------------------|----------------|
+#:   | "why does ceftriaxone resistance matter"     | 1.60           |
+#:   | "how quickly must the clinician be contacted"| 1.20           |
+#:   | "ceftriaxone"            (weakest real hit)  | 0.80           |
+#:   | "...organism anywhere in any guideline"      | 0.40  ← noise  |
+#:   | "organism"                                   | 0.40  ← noise  |
+#:
+#: 0.6 sits between the weakest genuine question and the strongest noise.
+#:
+#: ⚠️ `ts_rank_cd` is **not normalised**, so this number is corpus-dependent.
+#: Re-measure it when the knowledge base grows beyond a handful of documents —
+#: `test_the_forgiving_pass_does_not_match_everything` is what will notice.
+FALLBACK_FLOOR = 0.6
 
 #: Supplied by the caller when an embedder exists. Taken as an argument so this
 #: module has no import path to a model of any kind.
@@ -91,17 +114,61 @@ def build_query(
     return " ".join(parts).strip()
 
 
-async def keyword_search(
-    session: AsyncSession, query: str, *, limit: int = TOP_PER_SIDE
-) -> list[tuple[str, float]]:
-    """`ts_rank_cd` over approved chunks. Title weighted above body.
+#: Words that carry no retrieval signal but are how people actually phrase a
+#: question. Postgres' english dictionary already drops most of them; these are
+#: the ones it keeps and a clinical question always contains.
+_QUESTION_WORDS = frozenset(
+    {
+        "why",
+        "what",
+        "when",
+        "how",
+        "which",
+        "who",
+        "does",
+        "do",
+        "did",
+        "is",
+        "are",
+        "was",
+        "were",
+        "should",
+        "matter",
+        "matters",
+        "mean",
+        "means",
+        "tell",
+        "me",
+        "about",
+        "explain",
+        "patient",
+        "result",
+        "report",
+    }
+)
 
-    ``websearch_to_tsquery`` rather than ``plainto_tsquery``: it tolerates the
-    quotes and minus signs a clinician might type, instead of failing the whole
-    query on one stray character.
+#: Strip anything `websearch_to_tsquery` reads as an operator. A clinician's
+#: apostrophe or dash must not silently turn into a phrase search or a NOT.
+_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-]*")
+
+
+def _or_query(query: str) -> str:
+    """Rebuild a question as an OR search, dropping the interrogative scaffolding.
+
+    ``websearch_to_tsquery`` understands the literal word ``or``, so this needs
+    no hand-built tsquery syntax — and hand-building one from user text is how a
+    search box becomes an injection point.
     """
-    if not query.strip():
-        return []
+    words = [w for w in _WORD.findall(query.lower()) if w not in _QUESTION_WORDS]
+    # Single characters are noise, and a lone "a" ORed into the query matches
+    # most of the corpus.
+    words = [w for w in words if len(w) > 1]
+    return " or ".join(dict.fromkeys(words))
+
+
+async def _keyword_pass(
+    session: AsyncSession, query: str, limit: int
+) -> list[tuple[str, float]]:
     rows = (
         await session.execute(
             text(
@@ -128,6 +195,56 @@ async def keyword_search(
         )
     ).fetchall()
     return [(r.chunk_id, float(r.score)) for r in rows]
+
+
+async def keyword_search(
+    session: AsyncSession, query: str, *, limit: int = TOP_PER_SIDE
+) -> list[tuple[str, float]]:
+    """`ts_rank_cd` over approved chunks. Title weighted above body.
+
+    ``websearch_to_tsquery`` rather than ``plainto_tsquery``: it tolerates the
+    quotes and minus signs a clinician might type, instead of failing the whole
+    query on one stray character.
+
+    ## Strict first, then forgiving
+
+    ``websearch_to_tsquery`` joins bare terms with **AND**, which is right for
+    the structured query the panel builds — *"Escherichia coli Ceftriaxone
+    resistant urine"* should match a chunk about all four. It is wrong for a
+    question typed by a person: *"why does ceftriaxone resistance matter"*
+    requires the policy to contain the words "why", "does" and "matter", and no
+    policy ever does. The whole question then retrieves **nothing**, and the
+    clinician is told there is no guidance when the guidance is right there.
+
+    So: run the strict AND query, and only if it finds nothing, retry as an OR
+    over the content words. Precision when precision is available, recall when
+    it is not — and never a confident "no guidance" caused by the word "why".
+
+    The relevance floor in :func:`retrieve` still applies to the second pass, so
+    widening the query does not lower the bar for what counts as relevant.
+    """
+    if not query.strip():
+        return []
+
+    strict = await _keyword_pass(session, query, limit)
+    if strict:
+        return strict
+
+    loose = _or_query(query)
+    if not loose or loose == query.strip().lower():
+        return []
+    # ★ The fallback is held to a higher bar than the strict pass, because an
+    # OR match is weaker evidence: one shared word is enough to return a row.
+    # Without this, "zzzqqq no such organism anywhere in any guideline"
+    # retrieved the antibiotic policy -- on the words "organism" and
+    # "guideline" alone -- and NODE B was called on context that had nothing to
+    # do with the question. That is precisely what 8.3's relevance floor exists
+    # to prevent, and widening the query had quietly reopened it.
+    return [
+        (cid, score)
+        for cid, score in await _keyword_pass(session, loose, limit)
+        if score >= FALLBACK_FLOOR
+    ]
 
 
 async def vector_search(

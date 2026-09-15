@@ -17,7 +17,7 @@ type Size = "sm" | "md";
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-brand text-white shadow-sm hover:bg-brand-hover " +
+    "bg-brand text-ink-inverse shadow-sm hover:bg-brand-hover " +
     "disabled:bg-line-strong disabled:text-ink-muted disabled:shadow-none",
   secondary:
     "bg-surface text-ink border border-line shadow-sm hover:bg-surface-hover " +
@@ -26,7 +26,7 @@ const VARIANTS: Record<Variant, string> = {
   // Reserved for the override path. Nothing else on this screen is red-filled,
   // so the one destructive action cannot be mistaken for the normal one.
   danger:
-    "bg-critical text-white shadow-sm hover:brightness-95 " +
+    "bg-critical text-ink-inverse shadow-sm hover:brightness-95 " +
     "disabled:bg-critical-line disabled:text-ink-muted disabled:shadow-none",
 };
 

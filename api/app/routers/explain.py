@@ -29,7 +29,7 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -161,6 +161,31 @@ async def explain_case(
     settings: Settings = Depends(get_settings),
 ) -> ExplainResponse:
     """Retrieve, generate, verify. Return only what survived verification."""
+    # ── ★ does this case exist? ──────────────────────────────────────
+    #
+    # Checked first, and it is not a formality. Until 2026-09-15 this endpoint
+    # accepted **any** UUID: it ran retrieval, spent ~14 s of NODE B's GPU, and
+    # then died with a 500 deep inside the verifier, because `ai_rejections`
+    # has a foreign key to `pending_cases` and a rejected citation cannot be
+    # recorded against a case that is not there.
+    #
+    # It presented as a flaky test — 1 run in 3 — because it only fires when
+    # the model happens to produce a citation that fails verification, and that
+    # varies between runs. A missing existence check plus a non-deterministic
+    # model is exactly how a real defect hides as a flake.
+
+    exists = (
+        await session.execute(
+            text(
+                "SELECT 1 FROM pending_cases " " WHERE id = :id AND deleted_at IS NULL"
+            ),
+            {"id": str(case_id)},
+        )
+    ).first()
+    if exists is None:
+        # 404 before any work is done: no retrieval, no GPU, no rejection rows.
+        raise HTTPException(status_code=404, detail="No such case.")
+
     # ── 8.3 ── no embedder installed on this deployment, so keyword-only.
     chunks = await retrieve_svc.retrieve(session, payload.query, embed=None)
 

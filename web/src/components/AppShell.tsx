@@ -132,9 +132,26 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
       </header>
 
-      <main id="main" className="mx-auto max-w-7xl px-4 py-6">
+      {/* Wider than the header's `max-w-7xl` (1280px) on purpose. Nursing
+          stations run 1920px monitors, and at 1280 a third of the screen was
+          empty canvas while the worklist truncated its summary column. The
+          prose-shaped screens — discharge, patient, encounter, knowledge base —
+          each set their own `max-w-4xl` inner wrapper, so widening here only
+          ever gives room to the dense, tabular ones that need it. */}
+      <main id="main" className="mx-auto max-w-[110rem] px-4 py-6">
         {children}
       </main>
+
+      {/* Ops-grade legitimacy for a few lines of JSX: a deployed system says
+          what build it is and what timezone it is thinking in. The timezone is
+          not decoration — every clinical timestamp in this product is stored
+          UTC and displayed IST, and a reader is entitled to know which one
+          they are looking at. */}
+      <footer className="mx-auto max-w-[110rem] px-4 pb-6 pt-2">
+        <p className="border-t border-line pt-3 text-xs text-ink-muted">
+          Result Guardian · times shown in IST (UTC+05:30)
+        </p>
+      </footer>
     </div>
   );
 }

@@ -17,7 +17,7 @@ export function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
                 aria-current={state === "current" ? "step" : undefined}
                 className={
                   state === "current"
-                    ? "rounded-full bg-brand px-3 py-1 font-medium text-white"
+                    ? "rounded-full bg-brand px-3 py-1 font-medium text-ink-inverse"
                     : state === "done"
                       ? "rounded-full bg-brand-subtle px-3 py-1 text-brand-text"
                       : "rounded-full bg-surface-hover px-3 py-1 text-ink-body"

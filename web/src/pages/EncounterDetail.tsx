@@ -270,7 +270,7 @@ function GateSummary({
       </div>
       <Link
         to={`/encounters/${encounter.id}/discharge`}
-        className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover"
+        className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink-inverse hover:bg-brand-hover"
       >
         Open discharge gate
       </Link>
@@ -325,7 +325,7 @@ function OrderTable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {rows.map((order) => (
               <tr key={order.id}>
                 <td className="px-4 py-3">
@@ -394,7 +394,7 @@ function OrderTable({
 
 function MedicationList({ rows }: { rows: DischargeMedicationRow[] }) {
   return (
-    <ul className="divide-y divide-slate-100 rounded-md border border-line bg-surface">
+    <ul className="divide-y divide-line rounded-md border border-line bg-surface">
       {rows.map((medication) => (
         <li key={medication.id} className="px-4 py-3 text-sm">
           <span className="font-medium text-ink">{medication.drug_name}</span>

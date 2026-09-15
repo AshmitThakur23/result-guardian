@@ -180,7 +180,7 @@ function Row({ row }: { row: AuditRow }) {
 
   return (
     <>
-      <tr className="border-b border-slate-100">
+      <tr className="border-b border-line">
         <td className="px-3 py-2 font-mono text-xs text-ink-muted">{row.seq}</td>
         <td className="px-3 py-2 text-xs text-ink-body">
           {new Date(row.occurred_at).toLocaleString()}
@@ -221,7 +221,7 @@ function Row({ row }: { row: AuditRow }) {
         </td>
       </tr>
       {open ? (
-        <tr className="border-b border-slate-100 bg-surface-sunken">
+        <tr className="border-b border-line bg-surface-sunken">
           <td colSpan={6} className="px-3 py-3">
             <div className="grid gap-3 md:grid-cols-2">
               <Json label="Before" value={row.before} />

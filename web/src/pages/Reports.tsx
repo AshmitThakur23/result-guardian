@@ -235,7 +235,7 @@ function Turnaround({ report }: { report: MetricsSummary }) {
         </thead>
         <tbody>
           {report.turnaround.map((stat) => (
-            <tr key={stat.stage} className="border-t border-slate-100">
+            <tr key={stat.stage} className="border-t border-line">
               <td className="py-2 text-ink">
                 {STAGE_LABELS[stat.stage] ?? stat.stage}
               </td>
@@ -314,7 +314,7 @@ function Escalations({ report }: { report: MetricsSummary }) {
         </thead>
         <tbody>
           {report.escalations.map((row, index) => (
-            <tr key={`${row.department_id}-${row.rung}-${index}`} className="border-t border-slate-100">
+            <tr key={`${row.department_id}-${row.rung}-${index}`} className="border-t border-line">
               <td className="py-2 text-ink">
                 {row.department_name ?? "Unassigned"}
               </td>
@@ -399,7 +399,7 @@ function PerDoctor({ days }: { days: number }) {
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.user_id} className="border-t border-slate-100">
+            <tr key={row.user_id} className="border-t border-line">
               <td className="py-2 text-ink">
                 {row.full_name}
                 <span className="ml-2 font-mono text-xs text-ink-muted">

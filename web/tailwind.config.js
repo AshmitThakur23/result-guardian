@@ -23,6 +23,12 @@ export default {
           raised: "var(--rg-surface-raised)",
           sunken: "var(--rg-surface-sunken)",
           hover: "var(--rg-surface-hover)",
+          // Row washes. Named tokens rather than `bg-critical-subtle/40`,
+          // which emits no CSS at all -- see tokens.css.
+          critical: "var(--rg-critical-row)",
+          "critical-hover": "var(--rg-critical-row-hover)",
+          followup: "var(--rg-followup-row)",
+          "followup-hover": "var(--rg-followup-row-hover)",
         },
         ink: {
           DEFAULT: "var(--rg-text)",
@@ -38,6 +44,7 @@ export default {
           DEFAULT: "var(--rg-brand)",
           hover: "var(--rg-brand-hover)",
           subtle: "var(--rg-brand-subtle)",
+          line: "var(--rg-brand-line)",
           text: "var(--rg-brand-text)",
         },
         critical: {
@@ -99,8 +106,12 @@ export default {
       fontSize: {
         // Slightly tighter tracking on headings, looser leading on body: this
         // is a reading interface, not a marketing page.
-        "2xs": ["0.6875rem", { lineHeight: "1rem", letterSpacing: "0.01em" }],
+        // ⛔ No `2xs`. It was 11px, and nothing a clinician must read may go
+        // below 12px. Removed 2026-09-15; `xs` is the floor.
         xs: ["0.75rem", { lineHeight: "1.125rem" }],
+        // Table-cell size: the same 13px as `sm`, but with a 20px line box,
+        // which is what pins a row to exactly 36px at `py-2`.
+        data: ["0.8125rem", { lineHeight: "1.25rem" }],
         sm: ["0.8125rem", { lineHeight: "1.375rem" }],
         base: ["0.875rem", { lineHeight: "1.5rem" }],
         lg: ["1rem", { lineHeight: "1.625rem" }],

@@ -75,7 +75,7 @@ export function Step1Pending({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {blocking.map((order) => (
                 <tr key={order.order_id}>
                   <td className="px-4 py-3">

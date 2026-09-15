@@ -372,7 +372,7 @@ function NumericPanel({
             </thead>
             <tbody>
               {rows.map((row, index) => (
-                <tr key={row.key} className="border-b border-slate-100">
+                <tr key={row.key} className="border-b border-line">
                   <td className="py-2 pr-3">
                     <Cell
                       id={`analyte-name-${row.key}`}
@@ -562,7 +562,7 @@ function CulturePanel({
               </thead>
               <tbody>
                 {organism.sensitivities.map((sensitivity, sIndex) => (
-                  <tr key={sensitivity.key} className="border-b border-slate-100">
+                  <tr key={sensitivity.key} className="border-b border-line">
                     <td className="py-2 pr-3">
                       <Cell
                         id={`abx-${sensitivity.key}`}

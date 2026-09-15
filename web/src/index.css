@@ -76,10 +76,34 @@
     @apply rounded-lg border border-line bg-surface shadow-sm;
   }
 
-  /* Table rows: the hover has to be perceptible without flashing at someone
-     dragging a cursor down forty rows. */
+  /* Table rows.
+   *
+   * This class was dead for three phases -- declared here, used nowhere, while
+   * every table re-declared its own padding. It now owns the whole row
+   * contract, because a triage table only reads as a table if every row is the
+   * same height:
+   *
+   * - **`[&>td]` sets the cell box, not the row.** Padding on a `<tr>` is
+   *   dropped under `border-collapse`, so the rhythm has to be written onto the
+   *   cells. `py-2` + a 20px line box (`text-data`, or `leading-5` here) is
+   *   exactly 36px, and `align-middle` keeps a one-line cell centred against a
+   *   taller neighbour instead of floating at the top.
+   * - **The hover is perceptible without flashing** at someone dragging a
+   *   cursor down forty rows -- one token step, 100ms, and only
+   *   `motion-safe`.
+   * - **`:has(:focus-visible)` is the keyboard half of the same affordance.**
+   *   Tabbing through the row's checkbox and patient link must light the row
+   *   the same way the mouse does, or a keyboard user has no idea which
+   *   patient they are on.
+   *
+   * Specificity note: `.rg-row:hover` is (0,2,0) and beats the row-wash
+   * utility `.bg-surface-critical` at (0,1,0), so a critical row still
+   * responds to the pointer. */
   .rg-row {
-    @apply border-b border-line transition-colors duration-100 hover:bg-surface-hover;
+    @apply border-b border-line last:border-0;
+    @apply motion-safe:transition-colors motion-safe:duration-100;
+    @apply hover:bg-surface-hover [&:has(:focus-visible)]:bg-surface-hover;
+    @apply [&>td]:px-3 [&>td]:py-2 [&>td]:leading-5 [&>td]:align-middle;
   }
 
   /* Skip link -- visible only on focus. Keyboard users should not have to tab

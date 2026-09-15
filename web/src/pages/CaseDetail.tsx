@@ -30,8 +30,9 @@ import { ExplainPanel } from "../components/ExplainPanel";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { Banner } from "../components/ui/Banner";
 import { Button } from "../components/ui/Button";
+import { Field } from "../components/ui/Panel";
 import { ErrorState, Loading } from "../components/ui/States";
-import { formatAge, formatCountdown } from "../lib/countdown";
+import { formatAge, formatCountdown, formatDuration } from "../lib/countdown";
 import { cn } from "../lib/cn";
 
 const MIN_NOTE = 10;
@@ -100,58 +101,67 @@ function text(value: unknown, fallback = "—"): string {
   return value === null || value === undefined || value === "" ? fallback : String(value);
 }
 
+/**
+ * The rail. A second, non-colour channel would be useless on its own — the
+ * badge beside the name is what actually *says* "Critical" — but a 4px edge is
+ * what makes a severity readable from across a ward at a glance, before any
+ * word has been read.
+ */
+const SEVERITY_RAIL: Record<string, string> = {
+  critical: "border-l-4 border-l-critical",
+  follow_up: "border-l-4 border-l-followup",
+};
+
 function CaseHeader({ detail }: { detail: CaseDetail }) {
-  const countdown = formatCountdown(
-    detail.next_escalation_at
-      ? Math.round(
-          (new Date(detail.next_escalation_at).getTime() - Date.now()) / 1000,
-        )
-      : null,
-  );
-
   return (
-    <header className="rounded-md border border-line bg-surface p-4">
-      <div className="flex flex-wrap items-start gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">
-            {text(detail.patient.full_name)}
-          </h1>
-          <p className="text-sm text-ink-body">
-            MRN {text(detail.patient.mrn)} · {text(detail.encounter.department_name)}
-            {detail.encounter.discharged_at
-              ? ` · discharged ${new Date(
-                  String(detail.encounter.discharged_at),
-                ).toLocaleDateString()}`
-              : null}
-          </p>
-          <p className="mt-1 text-sm text-ink-body">{text(detail.order.test_name)}</p>
+    <header
+      className={cn(
+        "rounded border border-line bg-surface p-4",
+        detail.severity ? SEVERITY_RAIL[detail.severity] : null,
+      )}
+    >
+      {/* A clinician who reached this case from a page-3 cursor has no way
+          back except the browser button, and the browser button is not on the
+          screen they are looking at. */}
+      <nav aria-label="Breadcrumb" className="mb-3">
+        <Link
+          to="/worklist"
+          className="inline-flex items-center gap-1 rounded text-sm text-ink-body hover:text-ink hover:underline"
+        >
+          <span aria-hidden="true">←</span> Back to worklist
+        </Link>
+      </nav>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold text-ink">
+              {text(detail.patient.full_name)}
+            </h1>
+            {detail.severity ? (
+              <SeverityBadge severity={detail.severity} size="lg" />
+            ) : null}
+          </div>
+
+          {/* A `·`-joined sentence is announced as one undifferentiated string.
+              Each identity field is its own labelled pair. */}
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+            <Field label="MRN" numeric>
+              {text(detail.patient.mrn)}
+            </Field>
+            <Field label="Department">{text(detail.encounter.department_name)}</Field>
+            <Field label="Discharged">
+              {detail.encounter.discharged_at
+                ? new Date(
+                    String(detail.encounter.discharged_at),
+                  ).toLocaleDateString()
+                : "—"}
+            </Field>
+            <Field label="Test">{text(detail.order.test_name)}</Field>
+          </dl>
         </div>
 
-        <div className="ml-auto flex flex-col items-end gap-2">
-          {detail.severity ? <SeverityBadge severity={detail.severity} /> : null}
-          <span className="text-xs text-ink-body">
-            {detail.flagged_at
-              ? formatAge(
-                  Math.round((Date.now() - new Date(detail.flagged_at).getTime()) / 1000),
-                )
-              : "Not yet flagged"}
-          </span>
-          {detail.escalation_level !== null ? (
-            <span className="text-xs text-ink-body">
-              Escalation rung {detail.escalation_level}
-            </span>
-          ) : null}
-          {countdown ? (
-            <span
-              className={cn(
-                "text-xs",
-                countdown.overdue ? "font-semibold text-critical-text" : "text-ink-body",
-              )}
-            >
-              Next escalation {countdown.label}
-            </span>
-          ) : null}
-        </div>
+        <EscalationClock detail={detail} />
       </div>
 
       {detail.closed_at ? (
@@ -173,10 +183,69 @@ function CaseHeader({ detail }: { detail: CaseDetail }) {
   );
 }
 
+/**
+ * The only large number on the page.
+ *
+ * It is the only one that changes while you read it, and the only one that
+ * decides whether you act now or after the next patient. Everything else here
+ * — the rung, the age — is context for it and stays small.
+ */
+function EscalationClock({ detail }: { detail: CaseDetail }) {
+  const seconds = detail.next_escalation_at
+    ? Math.round((new Date(detail.next_escalation_at).getTime() - Date.now()) / 1000)
+    : null;
+  const countdown = formatCountdown(seconds);
+  const overdue = countdown?.overdue ?? false;
+
+  return (
+    <div
+      className={cn(
+        "w-full shrink-0 rounded border p-3 sm:w-52",
+        overdue
+          ? "border-critical-line bg-critical-subtle"
+          : "border-line bg-surface-sunken",
+      )}
+    >
+      <p
+        className={cn(
+          "text-xs font-semibold uppercase tracking-wide",
+          overdue ? "text-critical-text" : "text-ink-body",
+        )}
+      >
+        {overdue ? "Escalation overdue" : "Next escalation"}
+      </p>
+
+      {countdown && seconds !== null ? (
+        <p
+          className={cn(
+            "mt-1 text-xl font-semibold tabular",
+            overdue ? "text-critical-text" : "text-ink",
+          )}
+        >
+          {formatDuration(seconds)}
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-ink-body">None scheduled</p>
+      )}
+
+      <p className="mt-2 text-xs text-ink-body">
+        {detail.escalation_level !== null
+          ? `Escalation rung ${detail.escalation_level} · `
+          : null}
+        {detail.flagged_at
+          ? formatAge(
+              Math.round((Date.now() - new Date(detail.flagged_at).getTime()) / 1000),
+            )
+          : "Not yet flagged"}
+      </p>
+    </div>
+  );
+}
+
 function Explanations({ explanations }: { explanations: RuleExplanation[] }) {
   if (explanations.length === 0) {
     return (
-      <section className="rounded-md border border-dashed border-line bg-surface p-4">
+      <section className="rounded border border-dashed border-line bg-surface p-4">
         <h2 className="text-sm font-semibold text-ink">Why this is flagged</h2>
         <p className="mt-1 text-sm text-ink-body">
           No result has been classified yet. The case is being tracked and will
@@ -187,7 +256,7 @@ function Explanations({ explanations }: { explanations: RuleExplanation[] }) {
   }
 
   return (
-    <section className="rounded-md border border-line bg-surface p-4">
+    <section className="rounded border border-line bg-surface p-4">
       <h2 className="text-sm font-semibold text-ink">Why this is flagged</h2>
       <ul className="mt-3 space-y-3">
         {explanations.map((item, index) => (
@@ -225,7 +294,7 @@ function ResultBlock({ detail }: { detail: CaseDetail }) {
 
   if (!detail.result) {
     return (
-      <section className="rounded-md border border-dashed border-line bg-surface p-4">
+      <section className="rounded border border-dashed border-line bg-surface p-4">
         <h2 className="text-sm font-semibold text-ink">Result</h2>
         <p className="mt-1 text-sm text-ink-body">
           No result has arrived yet. The case stays open and escalates until one
@@ -236,7 +305,7 @@ function ResultBlock({ detail }: { detail: CaseDetail }) {
   }
 
   return (
-    <section className="space-y-4 rounded-md border border-line bg-surface p-4">
+    <section className="space-y-4 rounded border border-line bg-surface p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h2 className="text-sm font-semibold text-ink">Result</h2>
         <span className="text-xs text-ink-muted">
@@ -283,7 +352,7 @@ function AnalyteTable({ rows }: { rows: AnalyteRow[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.seq} className="border-b border-slate-100 last:border-0">
+            <tr key={row.seq} className="border-b border-line last:border-0">
               <td className="py-2 pr-3 text-ink">{row.test_name}</td>
               <td
                 className={cn(
@@ -359,7 +428,7 @@ function SensitivityGrid({ organism }: { organism: OrganismRow }) {
             {organism.sensitivities.map((cell) => (
               <tr
                 key={cell.antibiotic ?? ""}
-                className="border-b border-slate-100 last:border-0"
+                className="border-b border-line last:border-0"
               >
                 <td className="py-2 pr-3 text-ink">{cell.antibiotic ?? "—"}</td>
                 <td
@@ -386,11 +455,22 @@ function SensitivityGrid({ organism }: { organism: OrganismRow }) {
   );
 }
 
+/**
+ * Sticky, at the bottom of the viewport.
+ *
+ * This screen exists to record an acknowledgement. On a case with a
+ * sensitivity grid and a twenty-event timeline the button was scrolling out of
+ * reach, which put the page's entire purpose below the fold. It is one of the
+ * few things on this product permitted to float.
+ */
 function ActionBar({ detail }: { detail: CaseDetail }) {
   const [mode, setMode] = useState<"none" | "close" | "note" | "reopen">("none");
 
   return (
-    <section className="rounded-md border border-line bg-surface p-4">
+    <section
+      className="sticky bottom-0 z-20 rounded border border-line border-t-line-strong
+                 bg-surface p-4 shadow-sm"
+    >
       <div className="flex flex-wrap gap-2">
         {detail.can_acknowledge ? (
           <Button onClick={() => setMode(mode === "close" ? "none" : "close")}>
@@ -409,7 +489,7 @@ function ActionBar({ detail }: { detail: CaseDetail }) {
         </Button>
         <Link
           to={`/patients/${text(detail.patient.id, "")}`}
-          className="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium text-ink-body hover:bg-surface-sunken"
+          className="inline-flex items-center rounded px-4 py-2 text-sm font-medium text-ink-body hover:bg-surface-sunken"
         >
           Open the patient
         </Link>
@@ -464,7 +544,7 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
         <select
           value={reason}
           onChange={(event) => setReason(event.target.value as ClosureReason)}
-          className="mt-1 block rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 block rounded border border-line px-3 py-2 text-sm"
         >
           {CLOSURE_REASONS.map((value) => (
             <option key={value} value={value}>
@@ -484,7 +564,7 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
           rows={3}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded border border-line px-3 py-2 text-sm"
         />
         <span className="mt-1 block text-xs text-ink-muted">
           At least {MIN_NOTE} characters. This is what an auditor reads.
@@ -498,7 +578,7 @@ function CloseForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void 
             required
             value={duplicateOf}
             onChange={(event) => setDuplicateOf(event.target.value)}
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 font-mono text-sm"
+            className="mt-1 w-full rounded border border-line px-3 py-2 font-mono text-sm"
           />
         </label>
       ) : null}
@@ -536,7 +616,7 @@ function NoteForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void }
           rows={3}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded border border-line px-3 py-2 text-sm"
         />
       </label>
       {mutation.isError ? <ErrorState error={mutation.error} /> : null}
@@ -574,7 +654,7 @@ function ReopenForm({ detail, onDone }: { detail: CaseDetail; onDone: () => void
           rows={3}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded border border-line px-3 py-2 text-sm"
         />
         <span className="mt-1 block text-xs text-ink-muted">
           The original closure stays in the history. Reopening adds to it.
@@ -614,18 +694,38 @@ function Timeline({ detail }: { detail: CaseDetail }) {
   }
 
   return (
-    <section className="rounded-md border border-line bg-surface p-4">
+    <section className="rounded border border-line bg-surface p-4">
       <h2 className="text-sm font-semibold text-ink">History</h2>
+      {/*
+       * ★ Three things on the row below are load-bearing on a phone. Without
+       * them this list pushed the whole page 98px wider than the viewport —
+       * measured at 390px, the row ran to x=488.
+       *
+       * - `flex-col sm:flex-row` — a 160px timestamp beside the content in a
+       *   358px box leaves under 200px for the text. On a phone the stamp
+       *   belongs above the event, not beside it.
+       * - `min-w-0` on the content — a flex item's default `min-width: auto`
+       *   floors it at min-content, so it refuses to shrink and opens the page
+       *   instead. The same defect as the worklist patient cell; this is the
+       *   third instance of it found today.
+       * - `break-words` — event types like `discharge_completed_with_override`
+       *   are one unbreakable token, so min-content is the entire word and no
+       *   amount of shrinking helps until it is allowed to break.
+       */}
       <ol className="mt-3 space-y-3">
         {detail.timeline.map((event, index) => (
-          <li key={`${event.occurred_at}-${index}`} className="flex gap-3 text-sm">
+          <li
+            key={`${event.occurred_at}-${index}`}
+            className="flex flex-col gap-1 text-sm sm:flex-row sm:gap-3"
+          >
             <time
               dateTime={event.occurred_at}
-              className="w-40 shrink-0 text-xs text-ink-muted"
+              title={new Date(event.occurred_at).toISOString()}
+              className="shrink-0 text-xs text-ink-muted sm:w-40"
             >
               {new Date(event.occurred_at).toLocaleString()}
             </time>
-            <div>
+            <div className="min-w-0 break-words">
               <p className="text-ink">
                 {EVENT_LABELS[event.event_type] ?? event.event_type}
                 {event.actor_name ? (

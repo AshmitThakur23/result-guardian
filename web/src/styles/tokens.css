@@ -54,7 +54,13 @@
      past WCAG AA, because clinical values get misread at AA-minimum greys. */
   --rg-text: oklch(21% 0.012 250);
   --rg-text-body: oklch(44% 0.012 250);
-  --rg-text-muted: oklch(56% 0.012 250);
+  /* ★ 50%, not 56%. At 56% this measured **4.26:1** on a surface and 4.45:1 on
+     the canvas — under WCAG AA's 4.5:1 for body text, and it was carrying real
+     content: the worklist's triage counts ("1 critical", "0 escalation
+     overdue") and the refresh notice.
+     Measured by `e2e/contrast.spec.ts`, not estimated. Dark mode's muted tone
+     passed unchanged and is deliberately left alone. */
+  --rg-text-muted: oklch(50% 0.012 250);
   --rg-text-inverse: oklch(99% 0 0);
 
   /* ── lines ────────────────────────────────────────────────────── */
@@ -68,6 +74,12 @@
   --rg-brand-subtle: oklch(96% 0.025 255);
   --rg-brand-text: oklch(40% 0.15 255);
 
+  /* A border-weight brand tone. Exists because `ring-brand/30` compiles to
+     NOTHING: these colours are bare `var(--rg-*)` strings, so Tailwind cannot
+     synthesise an alpha channel and drops every `/opacity` utility silently.
+     A tint is a design decision, so it gets a name rather than arithmetic. */
+  --rg-brand-line: oklch(80% 0.07 255);
+
   /* ── severity ─────────────────────────────────────────────────── *
    * The only saturated colours in the system. Each has a `-subtle`
    * background, a `-line` for its border, and a `-text` guaranteed to clear
@@ -78,6 +90,17 @@
   --rg-critical-subtle: oklch(96% 0.03 25);
   --rg-critical-line: oklch(84% 0.09 25);
   --rg-critical-text: oklch(42% 0.17 25);
+
+  /* Row washes. Deliberately far weaker than `-subtle`, which is a badge
+  fill: a badge is 100px wide and a row is 1400px, and the same tint that
+  reads as "marked" on a chip reads as "alarm" across a whole row.
+  These exist as named tokens because `bg-critical-subtle/40` — what the
+  worklist used — emits NO CSS at all, so the critical row has been
+  rendering with no tint whatsoever. */
+  --rg-critical-row: oklch(96.5% 0.035 25);
+  --rg-critical-row-hover: oklch(94.5% 0.048 25);
+  --rg-followup-row: oklch(97%   0.045 85);
+  --rg-followup-row-hover: oklch(95%   0.058 85);
 
   /* FOLLOW-UP — a human must look. Amber, and deliberately *lighter* than
      critical so the two differ in weight, not only in hue. */
@@ -139,11 +162,23 @@
   --rg-brand-hover: oklch(77% 0.13 255);
   --rg-brand-subtle: oklch(28% 0.05 255);
   --rg-brand-text: oklch(80% 0.11 255);
+  --rg-brand-line: oklch(45% 0.09 255);
 
   --rg-critical: oklch(65% 0.19 25);
   --rg-critical-subtle: oklch(27% 0.07 25);
   --rg-critical-line: oklch(42% 0.12 25);
   --rg-critical-text: oklch(84% 0.11 25);
+
+  /* Row washes. Deliberately far weaker than `-subtle`, which is a badge
+  fill: a badge is 100px wide and a row is 1400px, and the same tint that
+  reads as "marked" on a chip reads as "alarm" across a whole row.
+  These exist as named tokens because `bg-critical-subtle/40` — what the
+  worklist used — emits NO CSS at all, so the critical row has been
+  rendering with no tint whatsoever. */
+  --rg-critical-row: oklch(27% 0.055 25);
+  --rg-critical-row-hover: oklch(31% 0.068 25);
+  --rg-followup-row: oklch(27% 0.048 75);
+  --rg-followup-row-hover: oklch(31% 0.060 75);
 
   --rg-followup: oklch(78% 0.15 75);
   --rg-followup-subtle: oklch(27% 0.06 70);
@@ -188,11 +223,23 @@
     --rg-brand-hover: oklch(77% 0.13 255);
     --rg-brand-subtle: oklch(28% 0.05 255);
     --rg-brand-text: oklch(80% 0.11 255);
+    --rg-brand-line: oklch(45% 0.09 255);
 
     --rg-critical: oklch(65% 0.19 25);
     --rg-critical-subtle: oklch(27% 0.07 25);
     --rg-critical-line: oklch(42% 0.12 25);
     --rg-critical-text: oklch(84% 0.11 25);
+
+    /* Row washes. Deliberately far weaker than `-subtle`, which is a badge
+    fill: a badge is 100px wide and a row is 1400px, and the same tint that
+    reads as "marked" on a chip reads as "alarm" across a whole row.
+    These exist as named tokens because `bg-critical-subtle/40` — what the
+    worklist used — emits NO CSS at all, so the critical row has been
+    rendering with no tint whatsoever. */
+    --rg-critical-row: oklch(27% 0.055 25);
+    --rg-critical-row-hover: oklch(31% 0.068 25);
+    --rg-followup-row: oklch(27% 0.048 75);
+    --rg-followup-row-hover: oklch(31% 0.060 75);
 
     --rg-followup: oklch(78% 0.15 75);
     --rg-followup-subtle: oklch(27% 0.06 70);

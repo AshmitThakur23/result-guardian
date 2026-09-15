@@ -240,7 +240,7 @@ function UsersPanel() {
           </thead>
           <tbody>
             {(data ?? []).map((user) => (
-              <tr key={user.id} className="border-b border-slate-100 last:border-0">
+              <tr key={user.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2 text-ink">{user.full_name}</td>
                 <td className="px-3 py-2 font-mono text-xs text-ink-body">
                   {user.employee_code}
@@ -333,7 +333,7 @@ function KeywordsPanel() {
         </thead>
         <tbody>
           {data.map((keyword) => (
-            <tr key={keyword.id} className="border-b border-slate-100 last:border-0">
+            <tr key={keyword.id} className="border-b border-line last:border-0">
               <td className="px-3 py-2 text-ink">{keyword.term}</td>
               <td className="px-3 py-2 text-ink-body">{keyword.category}</td>
               <td className="px-3 py-2 text-ink-body">{keyword.severity}</td>
@@ -401,7 +401,7 @@ function ThresholdsPanel() {
             </thead>
             <tbody>
               {data.map((row) => (
-                <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                <tr key={row.id} className="border-b border-line last:border-0">
                   <td className="px-3 py-2 font-mono text-xs text-ink">
                     {row.test_code}
                   </td>
@@ -454,7 +454,7 @@ function ChainPanel() {
           </thead>
           <tbody>
             {data.map((rung) => (
-              <tr key={rung.id} className="border-b border-slate-100 last:border-0">
+              <tr key={rung.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2 text-ink-body">
                   {rung.department_name ?? (
                     <span className="italic text-ink-muted">Global default</span>
@@ -504,7 +504,7 @@ function ProvidersPanel() {
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.channel} className="border-b border-slate-100 last:border-0">
+            <tr key={row.channel} className="border-b border-line last:border-0">
               <td className="px-3 py-2 text-ink">{row.channel}</td>
               <td className="px-3 py-2 text-xs text-ink-body">{row.adapter}</td>
               <td className="px-3 py-2 text-ink-body">{row.sent_24h}</td>
@@ -560,7 +560,7 @@ function OverridesPanel() {
           </thead>
           <tbody>
             {data.map((row) => (
-              <tr key={row.id} className="border-b border-slate-100 last:border-0">
+              <tr key={row.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2 text-xs text-ink-body">
                   {new Date(row.created_at).toLocaleString()}
                 </td>

@@ -23,6 +23,29 @@
 		-Server
 	}
 
+	# ── Caching ───────────────────────────────────────────────────
+	#
+	# ★ Vite fingerprints every asset (`index-BUWMCZEU.js`), so the bundles are
+	# immutable by construction and `index.html` is the only file whose content
+	# changes at the same URL. It is therefore the ONE file that must never be
+	# cached — it is the pointer to everything else.
+	#
+	# Until 2026-09-15 no cache header was sent at all, only an ETag. A browser
+	# with no `Cache-Control` falls back to *heuristic* caching, and the Android
+	# WebView duly kept serving a stale `index.html` — which points at the old
+	# hashed bundle, so the phone went on rendering a build that had already
+	# been replaced, with no way to tell.
+	#
+	# In a hospital that is worse than untidy: a fix is deployed, the ward keeps
+	# running the old UI, and nobody can see which one they are on.
+	@html path / /index.html
+	header @html Cache-Control "no-cache, must-revalidate"
+
+	# Fingerprinted assets are safe to cache hard: a change produces a new
+	# filename, so this entry can never go stale.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
 	log {
 		output stdout
 		format json

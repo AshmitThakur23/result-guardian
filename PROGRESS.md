@@ -538,6 +538,23 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-15 — ★ A "flaky test" was a real 500, and the UI audit found three classes that emit no CSS
+
+- ★ 🔴 **`POST /api/cases/{id}/explain` accepted any UUID and 500-ed.** It never checked the case existed: it ran retrieval, spent **~14 s of NODE B's GPU**, and then died inside the verifier, because `ai_rejections.case_id` has a foreign key to `pending_cases` and a rejected citation cannot be recorded against a case that is not there. **Now 404s before any work is done.** Proved red-then-green with a test that also asserts NODE B is *not* called.
+- ⚠️ **It presented as a flaky E2E — 1 run in 3.** It only fires when the model happens to write a citation that fails verification, and that varies run to run. **A missing existence check plus a non-deterministic model is how a real defect hides as a flake.** Chasing it instead of retrying was the right call; after the fix the spec went **4 for 4**.
+- 🔴 **Three Tailwind classes in shipped code emit NO CSS AT ALL** — confirmed by compiling the project's own config against probe markup *and* by grepping the built bundle:
+  | Class | Where | Consequence |
+  |---|---|---|
+  | `bg-critical-subtle/40` | `Worklist.tsx` | **The critical-row tint never rendered.** Safety-relevant, not cosmetic |
+  | `ring-brand/30` | `Badge.tsx`, `ExplainPanel.tsx` | Fell back to an off-palette default blue that never dark-adapts |
+  | `duration-120` | `Button.tsx` | Transitions ran at 150 ms, not the documented 120 ms |
+  **Cause:** the palette maps to bare `var(--rg-*)` strings with no `<alpha-value>`, so Tailwind cannot synthesise alpha and **drops every `/opacity` utility on a token silently.** Fixed with named row tokens (`--rg-critical-row`, `--rg-followup-row`, `--rg-brand-line`) — a tint is a design decision, so it gets a name rather than arithmetic.
+- 🔴 **20 × `border-slate-100` across every data table** — `#f1f5f9` is near-white, so in dark mode every grid in the product had glowing white hairlines. The single most visible reason the UI read as unfinished. → `border-line`.
+- 🔴 **`bg-brand text-white` failed WCAG AA in dark mode** (`--rg-brand` is `oklch(70%)` there, ≈2.3:1) on the primary button, the danger button and the ExplainPanel ordinal. → `text-ink-inverse`, which flips with the theme. **6 sites.**
+- 🔴 **`text-2xs` was 11px** — below the floor for anything clinical. Removed from the config entirely.
+- ✅ **A contrast gate that measures rather than claims**: `web/e2e/contrast.spec.ts` walks the real rendered worklist in **both** themes, resolves every colour with `getComputedStyle` (the browser converts OKLCH→RGB for free, so no colour library), and computes WCAG ratios in six lines. It asserts a **minimum number of nodes measured**, so a changed selector reports red rather than a confident green over nothing.
+- ⚠️ Severity was encoded in **two** channels only (colour + word) and the `-subtle` fills sit within 4 lightness points, so **at 2 m, or in greyscale, critical and normal were indistinguishable.** Being re-encoded across five redundant channels.
+
 ### 2026-09-15 — ✅ Phase 8.6 Explain UI shipped; three real defects found by writing its E2E
 
 - ✅ **The Explain panel renders a verified explanation against real guidance.** Proven end to end: `phase8-explain.spec.ts` clicks Explain on a ceftriaxone-resistant *E. coli* case, waits on a real ~14 s call to NODE B, and asserts the highlighted quote is **≥ 20 characters, shorter than its surrounding passage, and actually present in a stored `kb_chunks` row**. Not a screenshot — a check that the verifier's offsets line up with the source.

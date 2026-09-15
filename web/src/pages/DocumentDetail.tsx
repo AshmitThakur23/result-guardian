@@ -172,7 +172,7 @@ export function DocumentDetailPage() {
                   onClick={() => setPageNo(p.page_no)}
                   className={`rounded border px-3 py-1 text-sm ${
                     p.page_no === pageNo
-                      ? "border-slate-800 bg-slate-800 text-white"
+                      ? "border-slate-800 bg-slate-800 text-ink-inverse"
                       : "border-line bg-surface text-ink-body"
                   }`}
                 >
