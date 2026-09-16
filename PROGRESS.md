@@ -538,6 +538,15 @@ Scanned, all three absent, installed (new rule: no prompt needed). Small, on `C:
 
 Newest first. One line per completed unit of work.
 
+### 2026-09-16 — ⏹ NODE B STOOD DOWN. Ollama no longer starts at login, and `qwen3:4b` is deleted.
+
+> **Owner's instruction, the project being complete.** Read this before assuming NODE B is reachable.
+
+- ⛔ **NODE B no longer serves anything automatically.** The logon scheduled task `Result Guardian - Start Ollama` and the `shell:startup` shortcut were both **removed**, and Ollama is stopped (GPU 0 MiB). **Any Phase 8 explanation path will now read `ConnectionRefused` until someone starts it by hand** — which is RULE 2 behaving correctly, not a fault. `docs/` and [`infra/nodeb/start-ollama.bat`](infra/nodeb/start-ollama.bat) are untouched, so running that script restores NODE B in one step.
+- 🗑 **`qwen3:4b` deleted** at the owner's decision, freeing **2.33 GB** (blobs 10 → 5, 6.40 GB → 4.07 GB). The measured comparison against `mistral:7b` that justified the model switch is recorded in the 2026-09-14 entry and in [`docs/build/phase-08-rag-explanation.md`](docs/build/phase-08-rag-explanation.md); the weights themselves were only corroborating evidence and are re-pullable.
+- ✅ **`mistral:7b` deliberately kept and verified still working** — it belongs to the separate `D:\Nexus AI` project, and deleting a sibling model is exactly the kind of change that breaks a neighbour silently. Not trusted from `ollama list`: the model was **loaded and asked a question**, and it answered. 5 blobs / 4.07 GB and the manifest intact.
+- ℹ️ **Nothing was uninstalled.** Ollama itself stays (Nexus AI depends on it), and the removals above are registry/Startup entries only — all reversible.
+
 ### 2026-09-15 — ★ A "flaky test" was a real 500, and the UI audit found three classes that emit no CSS
 
 - ★ 🔴 **`POST /api/cases/{id}/explain` accepted any UUID and 500-ed.** It never checked the case existed: it ran retrieval, spent **~14 s of NODE B's GPU**, and then died inside the verifier, because `ai_rejections.case_id` has a foreign key to `pending_cases` and a rejected citation cannot be recorded against a case that is not there. **Now 404s before any work is done.** Proved red-then-green with a test that also asserts NODE B is *not* called.
