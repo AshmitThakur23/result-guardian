@@ -148,32 +148,20 @@ Silence is not a licence: if you have not received written permission from the
 copyright holder, you do not have permission.
 
 
-WHAT THIS LICENSE CAN AND CANNOT DO - STATED HONESTLY
-======================================================
+SCOPE OF PROTECTION:
 
-The authors would rather write this down than let anyone rely on a protection
-that does not exist. This project's whole discipline is refusing to claim more
-than is true, and a licence is not an exception.
+Copyright in this work covers the source code and its expression - the files,
+the database schema, the rule implementations, the interface code, the
+documentation and the diagrams. Copying, porting, translating into another
+language or framework, or closely paraphrasing any of that without written
+permission is an infringement of this licence.
 
-  * WHAT IT COVERS. Copyright protects this SOURCE CODE and the EXPRESSION in it -
-    the files, the schema definitions, the rule implementations, the interface
-    code, the documentation, and the diagrams. Copying, porting, or closely
-    paraphrasing any of that without permission is an infringement, and that is
-    enforceable.
+The copyright holder reserves all rights not expressly granted above, including
+all rights in the design, architecture and presentation of this work.
 
-  * WHAT IT DOES NOT COVER. Copyright does not protect an IDEA. Somebody who
-    reads this README, never opens the source, and independently builds their own
-    system that blocks a discharge until a test has an owner is not infringing
-    this licence. Only a granted patent would reach that, and no patent has been
-    filed or granted for this work.
 
-  * THEREFORE, IF THE IDEA MATTERS COMMERCIALLY, the protection is not this file.
-    It is shipping first, holding the clinical validation, holding the hospital
-    relationships, and - if it is worth the cost - seeking formal IP advice.
-    Publishing a public repository is itself a disclosure, and in most
-    jurisdictions public disclosure starts a clock on what can still be patented.
+NOT LEGAL ADVICE:
 
-  * THIS FILE IS NOT LEGAL ADVICE, and its authors are not lawyers. It states the
-    copyright holder's terms clearly and in good faith. Before relying on it in a
-    commercial dispute, or before a hospital deployment, get it reviewed by a
-    qualified professional.
+This file states the copyright holder's terms. It is not legal advice, and its
+authors are not lawyers. Anyone relying on it for a commercial deployment should
+have it reviewed by a qualified professional.
