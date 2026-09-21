@@ -305,6 +305,17 @@ Co-Authored-By: abhinendra9792 <abhinendra9792@users.noreply.github.com>
 ```
 
 - On **NODE A** (Abhinendra's machine), add that trailer to every commit.
+- **Piyush Dhami joined 2026-09-21.** Same rule, his own trailer — verified against
+  the GitHub API (`id` 177445669), because the numeric-id form is what actually
+  links a co-author to an account created after 2017:
+
+  ```
+  Co-Authored-By: Piyush-dhami-9 <177445669+Piyush-dhami-9@users.noreply.github.com>
+  ```
+
+  ⚠️ The login is **`Piyush-dhami-9`** with a capital **P**. Getting the case or the
+  id wrong produces a trailer that looks correct in `git log` and credits nobody on
+  the Contributors graph — the same silent failure that left Abhinendra invisible.
 - Still **absolutely forbidden**: a `Co-Authored-By` naming an assistant, a model or
   a vendor. That part of the rule is unchanged.
 - **Existing commits are not being rewritten.** Every commit up to `8403b45` stays
