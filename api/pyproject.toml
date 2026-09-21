@@ -7,6 +7,11 @@ name = "result-guardian-api"
 version = "0.1.0"
 description = "Result Guardian — NODE A core API. Post-discharge pending result tracking."
 requires-python = ">=3.11,<3.12"
+# Proprietary. All rights reserved — see the LICENSE file at the repository root.
+# Declared here so packaging tools cannot infer a permissive default, and so a
+# wheel built from this source carries the restriction with it.
+license = { text = "Proprietary — All Rights Reserved" }
+classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",

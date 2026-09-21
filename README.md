@@ -220,7 +220,7 @@ architecture-beta
     group nodeb(server)[NODE B inference stateless] in lan
 
     service caddy(internet)[Caddy TLS] in nodea
-    service api(server)[FastAPI 74 endpoints] in nodea
+    service api(server)[FastAPI] in nodea
     service worker(server)[Worker timers and OCR] in nodea
     service db(database)[PostgreSQL 16] in nodea
     service files(disk)[Documents and page images] in nodea
