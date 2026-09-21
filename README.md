@@ -2,7 +2,7 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:020617,30:1e1b4b,60:0c4a6e,100:064e3b&height=220&section=header&text=Result%20Guardian&fontSize=64&fontColor=f8fafc&fontAlignY=35&desc=No%20post-discharge%20investigation%20result%20is%20ever%20lost&descAlignY=56&descSize=17" width="100%" alt="Result Guardian"/>
 
-<a href="#-the-problem-in-published-numbers"><img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=22&duration=3200&pause=900&color=22D3EE&center=true&vCenter=true&width=820&lines=A+discharge+is+physically+blocked+while+a+test+has+no+owner.;Timers+live+in+PostgreSQL+—+a+reboot+loses+nothing.;Zero+AI+on+the+safety+path.+That+is+RULE+1.;Every+AI+quote+is+verified+by+plain+code+before+you+see+it." alt="Typing SVG"/></a>
+<a href="#-the-problem-in-published-numbers"><img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=21&duration=3200&pause=900&color=22D3EE&center=true&vCenter=true&width=800&height=45&lines=A+discharge+is+physically+blocked+while+a+test+has+no+owner.;Timers+live+in+PostgreSQL.+A+reboot+loses+nothing.;Zero+AI+on+the+safety+path.+That+is+RULE+1.;Every+AI+quote+is+verified+by+plain+code+before+you+see+it." alt="Typing SVG"/></a>
 
 <br/>
 
@@ -74,8 +74,8 @@ flowchart LR
 
 ```mermaid
 sankey-beta
-510 patients told to come back,Received their follow-up,198
-510 patients told to come back,Did NOT,312
+Told to come back,Received their follow-up,198
+Told to come back,Did NOT,312
 Did NOT,Never received the scan at all,210
 Did NOT,Partial or delayed,102
 ```
@@ -786,6 +786,63 @@ mindmap
 <img src="https://img.shields.io/badge/PostgreSQL_16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white"/> <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white"/> <img src="https://img.shields.io/badge/Caddy-1F88C0?style=for-the-badge&logo=caddy&logoColor=white"/> <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white"/>
 
 </div>
+
+---
+
+## 📜 License
+
+<img src="https://img.shields.io/badge/LICENSE-PROPRIETARY-dc2626?style=for-the-badge"/> <img src="https://img.shields.io/badge/NOT-OPEN_SOURCE-0b1120?style=for-the-badge"/> <img src="https://img.shields.io/badge/NOT_A-MEDICAL_DEVICE-dc2626?style=for-the-badge"/>
+
+**Copyright © 2026 Ashmit Thakur. All rights reserved.**
+Portions contributed by Abhinendra Singh Chauhan and Piyush Dhami.
+
+See [`LICENSE`](LICENSE) for the full terms. In short:
+
+| ✅ Permitted | ❌ Not permitted |
+|---|---|
+| View and download for **personal learning** | Use in any personal, academic or commercial project |
+| **Fork** this repository on GitHub | **Sell it, host it as a service, or charge for it** |
+| Open **issues, suggestions and pull requests** | **Copy any feature, workflow, schema or screen into your own product** — *including rewriting it in another language* |
+| | Publish, distribute or re-upload (whole or in part) |
+| | Create derivative or *"inspired-by"* reimplementations |
+| | **Use this repo as training data** for any model |
+| | Claim this code as your own work |
+
+### 💼 Want to use it? Talk to us first.
+
+> [!IMPORTANT]
+> **Result Guardian is an original product, and it is available for commercial licensing.**
+> It is published here so it can be **reviewed**, not so it can be **taken**.
+>
+> If you want to use this — in a hospital, a product, a startup, or a client
+> project — that is a conversation we want to have, and it must happen
+> **before you build**. Commercial terms, pilot deployments and integration work
+> are all negotiable.
+>
+> 📬 **[Open an issue](https://github.com/AshmitThakur23/result-guardian/issues)** — Ashmit Thakur, repository owner.
+>
+> **Silence is not a licence.** Without written permission from the copyright
+> holder, you do not have permission.
+
+> [!CAUTION]
+> ### 🚑 This is not a medical device — and that is not boilerplate
+> **It must not be used to make, inform, or delay any clinical decision.** The
+> `LICENSE` file states exactly why, and every reason is verifiable from this
+> repository:
+>
+> - **No clinician has ever reviewed its output** — there is no agreement rate, no
+>   sensitivity, no specificity. *Anyone quoting an accuracy figure is quoting a
+>   number that does not exist.*
+> - **Every clinical threshold is a development placeholder**, marked as one in the
+>   data itself.
+> - **No notification can leave the building** — the final escalation rung
+>   **cannot reach a patient**.
+> - **No CDSCO, FDA or EU MDR assessment** has been made or sought.
+>
+> The restriction on clinical deployment exists for **patient safety, not
+> commercial reasons**, and it is the one the authors care about most.
+
+<sub>Third-party dependencies (PostgreSQL, FastAPI, React, Ollama, PaddleOCR and everything in `pyproject.toml` / `package.json`) remain under **their own licenses**, unaffected by this file.</sub>
 
 ---
 

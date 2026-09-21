@@ -1,0 +1,179 @@
+RESULT GUARDIAN - PROPRIETARY LICENSE
+======================================
+
+Copyright (c) 2026 Ashmit Thakur.
+All rights reserved.
+
+Portions contributed by Abhinendra Singh Chauhan and Piyush Dhami.
+
+This software is NOT open source. It is published publicly for review and
+learning only. The absence of an OSI-approved license is deliberate, not an
+oversight.
+
+
+PERMITTED:
+
+  * You may view and download the code for personal learning.
+  * You may fork this repository on GitHub.
+  * You may submit issues, suggestions, and pull requests.
+
+
+RESTRICTIONS:
+
+  * You may NOT use this code in any personal, academic, or commercial project.
+  * You may NOT publish, distribute, or re-upload this code (in whole or in part).
+  * You may NOT use this code to build or showcase your own applications.
+  * You may NOT claim this code as your own work.
+
+  * You may NOT SELL, sub-license, rent, lease, or otherwise commercialise this
+    software or any part of it. This includes offering it as a hosted or managed
+    service (SaaS), bundling it with a product, or charging any fee for access to
+    it, for its output, or for its installation.
+
+  * You may NOT incorporate any FEATURE, MODULE, WORKFLOW, SCHEMA, RULE SET, or
+    USER-INTERFACE ELEMENT of this software into your own product, whether or not
+    you reuse the source code, and whether or not you rewrite it in another
+    language or framework. Translating this work into a different stack does not
+    make it yours.
+
+  * You may NOT create derivative works, adaptations, or "inspired-by"
+    reimplementations for distribution or commercial use.
+
+  * You may NOT use this repository, in whole or in part, as training data for
+    any machine-learning model, or to fine-tune, distil, or evaluate any model
+    intended for distribution or commercial use.
+
+  * You may NOT remove, obscure, or alter this license, the copyright notice, or
+    any attribution contained in the source files.
+
+  * You may NOT deploy this software in any clinical, diagnostic, or patient-care
+    setting. See CLINICAL USE below - this restriction exists for patient safety,
+    not for commercial reasons, and it is the one the authors care about most.
+
+
+ATTRIBUTION:
+
+If you are explicitly permitted to share any part of this code, you must give
+clear credit at the beginning:
+
+  "Original code by Ashmit Thakur (2026)"
+
+
+NO LICENSE:
+
+Only the permissions listed above are allowed. Any other use is strictly
+prohibited.
+
+
+ENFORCEMENT:
+
+If you violate these terms, the copyright holder may take appropriate legal
+action.
+
+
+CLINICAL USE - READ THIS BEFORE ANYTHING ELSE
+==============================================
+
+THIS SOFTWARE IS NOT A MEDICAL DEVICE AND MUST NOT BE USED TO MAKE, INFORM, OR
+DELAY ANY CLINICAL DECISION.
+
+It is an unfinished student project. Specifically, and verifiably from this
+repository's own documentation:
+
+  * NO CLINICIAN HAS EVER REVIEWED ITS OUTPUT. Exit Gate 3 of the build plan
+    requires agreement with a clinician on a gold-standard case set. That review
+    has not happened. There is no measured agreement rate, no sensitivity, no
+    specificity, and no error rate. Anyone quoting an accuracy figure for this
+    system is quoting a number that does not exist.
+
+  * EVERY CLINICAL THRESHOLD IN THE DATABASE IS A DEVELOPMENT PLACEHOLDER. They
+    are marked as such in the data itself
+    (source = 'DEVELOPMENT PLACEHOLDER - NOT A CLINICAL SOURCE'). They are
+    plausible values chosen for development. They are not any hospital's critical
+    value list, and they are not derived from any published standard.
+
+  * THE KNOWLEDGE BASE SHIPS ONE FABRICATED DEMONSTRATION DOCUMENT, labelled as
+    fabricated in its title, its source reference, and its publisher field. No
+    WHO, ICMR, antibiogram, or national formulary content is loaded.
+
+  * NO NOTIFICATION CAN LEAVE THE BUILDING. The SMS and email adapters are
+    written but never registered. Every escalation rung silently degrades to an
+    in-app message. The final rung - contacting the patient directly - CANNOT
+    REACH A PATIENT.
+
+  * IT HAS NOT BEEN REGULATORY-ASSESSED under CDSCO (India), FDA (United States),
+    the EU MDR, or any other medical device framework, and no such assessment has
+    been sought.
+
+Using this software in patient care could cause a real result to be missed, a
+real escalation to be trusted when it cannot be delivered, or a real clinical
+threshold to be applied that no laboratory ever approved.
+
+
+NO WARRANTY:
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+THIRD-PARTY COMPONENTS:
+
+This restrictive license applies to the original work in this repository only.
+Third-party dependencies (PostgreSQL, FastAPI, React, Ollama, PaddleOCR, and
+every package listed in api/pyproject.toml and web/package.json) remain governed
+by their own licenses, which are unaffected by this file.
+
+
+COMMERCIAL LICENSING - THE DOOR IS OPEN, BUT IT GOES THROUGH US
+================================================================
+
+Result Guardian is an original product and the authors intend to license it
+commercially. It is published here so that it can be reviewed, not so that it can
+be taken.
+
+If you want to use this software, any part of it, or any of its features - in a
+hospital, in a product, in a startup, in a client project, or in anything you
+charge money for - that is a conversation we want to have, and it is a conversation
+you must have BEFORE you build.
+
+  Contact:  https://github.com/AshmitThakur23/result-guardian  (open an issue)
+            Ashmit Thakur - repository owner
+
+Commercial terms, pilot deployments, and integration work are all negotiable.
+Silence is not a licence: if you have not received written permission from the
+copyright holder, you do not have permission.
+
+
+WHAT THIS LICENSE CAN AND CANNOT DO - STATED HONESTLY
+======================================================
+
+The authors would rather write this down than let anyone rely on a protection
+that does not exist. This project's whole discipline is refusing to claim more
+than is true, and a licence is not an exception.
+
+  * WHAT IT COVERS. Copyright protects this SOURCE CODE and the EXPRESSION in it -
+    the files, the schema definitions, the rule implementations, the interface
+    code, the documentation, and the diagrams. Copying, porting, or closely
+    paraphrasing any of that without permission is an infringement, and that is
+    enforceable.
+
+  * WHAT IT DOES NOT COVER. Copyright does not protect an IDEA. Somebody who
+    reads this README, never opens the source, and independently builds their own
+    system that blocks a discharge until a test has an owner is not infringing
+    this licence. Only a granted patent would reach that, and no patent has been
+    filed or granted for this work.
+
+  * THEREFORE, IF THE IDEA MATTERS COMMERCIALLY, the protection is not this file.
+    It is shipping first, holding the clinical validation, holding the hospital
+    relationships, and - if it is worth the cost - seeking formal IP advice.
+    Publishing a public repository is itself a disclosure, and in most
+    jurisdictions public disclosure starts a clock on what can still be patented.
+
+  * THIS FILE IS NOT LEGAL ADVICE, and its authors are not lawyers. It states the
+    copyright holder's terms clearly and in good faith. Before relying on it in a
+    commercial dispute, or before a hospital deployment, get it reviewed by a
+    qualified professional.
