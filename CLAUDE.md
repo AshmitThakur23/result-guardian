@@ -358,7 +358,13 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 | **NODE A — core** | **Abhinendra's laptop** | `LAPTOP-06ER0HBM`, user `Abhinendra Singh` | Postgres, FastAPI, worker, Caddy, React dashboard. **All patient data, all safety logic.** |
 | **NODE B — inference** | **Ashmit's machine** — the repo owner's | `LAPTOP-5JCGN9SJ`, user `asus` | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
 
-- Repo: **`AshmitThakur23/result-guardian`** (private) — Ashmit is the repo owner. `gh` has two accounts — **switch to `AshmitThakur23`** before any repo operation.
+- Repo: **`AshmitThakur23/result-guardian`** — ⚠️ **PUBLIC**, verified against the
+  GitHub API on 2026-09-21. This file said *"private"* until then, and that was
+  wrong — a stale claim nobody had re-read, which is the exact defect this file
+  warns about three sections above. **Everything committed here is world-readable
+  the moment it is pushed**, so it must never carry patient data, credentials, or
+  a `.env`. Ashmit is the repo owner. `gh` has two accounts — **switch to
+  `AshmitThakur23`** before any repo operation.
 - Commits are authored by **AshmitThakur23 <ashmitthakur615@gmail.com>** regardless of which machine they are made on — **plus a human `Co-Authored-By` trailer for whoever did the work on that machine.** See the commit-hygiene rule above.
 
 ### 🛠 Hardware correction — 2026-09-11, verified on NODE B

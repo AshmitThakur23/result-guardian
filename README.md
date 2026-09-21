@@ -819,7 +819,8 @@ See [`LICENSE`](LICENSE) for the full terms. In short:
 > **before you build**. Commercial terms, pilot deployments and integration work
 > are all negotiable.
 >
-> 📬 **[Open an issue](https://github.com/AshmitThakur23/result-guardian/issues)** — Ashmit Thakur, repository owner.
+> 📧 **[ashmitthakur615@gmail.com](mailto:ashmitthakur615@gmail.com)** — Ashmit Thakur, copyright holder. *Preferred, and private.*
+> 📬 Or **[open an issue](https://github.com/AshmitThakur23/result-guardian/issues)** — though that thread is public, and pricing and pilot terms usually shouldn't be.
 >
 > **Silence is not a licence.** Without written permission from the copyright
 > holder, you do not have permission.
