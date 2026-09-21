@@ -359,7 +359,7 @@ Record it in the **Open decisions** table of `PROGRESS.md` with the date and the
 | **NODE B — inference** | **Ashmit's machine** — the repo owner's | `LAPTOP-5JCGN9SJ`, user `asus` | **Ollama only.** GPU work. Stateless. **Never holds patient data.** |
 
 - Repo: **`AshmitThakur23/result-guardian`** — ⚠️ **PUBLIC**, verified against the
-  GitHub API on 2026-09-21. This file said *"private"* until then, and that was
+  GitHub API on 2026-09-21. This file asserted the opposite until then, and it was
   wrong — a stale claim nobody had re-read, which is the exact defect this file
   warns about three sections above. **Everything committed here is world-readable
   the moment it is pushed**, so it must never carry patient data, credentials, or
